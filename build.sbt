@@ -9,7 +9,12 @@ lazy val `alternator-attributevalue` = (project in (file("attributevalue")))
   .settings(
     libraryDependencies ++= Dependencies.AttributeValue,
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
+  )
 
-)
+lazy val `alternator-alpakka` = (project in (file("alpakka")))
+  .dependsOn(`alternator-attributevalue`)
+  .settings(
+    libraryDependencies ++= Dependencies.Alpakka,
+  )
 
 crossScalaVersions := Nil
