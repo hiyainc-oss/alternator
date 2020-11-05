@@ -15,16 +15,16 @@ import scala.util.{Failure, Success}
 
 private [alternator] trait BatchedBehavior {
   protected type Request
-  protected type Result
+  type Result
   protected type Buffer
   protected type FutureResult
   protected type FuturePassThru
 
-  protected type Ref = ActorRef[Result]
+  type Ref = ActorRef[Result]
   import BatchedBehavior.PK
 
   sealed trait BatchedRequest
-  protected case class Req(req: Request) extends BatchedRequest
+  case class Req(req: Request) extends BatchedRequest
   private case object StartJob extends BatchedRequest
   private case class ClientResult(futureResult: FutureResult, pt: FuturePassThru) extends BatchedRequest
   private case class ClientFailure(ex: Throwable, pt: FuturePassThru) extends BatchedRequest
@@ -137,7 +137,7 @@ object BatchedBehavior {
   private [alternator] type AV = util.Map[String, AttributeValue]
   private [alternator] type PK = (String, AV)
 
-  sealed trait RetryPolicy {
+  trait RetryPolicy {
     def getRetry(retry: Int): FiniteDuration
   }
 }

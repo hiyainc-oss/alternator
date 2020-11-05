@@ -16,6 +16,7 @@ object Dependencies {
   private val akkaActor           = "com.typesafe.akka"          %% "akka-actor"       % akkaV
   private val akkaTyped           = "com.typesafe.akka"          %% "akka-actor-typed" % akkaV
   private val akkaTestkit         = "com.typesafe.akka"          %% "akka-testkit"     % akkaV
+  private val akkaStream          = "com.typesafe.akka"          %% "akka-stream"      % akkaV
   private val scalaCheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.14" % "1.2.5"
   private val alpakkaDynamoDB     = "com.lightbend.akka"         %% "akka-stream-alpakka-dynamodb" % "2.0.2"
   private val akkaHttp            = "com.typesafe.akka"          %% "akka-http"         % akkaHttpV
@@ -36,6 +37,7 @@ object Dependencies {
     alpakkaDynamoDB,
     akkaHttp,
     akkaTyped,
+    akkaStream,
     akkaTestkit         % Test,
     scalaTest           % Test,
     scalaCheck          % Test,

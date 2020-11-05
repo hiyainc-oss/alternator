@@ -15,6 +15,15 @@ lazy val `alternator-alpakka` = (project in (file("alpakka")))
   .dependsOn(`alternator-attributevalue`)
   .settings(
     libraryDependencies ++= Dependencies.Alpakka,
+    dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
+    dynamoDBLocalHeapSize := Some(256),
+    dynamoDBLocalPort := 8484,
+    (javaOptions in Test) += s"-DdynamoDBLocalPort=8484",
+    startDynamoDBLocal := startDynamoDBLocal.dependsOn(compile in Test).value,
+    test in Test := (test in Test).dependsOn(startDynamoDBLocal).value,
+    testOnly in Test := (testOnly in Test).dependsOn(startDynamoDBLocal).evaluated,
+    testQuick in Test := (testQuick in Test).dependsOn(startDynamoDBLocal).evaluated,
+    testOptions in Test += dynamoDBLocalTestCleanup.value
   )
 
 crossScalaVersions := Nil

@@ -22,7 +22,7 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
   private [alternator] final case class ReadRequest(key: PK, ref: Ref)
 
   override protected type Request = ReadRequest
-  override protected type Result = Option[AV]
+  override type Result = Option[AV]
   override protected type Buffer = Map[PK, ReadBuffer]
 
 
