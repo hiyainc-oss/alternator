@@ -6,12 +6,14 @@ object Dependencies {
   private val akkaV = "2.6.9"
   private val akkaHttpV = "10.2.1"
 
-  private val dynamoDB            = "software.amazon.awssdk"      % "dynamodb"         % "2.15.2"
+  private val dynamoDB2           = "software.amazon.awssdk"      % "dynamodb"         % "2.15.2"
+  private val dynamoDB1           = "com.amazonaws"               % "aws-java-sdk-dynamodb" % "1.11.956"
   private val shapeless           = "com.chuusai"                %% "shapeless"        % "2.3.3"
-  private val scanamo             = "org.scanamo"                %% "scanamo"          % "1.0.0-M12-1"
+  private val scanamoAws1         = "org.scanamo"                %% "scanamo"          % "1.0.0-M12-1"
+  private val scanamoAws2         = "org.scanamo"                %% "scanamo"          % "1.0.0-M15"
   private val scalaTest           = "org.scalatest"              %% "scalatest"        % scalaCheckV
   private val scalaCheck          = "org.scalatestplus"          %% "scalacheck-1-14"  % s"${scalaCheckV}.0"
-  private val cats                = "org.typelevel"              %% "cats-core"        % "2.1.1"
+  private val cats                = "org.typelevel"              %% "cats-core"        % "2.3.1"
   private val scalaMeter          = "com.storm-enroute"          %% "scalameter"       % "0.19"
   private val akkaActor           = "com.typesafe.akka"          %% "akka-actor"       % akkaV
   private val akkaTyped           = "com.typesafe.akka"          %% "akka-actor-typed" % akkaV
@@ -21,12 +23,31 @@ object Dependencies {
   private val alpakkaDynamoDB     = "com.lightbend.akka"         %% "akka-stream-alpakka-dynamodb" % "2.0.2"
   private val akkaHttp            = "com.typesafe.akka"          %% "akka-http"         % akkaHttpV
 
+  object Tests {
+    val ScanamoBase = Seq(
+      dynamoDB1,
+      scalaTest,
+      scalaCheck,
+      scalaCheckShapeless
+    )
+
+    val ScanamoAws1 = Seq(
+      scanamoAws1
+    )
+
+    val ScanamoAws2 = Seq(
+      scanamoAws2
+    )
+
+    val Alternator = Seq(
+    )
+  }
+
   val AttributeValue = Seq(
-    dynamoDB,
+    dynamoDB2,
     shapeless,
     cats,
     akkaActor,
-    scanamo             % Test,
     scalaTest           % Test,
     scalaCheck          % Test,
     scalaMeter          % Test,

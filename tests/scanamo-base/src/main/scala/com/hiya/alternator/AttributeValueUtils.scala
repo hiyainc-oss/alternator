@@ -1,12 +1,11 @@
 package com.hiya.alternator
 
-import java.nio.ByteBuffer
-
 import com.amazonaws.services.dynamodbv2.{model => aws}
 import org.scalactic.Equality
 import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.services.dynamodb.{model => aws2}
 
+import java.nio.ByteBuffer
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
@@ -14,7 +13,6 @@ import scala.jdk.CollectionConverters._
 object AttributeValueUtils {
 
   implicit class FromAWS2(av: aws2.AttributeValue) {
-
     def toAws: aws.AttributeValue = {
       if (av.nul() ne null)
         new aws.AttributeValue().withNULL(true)

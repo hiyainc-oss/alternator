@@ -1,6 +1,3 @@
-import BuildConfig._
-
-
 ThisBuild / crossScalaVersions := Seq("2.13.3", "2.12.12")
 ThisBuild / scalaVersion := "2.13.3"
 ThisBuild / organization := "com.hiya"
@@ -25,5 +22,8 @@ lazy val `alternator-alpakka` = (project in (file("alpakka")))
     testQuick in Test := (testQuick in Test).dependsOn(startDynamoDBLocal).evaluated,
     testOptions in Test += dynamoDBLocalTestCleanup.value
   )
+
+
+lazy val `tests` = (project in file("tests"))
 
 crossScalaVersions := Nil
