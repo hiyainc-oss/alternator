@@ -1,17 +1,17 @@
 package com.hiya.alternator
 
-import akka.util.ByteString
+import com.hiya.alternator.generic.auto._
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.funspec.AnyFunSpecLike
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
-import com.hiya.alternator.generic.auto._
-import org.scalacheck.Arbitrary.arbitrary
 
+import java.nio.ByteBuffer
 import scala.reflect.runtime.universe._
 
 trait BaseCompatibilityTests extends ScalaCheckDrivenPropertyChecks with AnyFunSpecLike {
   import BaseCompatibilityTests._
+  import ByteBufferSupport._
 
   trait ScanamoFormatBase[T] {
     def compare(a: T, aws2: AttributeValue, read: AttributeValue => DynamoFormat.Result[T]): Unit
@@ -66,14 +66,15 @@ trait BaseCompatibilityTests extends ScalaCheckDrivenPropertyChecks with AnyFunS
     testReadWrite(arb.arbitrary)
 
   def scanamo()(
-    implicit byteFormat: ScanamoFormat[Byte],
+    implicit
+    byteFormat: ScanamoFormat[Byte],
     intFormat: ScanamoFormat[Int],
     longFormat: ScanamoFormat[Long],
     doubleFormat: ScanamoFormat[Double],
     floatFormat: ScanamoFormat[Float],
     bigdecimalFormat: ScanamoFormat[BigDecimal],
     stringFormat: ScanamoFormat[String],
-    byteStringFormat: ScanamoFormat[ByteString],
+    byteStringFormat: ScanamoFormat[ByteBuffer],
     booleanFormat: ScanamoFormat[Boolean],
     stringSetFormat: ScanamoFormat[Set[String]],
     intSetFormat: ScanamoFormat[Set[Int]]
@@ -85,17 +86,15 @@ trait BaseCompatibilityTests extends ScalaCheckDrivenPropertyChecks with AnyFunS
     testReadWrite[Float]()
     testReadWrite[BigDecimal]()
     testReadWrite[String]()
-    testReadWrite[ByteString]()
+    testReadWrite[ByteBuffer]()
     testReadWrite[Boolean]()
     testReadWrite[Set[String]]()
     testReadWrite[Set[Int]]()
-    //  testReadWrite[Set[Array[Byte]]]() // Incompatible
-//    testReadWrite[Map[String, Int]]()
+//    testReadWrite[Set[Array[Byte]]]() // Incompatible, scanamo throws an exception
   }
 }
 
 object BaseCompatibilityTests {
-  implicit val arbitraryByteString: Arbitrary[ByteString] = Arbitrary(arbitrary[Array[Byte]].map(ByteString.fromArray))
 
   final case class Field[T](value: T)
 }

@@ -3,10 +3,11 @@ package com.hiya.alternator
 import cats.instances.either._
 import cats.instances.list._
 import cats.syntax.all._
-import DynamoFormatInstances.SetDynamoFormat
+import com.hiya.alternator.DynamoFormatInstances.SetDynamoFormat
 import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
+import java.nio.ByteBuffer
 import scala.jdk.CollectionConverters._
 
 trait DynamoFormatInstances {
@@ -43,6 +44,12 @@ trait DynamoFormatInstances {
       _.bs().asScala.map(_.asByteArray()).asRight,
       x => AttributeValue.builder().bs(x.map(SdkBytes.fromByteArray).asJava).build()
     )
+
+  implicit val byteStringSetDynamoFormat: DynamoFormat[Set[ByteBuffer]] = {
+    byteArraySetDynamoFormat.emap[Set[ByteBuffer]](
+      {x => Right(x.map(ByteBuffer.wrap))}, {x => x.map(_.array())}
+    )
+  }
 }
 
 object DynamoFormatInstances {

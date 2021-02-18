@@ -1,9 +1,9 @@
 package com.hiya.alternator
 
-import akka.util.ByteString
 import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, ScalarAttributeType}
 
+import java.nio.ByteBuffer
 import scala.reflect.ClassTag
 
 trait ScalarDynamoFormat[T] extends DynamoFormat[T] {
@@ -67,10 +67,10 @@ object ScalarDynamoFormat {
     },
       x => SdkBytes.fromByteArray(x)
     )
-    implicit val byteString: ScalarDynamoFormat[ByteString] =
+    implicit val byteString: ScalarDynamoFormat[ByteBuffer] =
       binaryDynamoValue.emap({x =>
-        Right(ByteString.apply(x.asByteArray()))
-      }, x => SdkBytes.fromByteArray(x.toArray))
+        Right(ByteBuffer.wrap(x.asByteArray()))
+      }, x => SdkBytes.fromByteArray(x.array()))
 
     implicit def numberDynamoValue[T: Numeric : ClassTag]: ScalarDynamoFormat[T] = new ScalarDynamoFormat[T] {
 

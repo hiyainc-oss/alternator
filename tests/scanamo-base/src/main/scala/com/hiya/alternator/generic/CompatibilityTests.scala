@@ -1,10 +1,14 @@
 package com.hiya.alternator.generic
 
-import akka.util.ByteString
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
 
+import java.nio.ByteBuffer
+import com.hiya.alternator.ByteBufferSupport._
+
+
 object CompatibilityTests {
+
 
   case object CO
 
@@ -15,15 +19,14 @@ object CompatibilityTests {
   final case class P[A](data: A)
 
   sealed trait B
-  final case class B0(i: Int, l: Long, bd: BigDecimal, f: Float, d: Double, s: String, b: Boolean, ba: ByteString) extends B
-  final case class B1(i: Option[Int], l: Option[Long], bd: Option[BigDecimal], f: Option[Float], d: Option[Double], s: Option[String], b: Option[Boolean], ba: Option[ByteString]) extends B
-  final case class B2(i: List[Int], l: List[Long], bd: List[BigDecimal], f: List[Float], d: List[Double], s: List[String], b: List[Boolean], ba: List[ByteString]) extends B
+  final case class B0(i: Int, l: Long, bd: BigDecimal, f: Float, d: Double, s: String, b: Boolean, ba: ByteBuffer) extends B
+  final case class B1(i: Option[Int], l: Option[Long], bd: Option[BigDecimal], f: Option[Float], d: Option[Double], s: Option[String], b: Option[Boolean], ba: Option[ByteBuffer]) extends B
+  final case class B2(i: List[Int], l: List[Long], bd: List[BigDecimal], f: List[Float], d: List[Double], s: List[String], b: List[Boolean], ba: List[ByteBuffer]) extends B
   final case class B3(a: B, b: List[B], c: Option[B], d: Option[List[B]], e: List[Option[B]]) extends B
 
   val nonEmptyStringGen: Gen[String] =
     Gen.nonEmptyContainerOf[Array, Char](Arbitrary.arbChar.arbitrary).map(arr => new String(arr))
 
-  implicit val arbByteString: Arbitrary[ByteString] = Arbitrary(arbitrary[Array[Byte]].map(ByteString(_)))
 
   object B {
     implicit val arbitraryB: Arbitrary[B] = Arbitrary(genB)
@@ -39,7 +42,7 @@ object CompatibilityTests {
       d <- arbitrary[Double]
       s <- nonEmptyStringGen
       b <- arbitrary[Boolean]
-      ba <- arbitrary[ByteString]
+      ba <- arbitrary[ByteBuffer]
     } yield B0(i, l, bd, f, d, s, b, ba)
 
     def gen1: Gen[B1] = for {
@@ -50,7 +53,7 @@ object CompatibilityTests {
       d <- arbitrary[Option[Double]]
       s <- Gen.option(nonEmptyStringGen)
       b <- arbitrary[Option[Boolean]]
-      ba <- arbitrary[Option[ByteString]]
+      ba <- arbitrary[Option[ByteBuffer]]
     } yield B1(i, l, bd, f, d, s, b, ba)
 
     def gen2: Gen[B2] = for {
@@ -61,7 +64,7 @@ object CompatibilityTests {
       d <- arbitrary[List[Double]]
       s <- Gen.listOf(nonEmptyStringGen)
       b <- arbitrary[List[Boolean]]
-      ba <- arbitrary[List[ByteString]]
+      ba <- arbitrary[List[ByteBuffer]]
     } yield B2(i, l, bd, f, d, s, b, ba)
 
     def gen3: Gen[B3] = for {

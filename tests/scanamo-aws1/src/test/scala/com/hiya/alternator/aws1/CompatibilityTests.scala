@@ -1,6 +1,5 @@
 package com.hiya.alternator.aws1
 
-import akka.util.ByteString
 import com.hiya.alternator.BaseCompatibilityTests.Field
 import com.hiya.alternator.DynamoFormat.Result
 import com.hiya.alternator.{AttributeValueUtils, BaseCompatibilityTests}
@@ -10,11 +9,8 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scanamo.DynamoFormat
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
-import java.nio.ByteBuffer
-
 class CompatibilityTests  extends AnyFunSpec with Matchers with ScalaCheckDrivenPropertyChecks with BaseCompatibilityTests {
   import AttributeValueUtils._
-  import CompatibilityTests._
 
   class MyScanamoFormat[T](implicit val dynamoFormat : DynamoFormat[T]) extends ScanamoFormatBase[T] {
     override def compare(a: T, aws2: AttributeValue, read: AttributeValue => Result[T]): Unit = {
@@ -62,10 +58,3 @@ class CompatibilityTests  extends AnyFunSpec with Matchers with ScalaCheckDriven
 
 }
 
-object CompatibilityTests {
-
-  implicit val byteStringFormat: DynamoFormat[ByteString] =
-    DynamoFormat.iso[ByteString, ByteBuffer](ByteString(_), _.toByteBuffer)
-
-
-}

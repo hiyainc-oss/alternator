@@ -1,6 +1,5 @@
 package com.hiya.alternator.aws2
 
-import akka.util.ByteString
 import com.hiya.alternator.AttributeValueUtils._
 import com.hiya.alternator.DynamoFormat
 import com.hiya.alternator.generic.{CompatibilityTests, auto}
@@ -19,6 +18,7 @@ class GenericTest extends AnyFunSpec with Matchers with ScalaCheckDrivenProperty
 
   import CompatibilityTests._
   import auto._
+  import com.hiya.alternator.ByteBufferSupport._
   import org.scanamo.generic.auto._
 
   private def testReadWrite1[A: DynamoFormat : TypeTag : ScanamoFormat](gen: Gen[A]): Unit = {
@@ -70,9 +70,7 @@ class GenericTest extends AnyFunSpec with Matchers with ScalaCheckDrivenProperty
   testReadWrite[List[String]](Gen.listOf(nonEmptyStringGen))
   testReadWrite[List[Int]](Gen.listOfN(0, Gen.posNum[Int]))
 
-  implicit val byteStringFormat: ScanamoFormat[ByteString] = ScanamoFormat.iso[ByteString, ByteBuffer](ByteString(_), _.toByteBuffer)
-
-  testReadWrite[ByteString]()
+  testReadWrite[ByteBuffer]()
 
   testReadWrite[B]()
   //  testReadWrite[CO.type](Gen.const(CO))
