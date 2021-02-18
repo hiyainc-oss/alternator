@@ -9,6 +9,8 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 import java.nio.ByteBuffer
 import scala.jdk.CollectionConverters._
+import scala.collection.compat._
+
 
 trait DynamoFormatInstances {
 

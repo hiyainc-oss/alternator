@@ -7,6 +7,8 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
+import scala.collection.compat._
+
 
 trait CompoundDynamoFormat[T] extends DynamoFormat[T] {
   def readFields(av: util.Map[String, AttributeValue]): DynamoFormat.Result[T]

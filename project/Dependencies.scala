@@ -1,4 +1,3 @@
-import Dependencies.scalaTest
 import sbt._
 
 object Dependencies {
@@ -14,7 +13,6 @@ object Dependencies {
   private val scalaTest           = "org.scalatest"              %% "scalatest"        % scalaCheckV
   private val scalaCheck          = "org.scalatestplus"          %% "scalacheck-1-14"  % s"${scalaCheckV}.0"
   private val cats                = "org.typelevel"              %% "cats-core"        % "2.3.1"
-  private val scalaMeter          = "com.storm-enroute"          %% "scalameter"       % "0.19"
   private val akkaActor           = "com.typesafe.akka"          %% "akka-actor"       % akkaV
   private val akkaTyped           = "com.typesafe.akka"          %% "akka-actor-typed" % akkaV
   private val akkaTestkit         = "com.typesafe.akka"          %% "akka-testkit"     % akkaV
@@ -22,6 +20,8 @@ object Dependencies {
   private val scalaCheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.14" % "1.2.5"
   private val alpakkaDynamoDB     = "com.lightbend.akka"         %% "akka-stream-alpakka-dynamodb" % "2.0.2"
   private val akkaHttp            = "com.typesafe.akka"          %% "akka-http"         % akkaHttpV
+  private val collectionsCompat   = "org.scala-lang.modules"     %% "scala-collection-compat" % "2.4.2"
+  private val scalaJava8Compat    = "org.scala-lang.modules"     %% "scala-java8-compat"     % "0.9.1"
 
   object Tests {
     val ScanamoBase = Seq(
@@ -47,9 +47,9 @@ object Dependencies {
     dynamoDB2,
     shapeless,
     cats,
+    collectionsCompat,
     scalaTest           % Test,
     scalaCheck          % Test,
-    scalaMeter          % Test,
     scalaCheckShapeless % Test
   )
 
@@ -59,6 +59,7 @@ object Dependencies {
     akkaTyped,
     akkaStream,
     akkaActor,
+    scalaJava8Compat    % Test,
     akkaTestkit         % Test,
     scalaTest           % Test,
     scalaCheck          % Test,

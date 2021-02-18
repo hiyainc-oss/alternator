@@ -4,6 +4,7 @@ ThisBuild / organization := "com.hiya"
 
 lazy val `alternator-attributevalue` = (project in (file("attributevalue")))
   .settings(
+    BuildConfig.commonSettings,
     libraryDependencies ++= Dependencies.AttributeValue,
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
   )
@@ -11,6 +12,7 @@ lazy val `alternator-attributevalue` = (project in (file("attributevalue")))
 lazy val `alternator-alpakka` = (project in (file("alpakka")))
   .dependsOn(`alternator-attributevalue`)
   .settings(
+    BuildConfig.commonSettings,
     libraryDependencies ++= Dependencies.Alpakka,
     dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
     dynamoDBLocalHeapSize := Some(256),

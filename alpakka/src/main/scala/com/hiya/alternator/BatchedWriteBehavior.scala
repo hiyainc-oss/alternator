@@ -14,6 +14,7 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.CollectionConverters._
+import scala.collection.compat._
 
 
 object BatchedWriteBehavior extends internal.BatchedBehavior {
@@ -89,7 +90,7 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
         val (refs2, bufferItem) = buffer(key).queue.dequeue
         sendResult(refs2._2, Done)
 
-        if (bufferItem.isEmpty) buffer.removed(key)
+        if (bufferItem.isEmpty) buffer - key
         else buffer.updated(key, WriteBuffer(bufferItem, 0))
       }
 

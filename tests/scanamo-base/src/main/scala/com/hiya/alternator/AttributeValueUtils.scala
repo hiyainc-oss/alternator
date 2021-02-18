@@ -8,6 +8,7 @@ import software.amazon.awssdk.services.dynamodb.{model => aws2}
 import java.nio.ByteBuffer
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
+import scala.collection.compat._
 
 
 object AttributeValueUtils {

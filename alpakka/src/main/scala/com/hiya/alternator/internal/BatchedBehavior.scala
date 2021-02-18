@@ -12,6 +12,8 @@ import scala.collection.immutable.Queue
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
+import scala.collection.compat._
+
 
 private [alternator] trait BatchedBehavior {
   protected type Request
@@ -96,7 +98,7 @@ private [alternator] trait BatchedBehavior {
     }
 
     private final def enqueue(queued: Queue[PK], keys: List[PK]): Queue[PK] = {
-      schedule(queued.appendedAll(keys))
+      schedule(queued ++ keys)
     }
 
     final def behavior(
@@ -127,7 +129,7 @@ private [alternator] trait BatchedBehavior {
 
         case Reschedule(keys) =>
           ctx.self ! StartJob
-          behavior(queue.prependedAll(keys), buffer)
+          behavior(keys ++: queue, buffer)
       }
 
   }

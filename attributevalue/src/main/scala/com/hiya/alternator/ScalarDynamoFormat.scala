@@ -6,6 +6,7 @@ import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, ScalarAtt
 import java.nio.ByteBuffer
 import scala.reflect.ClassTag
 
+
 trait ScalarDynamoFormat[T] extends DynamoFormat[T] {
   def attributeType: ScalarAttributeType
 

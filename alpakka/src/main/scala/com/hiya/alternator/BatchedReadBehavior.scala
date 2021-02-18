@@ -13,6 +13,7 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.CollectionConverters._
+import scala.collection.compat._
 
 
 object BatchedReadBehavior extends internal.BatchedBehavior {
@@ -83,7 +84,7 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
       val buffer2 = success.foldLeft(buffer) { case (buffer, (key, result)) =>
         val refs = buffer(key)
         sendResult(refs.refs, result)
-        buffer.removed(key)
+        buffer - key
       }
 
       val (buffer3, retries) = failed

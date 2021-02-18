@@ -2,7 +2,6 @@ package com.hiya.alternator.aws2
 
 import com.hiya.alternator.AttributeValueUtils._
 import com.hiya.alternator.DynamoFormat
-import com.hiya.alternator.generic.{CompatibilityTests, auto}
 import org.scalacheck.Arbitrary._
 import org.scalacheck._
 import org.scalatest.funspec.AnyFunSpec
@@ -15,9 +14,8 @@ import scala.reflect.runtime.universe._
 
 
 class GenericTest extends AnyFunSpec with Matchers with ScalaCheckDrivenPropertyChecks {
-
-  import CompatibilityTests._
-  import auto._
+  import com.hiya.alternator.generic.CompatibilityTests._
+  import com.hiya.alternator.generic.auto._
   import com.hiya.alternator.ByteBufferSupport._
   import org.scanamo.generic.auto._
 

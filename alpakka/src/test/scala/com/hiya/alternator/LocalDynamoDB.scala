@@ -19,8 +19,6 @@
 
 package com.hiya.alternator
 
-import java.net.URI
-
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient
@@ -28,9 +26,11 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.model._
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbBaseClientBuilder, DynamoDbClient}
 
-import scala.concurrent.duration._
+import java.net.URI
 import scala.compat.java8.DurationConverters._
+import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
+
 
 object LocalDynamoDB {
   val DEFAULT_PORT = 8042
