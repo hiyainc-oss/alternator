@@ -1,5 +1,5 @@
-ThisBuild / crossScalaVersions := Seq("2.13.3", "2.12.12")
-ThisBuild / scalaVersion := "2.13.3"
+ThisBuild / crossScalaVersions := Seq("2.13.4", "2.12.13")
+ThisBuild / scalaVersion := "2.13.4"
 ThisBuild / organization := "com.hiya"
 
 lazy val `alternator-attributevalue` = (project in (file("attributevalue")))
