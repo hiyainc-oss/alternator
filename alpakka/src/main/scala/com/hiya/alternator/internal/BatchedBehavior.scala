@@ -1,7 +1,6 @@
 package com.hiya.alternator.internal
 
 import java.util
-
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
 import BatchedBehavior.RetryPolicy
@@ -11,7 +10,7 @@ import scala.annotation.tailrec
 import scala.collection.immutable.Queue
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 import scala.collection.compat._
 
 
@@ -22,11 +21,11 @@ private [alternator] trait BatchedBehavior {
   protected type FutureResult
   protected type FuturePassThru
 
-  type Ref = ActorRef[Result]
+  type Ref = ActorRef[Try[Result]]
   import BatchedBehavior.PK
 
   sealed trait BatchedRequest
-  case class Req(req: Request) extends BatchedRequest
+  case class Req(req: Request, ref: Ref) extends BatchedRequest
   private case object StartJob extends BatchedRequest
   private case class ClientResult(futureResult: FutureResult, pt: FuturePassThru) extends BatchedRequest
   private case class ClientFailure(ex: Throwable, pt: FuturePassThru) extends BatchedRequest
@@ -62,9 +61,9 @@ private [alternator] trait BatchedBehavior {
     protected def jobSuccess(futureResult: FutureResult, pt: FuturePassThru, buffer: Buffer): ProcessResult
     protected def jobFailure(ex: Throwable, pt: FuturePassThru, buffer: Buffer): ProcessResult
     protected def startJob(keys: List[PK], buffer: Buffer): (Future[FutureResult], FuturePassThru, Buffer)
-    protected def receive(req: Request, pending: Buffer): (List[PK], Buffer)
+    protected def receive(req: Request, ref: Ref, pending: Buffer): (List[PK], Buffer)
 
-    protected def sendResult(refs: List[Ref], result: Result): Unit = {
+    protected def sendResult(refs: List[Ref], result: Try[Result]): Unit = {
       refs.foreach { _.tell(result) }
     }
 
@@ -106,8 +105,8 @@ private [alternator] trait BatchedBehavior {
       buffer: Buffer
     ): Behavior[BatchedRequest] =
       Behaviors.receiveMessage {
-        case Req(req) =>
-          val (keys, pending2) = receive(req, buffer)
+        case Req(req, ref) =>
+          val (keys, pending2) = receive(req, ref, buffer)
           behavior(enqueue(queue, keys), pending2)
 
         case StartJob =>

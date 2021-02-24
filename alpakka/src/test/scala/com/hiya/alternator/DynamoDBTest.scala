@@ -20,7 +20,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
   case class ExampleData(pk: String, intValue: Int, stringValue: String)
   object ExampleData {
     implicit val format: CompoundDynamoFormat[ExampleData] = semiauto.deriveCompound
-    implicit val schema: TableSchema.Aux[ExampleData, String] = TableSchema.schemaWithPK[String, ExampleData]("pk")
+    implicit val schema: TableSchema.Aux[ExampleData, String] = TableSchema.schemaWithPK[String, ExampleData]("pk", _.pk)
   }
 
 

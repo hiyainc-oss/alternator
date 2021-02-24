@@ -1,7 +1,6 @@
 package com.hiya.alternator
 
 import java.util
-
 import akka.Done
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
@@ -15,18 +14,18 @@ import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.CollectionConverters._
 import scala.collection.compat._
+import scala.util.Success
 
 
 object BatchedWriteBehavior extends internal.BatchedBehavior {
   import internal.BatchedBehavior._
 
   private [alternator] final case class WriteBuffer(queue: Queue[(Option[AV], List[Ref])], retries: Int)
-  private [alternator] final case class WriteRequest(pk: PK, value: Option[AV], ref: Ref)
+  private [alternator] final case class WriteRequest(pk: PK, value: Option[AV])
 
   override protected type Request = WriteRequest
   override type Result = Done
   override protected type Buffer = Map[PK, WriteBuffer]
-
 
   override protected type FutureResult = BatchWriteItemResponse
   override protected type FuturePassThru = List[PK]
@@ -88,7 +87,7 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
 
       val buffer2 = success.foldLeft(buffer) { case (buffer, key) =>
         val (refs2, bufferItem) = buffer(key).queue.dequeue
-        sendResult(refs2._2, Done)
+        sendResult(refs2._2, Success(Done))
 
         if (bufferItem.isEmpty) buffer - key
         else buffer.updated(key, WriteBuffer(bufferItem, 0))
@@ -118,10 +117,9 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
       (client.createQuery(writes), keys, buffer2)
     }
 
-    override protected def receive(req: WriteRequest, buffer: Buffer): (List[PK], Buffer) = {
-      ???
-//      val key = req.key
-//
+    override protected def receive(req: WriteRequest, ref: Ref, buffer: Buffer): (List[PK], Buffer) = {
+//      val key = req.pk
+
 //      buffer.get(key) match {
 //        case Some(elem) =>
 //          Nil -> buffer.updated(key, elem.copy(refs = req.ref :: elem.refs))
@@ -129,14 +127,16 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
 //        case None =>
 //          List(key) -> buffer.updated(key, WriteBuffer(req.ref :: Nil, 0))
 //      }
+
+      ???
     }
   }
 
   def apply(
-             client: DynamoDbAsyncClient,
-             maxWait: FiniteDuration,
-             retryPolicy: RetryPolicy
-           ): Behavior[BatchedRequest] =
+    client: DynamoDbAsyncClient,
+    maxWait: FiniteDuration,
+    retryPolicy: RetryPolicy
+  ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>
         new WriteBehavior(new AwsClientAdapter(client), maxWait, retryPolicy)(ctx, scheduler).behavior(Queue.empty, Map.empty)

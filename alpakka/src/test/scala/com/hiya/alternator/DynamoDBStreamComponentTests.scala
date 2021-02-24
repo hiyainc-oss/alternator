@@ -41,9 +41,9 @@ class DynamoDBStreamComponentTests extends AnyFunSpec with Matchers with Inside 
   case class DataRK(key: String, range: String, value: Int)
 
   import com.hiya.alternator.generic.auto._
-  private implicit val tableSchemaWithPK = TableSchema.schemaWithPK[String, DataPK]("key")
+  private implicit val tableSchemaWithPK = TableSchema.schemaWithPK[String, DataPK]("key", _.key)
   private val tableWithPK = Table.tableWithPK[DataPK]("test_pk")
-  private implicit val tableSchemaWithRK = TableSchema.schemaWithRK[String, String, DataRK]("key", "range")
+  private implicit val tableSchemaWithRK = TableSchema.schemaWithRK[String, String, DataRK]("key", "range", x => x.key -> x.range)
   private val tableWithRK = Table.tableWithPK[DataRK]("test_rk")
 
 //  private val dbStream = new DynamoDBStream(None)(system)

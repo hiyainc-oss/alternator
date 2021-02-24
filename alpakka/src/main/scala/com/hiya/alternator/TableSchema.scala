@@ -14,13 +14,14 @@ abstract class TableSchema[V](val serializeValue: CompoundDynamoFormat[V]) {
 
   def serializePK(pk: PKType): util.Map[String, AttributeValue]
   def extract(av: util.Map[String, AttributeValue]): DynamoFormat.Result[PKType]
+  def extract(value: V): PKType
   def schema: List[(String, ScalarAttributeType)]
 }
 
 object TableSchema {
   type Aux[V, PK] = TableSchema[V] { type PKType = PK }
 
-  def schemaWithPK[PK, V](pkField: String)(
+  def schemaWithPK[PK, V](pkField: String, extractPK: V => PK)(
     implicit PK: ScalarDynamoFormat[PK],
     V: CompoundDynamoFormat[V]
   ): TableSchema.Aux[V, PK] = new TableSchema[V](V) {
@@ -33,10 +34,12 @@ object TableSchema {
       Option(av.get(pkField)).fold[DynamoFormat.Result[PKType]](Left(DynamoAttributeError.AttributeIsNull))(PK.read)
     }
 
+    override def extract(value: V): PK = extractPK(value)
+
     override def schema: List[(String, ScalarAttributeType)] = pkField -> PK.attributeType :: Nil
   }
 
-  def schemaWithRK[PK, RK, V](pkField: String, rkField: String)(
+  def schemaWithRK[PK, RK, V](pkField: String, rkField: String, extractPK: V => (PK, RK))(
     implicit
     V: CompoundDynamoFormat[V],
     PK: ScalarDynamoFormat[PK],
@@ -51,6 +54,8 @@ object TableSchema {
       val rk = Option(av.get(rkField)).fold[DynamoFormat.Result[RK]](Left(DynamoAttributeError.AttributeIsNull))(RK.read)
       pk -> rk mapN { _ -> _ }
     }
+
+    override def extract(value: V): PKType = extractPK(value)
 
     override def schema: List[(String, ScalarAttributeType)] =
       pkField -> PK.attributeType :: rkField -> RK.attributeType :: Nil
