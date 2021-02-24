@@ -80,6 +80,9 @@ class Table[V, PK](name: String, schema: TableSchema.Aux[V, PK]) {
     ret.map(_ => Done)
   }
 
+  final def batchedPut(value: V)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Done] =
+    putRequest(value).send()
+
   final def putRequest(item: V): Table.WriteRequest[Done] = {
     val itemValue = schema.serializeValue.writeFields(item)
     Table.WriteRequest(name -> schema.serializePK(schema.extract(item)), Some(itemValue), Done)
@@ -104,17 +107,23 @@ class Table[V, PK](name: String, schema: TableSchema.Aux[V, PK]) {
     def key(t: T): PK
   }
 
-  case object WholeItem extends ItemMagnet[V] {
-    def key(t: V): PK = schema.extract(t)
+  object ItemMagnet {
+    implicit object WholeItem extends ItemMagnet[V] {
+      override def key(t: V): PK = schema.extract(t)
+    }
+
+    implicit object ItemKey extends ItemMagnet[PK] {
+      override def key(t: PK): PK = t
+    }
   }
 
-  case object ItemKey extends ItemMagnet[PK] {
-    override def key(t: PK): PK = t
-  }
-
-  final def deleteRequest[T, PT](item: T)(T : ItemMagnet[T], pt: PT = Done): Table.WriteRequest[PT] = {
+  final def deleteRequest[T, PT](item: T, pt: PT = Done)(implicit T : ItemMagnet[T]): Table.WriteRequest[PT] = {
     Table.WriteRequest(name -> schema.serializePK(T.key(item)), None, pt)
   }
+
+  final def batchedDelete[T : ItemMagnet](value: T)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Done] =
+    deleteRequest(value).send()
+
 }
 
 object Table {
