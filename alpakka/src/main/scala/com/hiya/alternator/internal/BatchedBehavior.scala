@@ -14,6 +14,13 @@ import scala.util.{Failure, Success, Try}
 import scala.collection.compat._
 
 
+/**
+  * States:
+  * - queued: key is in the queue and in the buffer
+  * - pending: key is only in the buffer
+  *   - retry: there is a scheduled event to Reschedule for that key
+  *   - in-progress: there is a pending aws request for that key and ClientResult or ClientFailure will be called
+  */
 private [alternator] trait BatchedBehavior {
   protected type Request
   type Result

@@ -22,6 +22,8 @@ object Dependencies {
   private val akkaHttp            = "com.typesafe.akka"          %% "akka-http"         % akkaHttpV
   private val collectionsCompat   = "org.scala-lang.modules"     %% "scala-collection-compat" % "2.4.2"
   private val scalaJava8Compat    = "org.scala-lang.modules"     %% "scala-java8-compat"     % "0.9.1"
+  private val logback             = "ch.qos.logback" % "logback-classic" % "1.2.3"
+
 
   object Tests {
     val ScanamoBase = Seq(
@@ -63,6 +65,7 @@ object Dependencies {
     akkaTestkit         % Test,
     scalaTest           % Test,
     scalaCheck          % Test,
-    scalaCheckShapeless % Test
+    scalaCheckShapeless % Test,
+    logback             % Test
   )
 }

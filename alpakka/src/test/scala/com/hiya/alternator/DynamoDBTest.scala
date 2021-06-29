@@ -1,11 +1,11 @@
 package com.hiya.alternator
 
 import java.util.UUID
-
 import akka.Done
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.hiya.alternator.generic.semiauto
+import com.hiya.alternator.util.LocalDynamoDB
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
@@ -75,4 +75,61 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
       }
     }
   }
+
+
+  //  describe("scan") {
+  //    it("should read table twice") {
+  //      withTable {
+  //        val r = Await.result(writeData(1 to 1000), TEST_TIMEOUT)
+  //        r.size shouldBe 1000
+  //
+  //        Await.result(tableWithPK.scan(dbStream).runWith(Sink.seq), TEST_TIMEOUT).size shouldBe 1000
+  //
+  //        Await.result(tableWithPK.scan(dbStream).runWith(Sink.seq), TEST_TIMEOUT).size shouldBe 1000
+  //      }
+  //    }
+  //
+  //    def scanAll(): immutable.Seq[DataPK] = {
+  //      val db = for { i <- 0 until 4 }
+  //        yield tableWithPK.scan(dbStream, Some(i -> 4)).runWith(Sink.seq)
+  //      import system.dispatcher
+  //      Await.result(Future.sequence(db).map(_.flatten), TEST_TIMEOUT * 2)
+  //    }
+  //
+  //    it("should read table twice with parallelism") {
+  //      withTable {
+  //        Await.result(writeData(1 to 1000), TEST_TIMEOUT)
+  //        scanAll().toSet shouldBe (1 to 1000).map { i => DataPK(i.toString, i) }.toSet
+  //        scanAll().toSet shouldBe (1 to 1000).map { i => DataPK(i.toString, i) }.toSet
+  //      }
+  //    }
+  //  }
+
+  //  describe("scan with RK table") {
+  //    it("should read table twice") {
+  //      withRKTable {
+  //        val r = Await.result(writeDataRK(1 to 1000), TEST_TIMEOUT)
+  //        r.size shouldBe 1000
+  //
+  //        Await.result(tableWithRK.scan(dbStream).runWith(Sink.seq), TEST_TIMEOUT).size shouldBe 1000
+  //
+  //        Await.result(tableWithRK.scan(dbStream).runWith(Sink.seq), TEST_TIMEOUT).size shouldBe 1000
+  //      }
+  //    }
+  //
+  //    def scanAll(): immutable.Seq[DataRK] = {
+  //      val db = for { i <- 0 until 4 }
+  //        yield tableWithRK.scan(dbStream, Some(i -> 4)).runWith(Sink.seq)
+  //      import system.dispatcher
+  //      Await.result(Future.sequence(db).map(_.flatten), TEST_TIMEOUT * 2)
+  //    }
+  //
+  //    it("should read table twice with parallelism") {
+  //      withRKTable {
+  //        Await.result(writeDataRK(1 to 1000), TEST_TIMEOUT)
+  //        scanAll().toSet shouldBe (1 to 1000).map { i => DataRK(i.toString, getRangeKey(i), i) }.toSet
+  //        scanAll().toSet shouldBe (1 to 1000).map { i => DataRK(i.toString, getRangeKey(i), i) }.toSet
+  //      }
+  //    }
+  //  }
 }

@@ -1,19 +1,20 @@
 package com.hiya.alternator
 
-import java.util
 import akka.Done
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.stream.alpakka.dynamodb.DynamoDbOp
+import software.amazon.awssdk.core.exception.SdkServiceException
+import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, BatchWriteItemRequest, BatchWriteItemResponse, ProvisionedThroughputExceededException}
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
-import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, BatchWriteItemRequest, BatchWriteItemResponse}
 
+import java.util
+import scala.collection.compat._
 import scala.collection.immutable.Queue
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.CollectionConverters._
-import scala.collection.compat._
 import scala.util.Success
 
 
@@ -85,24 +86,50 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
     override protected def jobSuccess(futureResult: BatchWriteItemResponse, keys: FuturePassThru, buffer: Buffer): BatchedWriteBehavior.ProcessResult = {
       val (success, failed) = client.processResult(keys, futureResult)
 
-      val buffer2 = success.foldLeft(buffer) { case (buffer, key) =>
+      val (buffer2, reschedule) = success.foldLeft(buffer -> List.empty[PK]) { case ((buffer, reschedule), key) =>
         val (refs2, bufferItem) = buffer(key).queue.dequeue
         sendResult(refs2._2, Success(Done))
 
-        if (bufferItem.isEmpty) buffer - key
-        else buffer.updated(key, WriteBuffer(bufferItem, 0))
+        if (bufferItem.isEmpty) (buffer - key) -> reschedule
+        else buffer.updated(key, WriteBuffer(bufferItem, 0)) -> (key :: reschedule)
       }
 
-      val (buffer3, retries) = failed
-        .foldLeft(buffer2 -> List.empty[(Int, PK)]) { case ((pending, retries), pk) =>
+      val (buffer3, retries) = getRetries(failed, buffer2)
+
+      ProcessResult(reschedule, retries, buffer3, Nil)
+    }
+
+    private def getRetries(failed: List[(String, AV)], buffer: Buffer) = {
+      failed
+        .foldLeft(buffer -> List.empty[(Int, PK)]) { case ((pending, retries), pk) =>
           val buffer = pending(pk)
           pending.updated(pk, buffer.copy(retries = buffer.retries + 1)) -> ((buffer.retries -> pk) :: retries)
         }
-
-      ProcessResult(Nil, retries, buffer3, Nil)
     }
 
-    override protected def jobFailure(ex: Throwable, pt: FuturePassThru, buffer: Buffer): BatchedWriteBehavior.ProcessResult = ???
+
+    override protected def jobFailure(ex: Throwable, keys: FuturePassThru, buffer: Buffer): ProcessResult = {
+      def retry(): ProcessResult = {
+        val (buffer2, retries) = getRetries(keys, buffer)
+        ProcessResult(Nil, retries, buffer2, Nil)
+      }
+
+      ex match {
+        case _ : ProvisionedThroughputExceededException =>
+          retry()
+        case ex : SdkServiceException if ex.isThrottlingException || ex.retryable() || ex.statusCode >= 500 =>
+          retry()
+        case _ =>
+          val buffer2 = keys.foldLeft(buffer) { case (buffer, key) =>
+            val (refs2, bufferItem) = buffer(key).queue.dequeue
+            sendResult(refs2._2, Success(Done))
+
+            if (bufferItem.isEmpty) buffer - key
+            else buffer.updated(key, WriteBuffer(bufferItem, 0))
+          }
+          ProcessResult(Nil, Nil, buffer2, Nil)
+      }
+    }
 
     override protected def startJob(keys: List[PK], buffer: Buffer): (Future[BatchWriteItemResponse], List[PK], Buffer) = {
       // Collapse buffer: keep only the last value to write and all actorRefs
@@ -118,20 +145,27 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
     }
 
     override protected def receive(req: WriteRequest, ref: Ref, buffer: Buffer): (List[PK], Buffer) = {
-//      val key = req.pk
+      val key = req.pk
 
-//      buffer.get(key) match {
-//        case Some(elem) =>
-//          Nil -> buffer.updated(key, elem.copy(refs = req.ref :: elem.refs))
-//
-//        case None =>
-//          List(key) -> buffer.updated(key, WriteBuffer(req.ref :: Nil, 0))
-//      }
+      buffer.get(key) match {
+        case Some(elem) =>
+          Nil -> buffer.updated(key, elem.copy(queue = elem.queue.appended(req.value -> List(ref))))
 
-      ???
+        case None =>
+          List(key) -> buffer.updated(key, WriteBuffer(Queue(req.value -> List(ref)), 0))
+      }
     }
   }
 
+  /**
+    * DynamoDB batched writer
+    *
+    * The actor waits for the maximum size of write requests (25) or maxWait time before created a batched write
+    * request. If the requests fails with a retryable error the elements will be rescheduled later (using the given
+    * retryPolicy). Unprocessed items are rescheduled similarly.
+    *
+    * The received requests are deduplicated, only the last write to the key is executed.
+    */
   def apply(
     client: DynamoDbAsyncClient,
     maxWait: FiniteDuration,

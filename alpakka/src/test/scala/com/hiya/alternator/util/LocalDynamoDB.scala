@@ -1,23 +1,4 @@
-/*
- * Copyright 2019 Scanamo
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// From https://github.com/scanamo/scanamo/blob/master/testkit/src/main/scala/org/scanamo/LocalDynamoDB.scala
-// Adopted to AWS SDK2
-
-package com.hiya.alternator
+package com.hiya.alternator.util
 
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration
@@ -27,10 +8,9 @@ import software.amazon.awssdk.services.dynamodb.model._
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbBaseClientBuilder, DynamoDbClient}
 
 import java.net.URI
-import scala.compat.java8.DurationConverters._
 import scala.concurrent.duration._
+import scala.jdk.DurationConverters._
 import scala.jdk.CollectionConverters._
-
 
 object LocalDynamoDB {
   val DEFAULT_PORT = 8042

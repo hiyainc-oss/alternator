@@ -5,7 +5,7 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.stream.alpakka.dynamodb.DynamoDbOp
 import software.amazon.awssdk.core.exception.SdkServiceException
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
-import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, BatchGetItemRequest, BatchGetItemResponse, KeysAndAttributes}
+import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, BatchGetItemRequest, BatchGetItemResponse, KeysAndAttributes, ProvisionedThroughputExceededException}
 
 import java.util
 import scala.collection.compat._
@@ -31,13 +31,11 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
   override protected type FuturePassThru = List[PK]
 
   private class AwsClientAdapter(client: DynamoDbAsyncClient) {
+
     private def isSubMapOf(small: util.Map[String, AttributeValue], in: util.Map[String, AttributeValue]): Boolean =
       in.entrySet().containsAll(small.entrySet())
 
 
-    /**
-     *
-     */
     def createQuery(key: List[PK]): Future[BatchGetItemResponse] = {
       val request = BatchGetItemRequest.builder()
         .requestItems(
@@ -115,11 +113,18 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
         }
     }
 
+
     override protected def jobFailure(ex: Throwable, keys: FuturePassThru, buffer: Buffer): BatchedReadBehavior.ProcessResult = {
+      def retry(): BatchedReadBehavior.ProcessResult = {
+        val (buffer2, retries) = getRetries(keys, buffer)
+        ProcessResult(Nil, retries, buffer2, Nil)
+      }
+
       ex match {
+        case _ : ProvisionedThroughputExceededException =>
+          retry()
         case ex : SdkServiceException if ex.isThrottlingException || ex.retryable() || ex.statusCode >= 500 =>
-          val (buffer2, retries) = getRetries(keys, buffer)
-          ProcessResult(Nil, retries, buffer2, Nil)
+          retry()
         case _ =>
           val buffer2 = keys.foldLeft(buffer) { case (buffer, key) =>
             val refs = buffer(key)
@@ -145,6 +150,16 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
     }
   }
 
+  /**
+   * DynamoDB batched reader
+   *
+   * The actor waits for the maximum size of read requests (100) or maxWait time before created a batched get
+   * request. If the requests fails with a retryable error the elements will be rescheduled later (using the given
+   * retryPolicy). Unprocessed items are rescheduled similarly.
+   *
+   * The received requests are deduplicated.
+   *
+   */
   def apply(
     client: DynamoDbAsyncClient,
     maxWait: FiniteDuration,
