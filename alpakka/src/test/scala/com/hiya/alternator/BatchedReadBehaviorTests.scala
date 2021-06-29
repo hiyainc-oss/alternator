@@ -106,6 +106,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
 
   describe("stream with RK table") {
     it should behave like streamWrite[DataRK]
+
   }
 
 }

@@ -16,9 +16,7 @@ import software.amazon.awssdk.services.dynamodb.model.{GetItemResponse, _}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class Table[V, PK](name: String, schema: TableSchema.Aux[V, PK]) {
-
-
+class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
   final def getBuilder(pk: PK): GetItemRequest.Builder =
     GetItemRequest.builder().key(schema.serializePK(pk)).tableName(name)
 
@@ -127,7 +125,7 @@ class Table[V, PK](name: String, schema: TableSchema.Aux[V, PK]) {
 }
 
 object Table {
-  private implicit lazy val parasitic: ExecutionContext = {
+  private [alternator] implicit lazy val parasitic: ExecutionContext = {
     // The backport is present in akka, so we will just use it by reflection
     // It probably will not change, as it is a stable internal api
     val q = akka.dispatch.ExecutionContexts
@@ -191,6 +189,11 @@ object Table {
 
   def tableWithPK[V](name: String)(
     implicit tableSchema: TableSchema[V]
-  ): Table[V, tableSchema.PKType] = new Table[V, tableSchema.PKType](name, tableSchema)
+  ): Table[V, tableSchema.IndexType] = new Table[V, tableSchema.IndexType](name, tableSchema)
+
+  def tableWithRK[V](name: String)(
+    implicit tableSchema: TableSchemaWithRange[V]
+  ): TableWithRange[V, tableSchema.PK, tableSchema.RK] =
+    new TableWithRange[V, tableSchema.PK, tableSchema.RK](name, tableSchema)
 
 }

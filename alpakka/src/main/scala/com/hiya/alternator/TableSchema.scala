@@ -10,28 +10,28 @@ import cats.instances.either._
 
 
 abstract class TableSchema[V](val serializeValue: CompoundDynamoFormat[V]) {
-  type PKType
+  type IndexType
 
-  def serializePK(pk: PKType): util.Map[String, AttributeValue]
-  def extract(av: util.Map[String, AttributeValue]): DynamoFormat.Result[PKType]
-  def extract(value: V): PKType
+  def serializePK(pk: IndexType): util.Map[String, AttributeValue]
+  def extract(av: util.Map[String, AttributeValue]): DynamoFormat.Result[IndexType]
+  def extract(value: V): IndexType
   def schema: List[(String, ScalarAttributeType)]
 }
 
 object TableSchema {
-  type Aux[V, PK] = TableSchema[V] { type PKType = PK }
+  type Aux[V, PK] = TableSchema[V] { type IndexType = PK }
 
   def schemaWithPK[PK, V](pkField: String, extractPK: V => PK)(
     implicit PK: ScalarDynamoFormat[PK],
     V: CompoundDynamoFormat[V]
   ): TableSchema.Aux[V, PK] = new TableSchema[V](V) {
-    override type PKType = PK
+    override type IndexType = PK
 
-    override def serializePK(pk: PKType): util.Map[String, AttributeValue] =
+    override def serializePK(pk: PK): util.Map[String, AttributeValue] =
       Map(pkField -> PK.write(pk)).asJava
 
-    override def extract(av: util.Map[String, AttributeValue]): DynamoFormat.Result[PKType] = {
-      Option(av.get(pkField)).fold[DynamoFormat.Result[PKType]](Left(DynamoAttributeError.AttributeIsNull))(PK.read)
+    override def extract(av: util.Map[String, AttributeValue]): DynamoFormat.Result[PK] = {
+      Option(av.get(pkField)).fold[DynamoFormat.Result[PK]](Left(DynamoAttributeError.AttributeIsNull))(PK.read)
     }
 
     override def extract(value: V): PK = extractPK(value)
@@ -39,23 +39,27 @@ object TableSchema {
     override def schema: List[(String, ScalarAttributeType)] = pkField -> PK.attributeType :: Nil
   }
 
-  def schemaWithRK[PK, RK, V](pkField: String, rkField: String, extractPK: V => (PK, RK))(
+  def schemaWithRK[PKType, RKType, V](pkField: String, rkField: String, extractPK: V => (PKType, RKType))(
     implicit
     V: CompoundDynamoFormat[V],
-    PK: ScalarDynamoFormat[PK],
-    RK: ScalarDynamoFormat[RK]
-  ): TableSchema.Aux[V, (PK, RK)] = new TableSchema[V](V) {
-    override type PKType = (PK, RK)
-    override def serializePK(pk: PKType): util.Map[String, AttributeValue] =
+    PKType: ScalarDynamoFormat[PKType],
+    RKType: ScalarDynamoFormat[RKType]
+  ): TableSchemaWithRange.Aux[V, PKType, RKType] = new TableSchemaWithRange[V](V, pkField, rkField) {
+    override type PK = PKType
+    override val PK = PKType
+    override type RK = RKType
+    override val RK = RKType
+
+    override def serializePK(pk: IndexType): util.Map[String, AttributeValue] =
       Map(pkField -> PK.write(pk._1), rkField -> RK.write(pk._2)).asJava
 
-    override def extract(av: util.Map[String, AttributeValue]): DynamoFormat.Result[PKType] = {
+    override def extract(av: util.Map[String, AttributeValue]): DynamoFormat.Result[IndexType] = {
       val pk = Option(av.get(pkField)).fold[DynamoFormat.Result[PK]](Left(DynamoAttributeError.AttributeIsNull))(PK.read)
       val rk = Option(av.get(rkField)).fold[DynamoFormat.Result[RK]](Left(DynamoAttributeError.AttributeIsNull))(RK.read)
       pk -> rk mapN { _ -> _ }
     }
 
-    override def extract(value: V): PKType = extractPK(value)
+    override def extract(value: V): IndexType = extractPK(value)
 
     override def schema: List[(String, ScalarAttributeType)] =
       pkField -> PK.attributeType :: rkField -> RK.attributeType :: Nil

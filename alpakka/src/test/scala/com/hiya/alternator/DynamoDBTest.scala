@@ -1,17 +1,22 @@
 package com.hiya.alternator
 
-import java.util.UUID
 import akka.Done
 import akka.actor.ActorSystem
+import akka.actor.typed.scaladsl.adapter._
+import akka.actor.typed.{ActorRef, Scheduler}
 import akka.stream.Materializer
+import akka.stream.scaladsl.{Sink, Source}
+import akka.util.Timeout
 import com.hiya.alternator.generic.semiauto
-import com.hiya.alternator.util.LocalDynamoDB
+import com.hiya.alternator.syntax._
+import com.hiya.alternator.util.{DataRK, LocalDynamoDB}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
 
+import java.util.UUID
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
@@ -38,7 +43,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
 
   implicit val system = ActorSystem()
   implicit val materializer = Materializer.matFromSystem
-  implicit var client: DynamoDbAsyncClient = LocalDynamoDB.client()
+  implicit var client: DynamoDbAsyncClient = LocalDynamoDB.client(Option(System.getProperty("dynamoDBLocalPort")).map(_.toInt).getOrElse(8484))
   val timeout = 3.seconds
 
   def wait[T](body: Future[T]): T = {
@@ -73,6 +78,110 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
         wait(exampleDBInstance.get(key)) shouldBe None
         wait(exampleDBInstance2.get(key)) shouldBe None
       }
+    }
+  }
+
+  private val TEST_TIMEOUT: FiniteDuration = 20.seconds
+  private implicit val writer: ActorRef[BatchedWriteBehavior.BatchedRequest] =
+    system.spawn(BatchedWriteBehavior(client, 10.millis, (_: Int) => 10.millis), "writer")
+  private implicit val askTimeout: Timeout = 60.seconds
+  private implicit val scheduler: Scheduler = system.scheduler.toTyped
+
+  describe("query") {
+    def withRangeData[T](f: TableWithRange[DataRK, String, String] => T): T = {
+      DataRK.config.withTable(client) { table =>
+        Await.result({
+          Source(1 to 19)
+            .flatMapConcat(i =>
+              Source(0 until i).map(j =>
+                DataRK(i.toString, j.toString, s"$i/$j")
+              )
+            )
+            .mapAsync(100)(table.batchedPut)
+            .runWith(Sink.ignore)
+        }, TEST_TIMEOUT)
+        f(table)
+      }
+    }
+
+    it("should compile =") {
+      import Table.parasitic
+
+      val result = withRangeData { table =>
+        Await.result(table.query(pk = "5", rk == "3").throwErrors, TEST_TIMEOUT)
+      }
+
+      result shouldBe List(DataRK("5", "3", "5/3"))
+    }
+
+    it("should compile <") {
+      import Table.parasitic
+
+      val result = withRangeData { table =>
+        Await.result(table.query(pk = "5", rk < "3").throwErrors, TEST_TIMEOUT)
+      }
+
+      result shouldBe (0 until 3).map { j => DataRK("5", s"$j", s"5/$j") }
+    }
+
+    it("should compile <=") {
+      import Table.parasitic
+
+      val result = withRangeData { table =>
+        Await.result(table.query(pk = "5", rk <= "3").throwErrors, TEST_TIMEOUT)
+      }
+
+      result shouldBe (0 to 3).map { j => DataRK("5", s"$j", s"5/$j") }
+    }
+
+    it("should compile >") {
+      import Table.parasitic
+
+      val result = withRangeData { table =>
+        Await.result(table.query(pk = "5", rk > "3").throwErrors, TEST_TIMEOUT)
+      }
+
+      result shouldBe (4 until 5).map { j => DataRK("5", s"$j", s"5/$j") }
+    }
+
+    it("should compile >=") {
+      import Table.parasitic
+
+      val result = withRangeData { table =>
+        Await.result(table.query(pk = "5", rk >= "3").throwErrors, TEST_TIMEOUT)
+      }
+
+      result shouldBe (3 until 5).map { j => DataRK("5", s"$j", s"5/$j") }
+    }
+
+    it("should compile between") {
+      import Table.parasitic
+
+      val result = withRangeData { table =>
+        Await.result(table.query(pk = "5", rk.between("2", "3")).throwErrors, TEST_TIMEOUT)
+      }
+
+      result shouldBe (2 to 3).map { j => DataRK("5", s"$j", s"5/$j") }
+    }
+
+    it("should compile startswith") {
+      import Table.parasitic
+
+      val result = withRangeData { table =>
+        Await.result(table.query(pk = "13", rk.beginsWith("1")).throwErrors, TEST_TIMEOUT)
+      }
+
+      result shouldBe (1 :: (10 until 13).toList).map { j => DataRK("13", s"$j", s"13/$j") }
+    }
+
+    it("should work without rk condition") {
+      import Table.parasitic
+
+      val result = withRangeData { table =>
+        Await.result(table.query(pk = "13").throwErrors, TEST_TIMEOUT)
+      }
+
+      result should contain theSameElementsAs (0 until 13).map { j => DataRK("13", s"$j", s"13/$j") }
     }
   }
 
