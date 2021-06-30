@@ -31,9 +31,11 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
 
   class ExampleDB(name: String)(implicit val client: DynamoDbAsyncClient, mat: Materializer)
   {
+    import Table.parasitic
+
     val table = Table.tableWithPK[ExampleData](name)
 
-    def get(key: String): Future[Option[ExampleData]] = table.get(key)
+    def get(key: String): Future[Option[ExampleData]] = table.get(key).throwErrors
 
     def put(data: ExampleData): Future[Done] = table.put(data)
 

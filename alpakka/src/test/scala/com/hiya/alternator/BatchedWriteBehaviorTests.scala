@@ -91,7 +91,7 @@ class BatchedWriteBehaviorTests extends AnyFunSpec with Matchers with Inside wit
 
       forAll(data) { case (data, pt) =>
         inside(data) {
-          case Some(p) => p shouldBe pt
+          case Some(Right(p)) => p shouldBe pt
         }
       }
     }

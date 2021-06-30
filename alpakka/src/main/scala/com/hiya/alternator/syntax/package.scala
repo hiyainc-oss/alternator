@@ -3,10 +3,8 @@ package com.hiya.alternator
 import cats.Traverse
 import com.hiya.alternator.util.MonadErrorThrowable
 
-import scala.util.Try
-
 package object syntax {
-  implicit def toTry[T, F[_]: MonadErrorThrowable, M[_]: Traverse](underlying: F[M[Try[T]]]): ThrowErrorsExt[T, F, M] =
+  implicit def toTry[T, F[_]: MonadErrorThrowable, M[_]: Traverse](underlying: F[M[DynamoFormat.Result[T]]]): ThrowErrorsExt[T, F, M] =
     new ThrowErrorsExt[T, F, M](underlying)
 
   object rk {

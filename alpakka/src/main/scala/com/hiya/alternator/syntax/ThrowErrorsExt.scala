@@ -3,14 +3,12 @@ package com.hiya.alternator.syntax
 import cats.syntax.all._
 import cats.{MonadError, Traverse}
 import com.hiya.alternator.util.MonadErrorThrowable
+import com.hiya.alternator.{DynamoFormat, Table}
 
-import scala.util.{Failure, Success, Try}
 
-
-class ThrowErrorsExt[T, F[_] : MonadErrorThrowable, M[_]: Traverse](underlying: F[M[Try[T]]]) {
+class ThrowErrorsExt[T, F[_] : MonadErrorThrowable, M[_]: Traverse](underlying: F[M[DynamoFormat.Result[T]]]) {
   def throwErrors: F[M[T]] =
-    underlying.flatMap(_.traverse {
-      case Success(value) => MonadError[F, Throwable].pure(value)
-      case Failure(value) => MonadError[F, Throwable].raiseError(value)
-    })
+    underlying.flatMap(result =>
+      MonadError[F, Throwable].fromTry(result.traverse(Table.orFail))
+    )
 }
