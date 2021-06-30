@@ -3,7 +3,7 @@ package com.hiya.alternator
 import akka.NotUsed
 import akka.stream.alpakka.dynamodb.scaladsl.DynamoDb
 import akka.stream.scaladsl.Source
-import com.hiya.alternator.RKCondition.QueryBuilder
+import com.hiya.alternator.syntax.RKCondition
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model.{QueryRequest, QueryResponse}
 
@@ -16,7 +16,7 @@ class TableWithRange[V, PK, RK](name: String, schema: TableSchemaWithRange.Aux[V
   def queryBuilder(pk: PK, rk: RKCondition[RK] = RKCondition.empty): QueryRequest.Builder = {
     rk.render(
       schema.rkField,
-      RKCondition.EQ(pk)(schema.PK).render(schema.pkField, QueryBuilder)
+      RKCondition.EQ(pk)(schema.PK).render(schema.pkField, RKCondition.QueryBuilder)
     )(
       QueryRequest
         .builder()
