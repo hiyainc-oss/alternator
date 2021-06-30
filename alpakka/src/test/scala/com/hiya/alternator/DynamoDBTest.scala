@@ -88,13 +88,13 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
   private implicit val scheduler: Scheduler = system.scheduler.toTyped
 
   describe("query") {
-    def withRangeData[T](f: TableWithRange[DataRK, String, String] => T): T = {
+    def withRangeData[T](num: Int, payload: Option[String] = None)(f: TableWithRange[DataRK, String, String] => T): T = {
       DataRK.config.withTable(client) { table =>
         Await.result({
-          Source(1 to 19)
+          Source(List(num, 11))
             .flatMapConcat(i =>
               Source(0 until i).map(j =>
-                DataRK(i.toString, j.toString, s"$i/$j")
+                DataRK(i.toString, j.toString, payload.getOrElse(s"$i/$j"))
               )
             )
             .mapAsync(100)(table.batchedPut)
@@ -107,8 +107,8 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     it("should compile =") {
       import Table.parasitic
 
-      val result = withRangeData { table =>
-        Await.result(table.query(pk = "5", rk == "3").throwErrors, TEST_TIMEOUT)
+      val result = withRangeData(5) { table =>
+        Await.result(table.query(pk = "5", rk == "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
       }
 
       result shouldBe List(DataRK("5", "3", "5/3"))
@@ -117,8 +117,8 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     it("should compile <") {
       import Table.parasitic
 
-      val result = withRangeData { table =>
-        Await.result(table.query(pk = "5", rk < "3").throwErrors, TEST_TIMEOUT)
+      val result = withRangeData(5) { table =>
+        Await.result(table.query(pk = "5", rk < "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
       }
 
       result shouldBe (0 until 3).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -127,8 +127,8 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     it("should compile <=") {
       import Table.parasitic
 
-      val result = withRangeData { table =>
-        Await.result(table.query(pk = "5", rk <= "3").throwErrors, TEST_TIMEOUT)
+      val result = withRangeData(5) { table =>
+        Await.result(table.query(pk = "5", rk <= "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
       }
 
       result shouldBe (0 to 3).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -137,8 +137,8 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     it("should compile >") {
       import Table.parasitic
 
-      val result = withRangeData { table =>
-        Await.result(table.query(pk = "5", rk > "3").throwErrors, TEST_TIMEOUT)
+      val result = withRangeData(5) { table =>
+        Await.result(table.query(pk = "5", rk > "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
       }
 
       result shouldBe (4 until 5).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -147,8 +147,8 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     it("should compile >=") {
       import Table.parasitic
 
-      val result = withRangeData { table =>
-        Await.result(table.query(pk = "5", rk >= "3").throwErrors, TEST_TIMEOUT)
+      val result = withRangeData(5) { table =>
+        Await.result(table.query(pk = "5", rk >= "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
       }
 
       result shouldBe (3 until 5).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -157,8 +157,8 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     it("should compile between") {
       import Table.parasitic
 
-      val result = withRangeData { table =>
-        Await.result(table.query(pk = "5", rk.between("2", "3")).throwErrors, TEST_TIMEOUT)
+      val result = withRangeData(5) { table =>
+        Await.result(table.query(pk = "5", rk.between("2", "3")).runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
       }
 
       result shouldBe (2 to 3).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -167,8 +167,8 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     it("should compile startswith") {
       import Table.parasitic
 
-      val result = withRangeData { table =>
-        Await.result(table.query(pk = "13", rk.beginsWith("1")).throwErrors, TEST_TIMEOUT)
+      val result = withRangeData(13) { table =>
+        Await.result(table.query(pk = "13", rk.beginsWith("1")).runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
       }
 
       result shouldBe (1 :: (10 until 13).toList).map { j => DataRK("13", s"$j", s"13/$j") }
