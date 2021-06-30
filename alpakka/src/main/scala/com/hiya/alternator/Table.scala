@@ -4,7 +4,7 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.stream.Materializer
 import akka.stream.alpakka.dynamodb.scaladsl.DynamoDb
-import akka.stream.scaladsl.{BidiFlow, Flow}
+import akka.stream.scaladsl.{BidiFlow, Flow, Source}
 import akka.util.Timeout
 import akka.{Done, NotUsed}
 import cats.instances.option._
@@ -13,10 +13,17 @@ import com.hiya.alternator.internal.BatchedBehavior
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model.{GetItemResponse, _}
 
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
+
+final case class Segment(segment: Int, totalSegments: Int)
+
 class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
+
+  import util._
+
   final def getBuilder(pk: PK): GetItemRequest.Builder =
     GetItemRequest.builder().key(schema.serializePK(pk)).tableName(name)
 
@@ -27,6 +34,17 @@ class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
     ret.flatMap(result => Future.fromTry(deserialize(result)))
   }
 
+  final def scanBuilder(segment: Option[Segment] = None): ScanRequest.Builder = {
+    ScanRequest.builder()
+      .tableName(name)
+      .optApp(req => (segment: Segment) => req.segment(segment.segment).totalSegments(segment.totalSegments))(segment)
+  }
+
+  final def scan(segment: Option[Segment] = None)(implicit client: DynamoDbAsyncClient): Source[Try[V], NotUsed] = {
+    DynamoDb.source(scanBuilder(segment).build())
+      .mapConcat(deserialize)
+  }
+
   final def deserialize(response: BatchedBehavior.AV): Try[V] = {
     Table.orFail(schema.serializeValue.readFields(response))
   }
@@ -34,6 +52,11 @@ class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
   final def deserialize(response: GetItemResponse): Try[Option[V]] = {
     if (response.hasItem) Option(response.item()).traverse(deserialize)
     else Success(None)
+  }
+
+  final def deserialize(response: ScanResponse): List[Try[V]] = {
+    if (response.hasItems) response.items().asScala.toList.map(deserialize)
+    else Nil
   }
 
   final val readerFlow: BidiFlow[PK, GetItemRequest.Builder, GetItemResponse, DynamoFormat.Result[V], NotUsed] = {

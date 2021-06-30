@@ -9,7 +9,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
 import com.hiya.alternator.generic.semiauto
 import com.hiya.alternator.syntax._
-import com.hiya.alternator.util.{DataRK, LocalDynamoDB}
+import com.hiya.alternator.util.{DataPK, DataRK, LocalDynamoDB}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
@@ -177,68 +177,45 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     it("should work without rk condition") {
       import Table.parasitic
 
-      val result = withRangeData { table =>
-        Await.result(table.query(pk = "13").throwErrors, TEST_TIMEOUT)
+      val result = withRangeData(13) { table =>
+        Await.result(table.query(pk = "13").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
       }
 
       result should contain theSameElementsAs (0 until 13).map { j => DataRK("13", s"$j", s"13/$j") }
     }
+
+    it("should work with a lots of data") {
+      import Table.parasitic
+
+      val payload = "0123456789abcdefghijklmnopqrstuvwxyz" * 1000
+
+      val result = withRangeData(1000, payload = Some(payload)) { table =>
+        Await.result(table.query(pk = "1000").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
+      }
+
+      result should have size(1000)
+    }
   }
 
 
-  //  describe("scan") {
-  //    it("should read table twice") {
-  //      withTable {
-  //        val r = Await.result(writeData(1 to 1000), TEST_TIMEOUT)
-  //        r.size shouldBe 1000
-  //
-  //        Await.result(tableWithPK.scan(dbStream).runWith(Sink.seq), TEST_TIMEOUT).size shouldBe 1000
-  //
-  //        Await.result(tableWithPK.scan(dbStream).runWith(Sink.seq), TEST_TIMEOUT).size shouldBe 1000
-  //      }
-  //    }
-  //
-  //    def scanAll(): immutable.Seq[DataPK] = {
-  //      val db = for { i <- 0 until 4 }
-  //        yield tableWithPK.scan(dbStream, Some(i -> 4)).runWith(Sink.seq)
-  //      import system.dispatcher
-  //      Await.result(Future.sequence(db).map(_.flatten), TEST_TIMEOUT * 2)
-  //    }
-  //
-  //    it("should read table twice with parallelism") {
-  //      withTable {
-  //        Await.result(writeData(1 to 1000), TEST_TIMEOUT)
-  //        scanAll().toSet shouldBe (1 to 1000).map { i => DataPK(i.toString, i) }.toSet
-  //        scanAll().toSet shouldBe (1 to 1000).map { i => DataPK(i.toString, i) }.toSet
-  //      }
-  //    }
-  //  }
+  describe("scan") {
+    def withData[T](f: Table[DataPK, String] => T): T = {
+      DataPK.config.withTable(client) { table =>
+        Await.result({
+          Source(1 to 1000)
+            .map(i => DataPK(i.toString, i))
+            .mapAsync(100)(table.batchedPut)
+            .runWith(Sink.ignore)
+        }, TEST_TIMEOUT)
+        f(table)
+      }
+    }
 
-  //  describe("scan with RK table") {
-  //    it("should read table twice") {
-  //      withRKTable {
-  //        val r = Await.result(writeDataRK(1 to 1000), TEST_TIMEOUT)
-  //        r.size shouldBe 1000
-  //
-  //        Await.result(tableWithRK.scan(dbStream).runWith(Sink.seq), TEST_TIMEOUT).size shouldBe 1000
-  //
-  //        Await.result(tableWithRK.scan(dbStream).runWith(Sink.seq), TEST_TIMEOUT).size shouldBe 1000
-  //      }
-  //    }
-  //
-  //    def scanAll(): immutable.Seq[DataRK] = {
-  //      val db = for { i <- 0 until 4 }
-  //        yield tableWithRK.scan(dbStream, Some(i -> 4)).runWith(Sink.seq)
-  //      import system.dispatcher
-  //      Await.result(Future.sequence(db).map(_.flatten), TEST_TIMEOUT * 2)
-  //    }
-  //
-  //    it("should read table twice with parallelism") {
-  //      withRKTable {
-  //        Await.result(writeDataRK(1 to 1000), TEST_TIMEOUT)
-  //        scanAll().toSet shouldBe (1 to 1000).map { i => DataRK(i.toString, getRangeKey(i), i) }.toSet
-  //        scanAll().toSet shouldBe (1 to 1000).map { i => DataRK(i.toString, getRangeKey(i), i) }.toSet
-  //      }
-  //    }
-  //  }
+    it("should scan table twice") {
+      withData { table =>
+        Await.result(table.scan().runWith(Sink.seq), TEST_TIMEOUT).size shouldBe 1000
+        Await.result(table.scan().runWith(Sink.seq), TEST_TIMEOUT).size shouldBe 1000
+      }
+    }
+  }
 }
