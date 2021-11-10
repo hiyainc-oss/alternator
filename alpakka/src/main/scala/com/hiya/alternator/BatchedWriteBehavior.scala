@@ -8,7 +8,7 @@ import software.amazon.awssdk.core.exception.SdkServiceException
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, BatchWriteItemRequest, BatchWriteItemResponse, ProvisionedThroughputExceededException}
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
 
-import java.util
+import java.util.{Map => JMap}
 import scala.collection.compat._
 import scala.collection.immutable.Queue
 import scala.collection.mutable
@@ -32,7 +32,7 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
   override protected type FuturePassThru = List[PK]
 
   private class AwsClientAdapter(client: DynamoDbAsyncClient) {
-    private def isSubMapOf(small: util.Map[String, AttributeValue], in: util.Map[String, AttributeValue]): Boolean =
+    private def isSubMapOf(small: JMap[String, AttributeValue], in: JMap[String, AttributeValue]): Boolean =
       in.entrySet().containsAll(small.entrySet())
 
     def processResult(keys: List[PK], response: BatchWriteItemResponse): (List[PK], List[PK]) = {
@@ -149,7 +149,7 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
 
       buffer.get(key) match {
         case Some(elem) =>
-          Nil -> buffer.updated(key, elem.copy(queue = elem.queue.appended(req.value -> List(ref))))
+          Nil -> buffer.updated(key, elem.copy(queue = elem.queue.enqueue(req.value -> List(ref))))
 
         case None =>
           List(key) -> buffer.updated(key, WriteBuffer(Queue(req.value -> List(ref)), 0))

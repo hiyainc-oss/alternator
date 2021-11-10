@@ -19,12 +19,12 @@ object RKCondition {
   ) {
     def newName(name: String)(f: String => QueryBuilder => QueryBuilder): QueryBuilder = {
       val nameP = s"#P${namesMap.size}"
-      f(nameP)(copy(namesMap = namesMap.appended(name)))
+      f(nameP)(copy(namesMap = namesMap.enqueue(name)))
     }
 
     def newParam(av: AttributeValue)(f: String => QueryBuilder => QueryBuilder): QueryBuilder = {
       val nameP = s":param${valueMap.size}"
-      f(nameP)(copy(valueMap = valueMap.appended(av)))
+      f(nameP)(copy(valueMap = valueMap.enqueue(av)))
     }
 
     def param(name: String, av: AttributeValue)(f: (String, String) => QueryBuilder => QueryBuilder): QueryBuilder = {

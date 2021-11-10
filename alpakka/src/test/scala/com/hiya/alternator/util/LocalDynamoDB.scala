@@ -9,8 +9,8 @@ import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbBa
 
 import java.net.URI
 import scala.concurrent.duration._
-import scala.jdk.DurationConverters._
 import scala.jdk.CollectionConverters._
+import scala.compat.java8.DurationConverters._
 
 object LocalDynamoDB {
   val DEFAULT_PORT = 8042

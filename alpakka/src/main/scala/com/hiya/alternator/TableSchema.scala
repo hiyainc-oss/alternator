@@ -1,6 +1,6 @@
 package com.hiya.alternator
 
-import java.util
+import java.util.{Map => JMap}
 
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, ScalarAttributeType}
 
@@ -12,8 +12,8 @@ import cats.instances.either._
 abstract class TableSchema[V](val serializeValue: CompoundDynamoFormat[V]) {
   type IndexType
 
-  def serializePK(pk: IndexType): util.Map[String, AttributeValue]
-  def extract(av: util.Map[String, AttributeValue]): DynamoFormat.Result[IndexType]
+  def serializePK(pk: IndexType): JMap[String, AttributeValue]
+  def extract(av: JMap[String, AttributeValue]): DynamoFormat.Result[IndexType]
   def extract(value: V): IndexType
   def schema: List[(String, ScalarAttributeType)]
 }
@@ -27,10 +27,10 @@ object TableSchema {
   ): TableSchema.Aux[V, PK] = new TableSchema[V](V) {
     override type IndexType = PK
 
-    override def serializePK(pk: PK): util.Map[String, AttributeValue] =
+    override def serializePK(pk: PK): JMap[String, AttributeValue] =
       Map(pkField -> PK.write(pk)).asJava
 
-    override def extract(av: util.Map[String, AttributeValue]): DynamoFormat.Result[PK] = {
+    override def extract(av: JMap[String, AttributeValue]): DynamoFormat.Result[PK] = {
       Option(av.get(pkField)).fold[DynamoFormat.Result[PK]](Left(DynamoAttributeError.AttributeIsNull))(PK.read)
     }
 
@@ -50,10 +50,10 @@ object TableSchema {
     override type RK = RKType
     override val RK = RKType
 
-    override def serializePK(pk: IndexType): util.Map[String, AttributeValue] =
+    override def serializePK(pk: IndexType): JMap[String, AttributeValue] =
       Map(pkField -> PK.write(pk._1), rkField -> RK.write(pk._2)).asJava
 
-    override def extract(av: util.Map[String, AttributeValue]): DynamoFormat.Result[IndexType] = {
+    override def extract(av: JMap[String, AttributeValue]): DynamoFormat.Result[IndexType] = {
       val pk = Option(av.get(pkField)).fold[DynamoFormat.Result[PK]](Left(DynamoAttributeError.AttributeIsNull))(PK.read)
       val rk = Option(av.get(rkField)).fold[DynamoFormat.Result[RK]](Left(DynamoAttributeError.AttributeIsNull))(RK.read)
       pk -> rk mapN { _ -> _ }
