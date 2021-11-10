@@ -25,7 +25,7 @@ class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
   final def getBuilder(pk: PK): GetItemRequest.Builder =
     GetItemRequest.builder().key(schema.serializePK(pk)).tableName(name)
 
-  final def get(pk: PK)(implicit client: DynamoDbAsyncClient, mat: Materializer): Future[Option[DynamoFormat.Result[V]]] = {
+  final def get(pk: PK)(implicit client: DynamoDbAsyncClient, system: ClassicActorSystemProvider): Future[Option[DynamoFormat.Result[V]]] = {
     import Table.parasitic
 
     DynamoDb.single(getBuilder(pk).build()).map(deserialize)
@@ -91,7 +91,7 @@ class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
   final def putBuilder(item: V): PutItemRequest.Builder =
     PutItemRequest.builder().item(schema.serializeValue.writeFields(item)).tableName(name)
 
-  final def put(value: V)(implicit client: DynamoDbAsyncClient, mat: Materializer): Future[Done] = {
+  final def put(value: V)(implicit client: DynamoDbAsyncClient, system: ClassicActorSystemProvider): Future[Done] = {
     import Table.parasitic
 
     val ret: Future[PutItemResponse] = DynamoDb.single(putBuilder(value).build())
@@ -114,7 +114,7 @@ class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
   final def deleteBuilder(key: PK): DeleteItemRequest.Builder =
     DeleteItemRequest.builder().key(schema.serializePK(key)).tableName(name)
 
-  final def delete(key: PK)(implicit client: DynamoDbAsyncClient, mat: Materializer): Future[Done] = {
+  final def delete(key: PK)(implicit client: DynamoDbAsyncClient, system: ClassicActorSystemProvider): Future[Done] = {
     import Table.parasitic
 
     val ret: Future[DeleteItemResponse] = DynamoDb.single(deleteBuilder(key).build())

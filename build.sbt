@@ -1,5 +1,5 @@
-ThisBuild / crossScalaVersions := Seq("2.13.4", "2.12.13")
-ThisBuild / scalaVersion := "2.13.4"
+ThisBuild / crossScalaVersions := Seq("2.13.7", "2.12.15")
+ThisBuild / scalaVersion := "2.13.7"
 ThisBuild / organization := "com.hiya"
 
 lazy val `alternator-attributevalue` = (project in (file("attributevalue")))
@@ -17,12 +17,12 @@ lazy val `alternator-alpakka` = (project in (file("alpakka")))
     dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
     dynamoDBLocalHeapSize := Some(256),
     dynamoDBLocalPort := 8484,
-    (javaOptions in Test) += s"-DdynamoDBLocalPort=8484",
-    startDynamoDBLocal := startDynamoDBLocal.dependsOn(compile in Test).value,
-    test in Test := (test in Test).dependsOn(startDynamoDBLocal).value,
-    testOnly in Test := (testOnly in Test).dependsOn(startDynamoDBLocal).evaluated,
-    testQuick in Test := (testQuick in Test).dependsOn(startDynamoDBLocal).evaluated,
-    testOptions in Test += dynamoDBLocalTestCleanup.value
+    (Test / javaOptions) += s"-DdynamoDBLocalPort=8484",
+    startDynamoDBLocal := startDynamoDBLocal.dependsOn(Test / compile).value,
+    Test / test := (Test / test).dependsOn(startDynamoDBLocal).value,
+    Test / testOnly := (Test / testOnly).dependsOn(startDynamoDBLocal).evaluated,
+    Test / testQuick := (Test / testQuick).dependsOn(startDynamoDBLocal).evaluated,
+    Test / testOptions += dynamoDBLocalTestCleanup.value
   )
 
 

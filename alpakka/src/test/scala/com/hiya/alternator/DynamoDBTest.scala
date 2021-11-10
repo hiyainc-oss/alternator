@@ -1,7 +1,7 @@
 package com.hiya.alternator
 
 import akka.Done
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, ClassicActorSystemProvider}
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.stream.Materializer
@@ -29,7 +29,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
   }
 
 
-  class ExampleDB(name: String)(implicit val client: DynamoDbAsyncClient, mat: Materializer)
+  class ExampleDB(name: String)(implicit val client: DynamoDbAsyncClient, system: ClassicActorSystemProvider)
   {
     import Table.parasitic
 
