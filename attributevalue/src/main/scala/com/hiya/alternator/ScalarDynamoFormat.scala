@@ -4,7 +4,6 @@ import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, ScalarAttributeType}
 
 import java.nio.ByteBuffer
-import scala.reflect.ClassTag
 
 
 trait ScalarDynamoFormat[T] extends DynamoFormat[T] {
@@ -96,7 +95,7 @@ object ScalarDynamoFormat {
         Right(ByteBuffer.wrap(x.asByteArray()))
       }, x => SdkBytes.fromByteArray(x.array()))
 
-    implicit def numberDynamoValue[T: Numeric : ClassTag]: ScalarDynamoFormat[T] = new ScalarDynamoFormat[T] {
+    implicit def numberDynamoValue[T: Numeric]: ScalarDynamoFormat[T] = new ScalarDynamoFormat[T] {
 
       override def attributeType: ScalarAttributeType =
         ScalarAttributeType.N

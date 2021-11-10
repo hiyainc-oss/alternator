@@ -1,15 +1,15 @@
 package com.hiya.alternator
 
+import akka.actor.ClassicActorSystemProvider
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, Scheduler}
-import akka.stream.Materializer
 import akka.stream.alpakka.dynamodb.scaladsl.DynamoDb
 import akka.stream.scaladsl.{BidiFlow, Flow, Source}
 import akka.util.Timeout
 import akka.{Done, NotUsed}
 import com.hiya.alternator.internal.BatchedBehavior
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
-import software.amazon.awssdk.services.dynamodb.model.{GetItemResponse, _}
+import software.amazon.awssdk.services.dynamodb.model._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._

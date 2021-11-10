@@ -7,6 +7,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 import java.nio.ByteBuffer
+import scala.annotation.unused
 import scala.reflect.runtime.universe._
 
 trait BaseCompatibilityTests extends ScalaCheckDrivenPropertyChecks with AnyFunSpecLike {
@@ -24,8 +25,8 @@ trait BaseCompatibilityTests extends ScalaCheckDrivenPropertyChecks with AnyFunS
   protected def listTest[T : ScanamoFormat]: ScanamoFormat[List[T]]
   protected def mapTest[T : ScanamoFormat]: ScanamoFormat[Map[String, T]]
 
-  private def testReadWrite[A: DynamoFormat : TypeTag](gen: Gen[A])(implicit A: ScanamoFormat[A]): Unit = {
-    val typeLabel = typeTag[A].tpe.toString
+  private def testReadWrite[A](gen: Gen[A])(implicit A: ScanamoFormat[A], @unused AA : DynamoFormat[A], TPE: TypeTag[A]): Unit = {
+    val typeLabel = TPE.tpe.toString
 
     implicit def fieldTestT[T : ScanamoFormat]: ScanamoFormat[Field[T]] =  fieldTest
     implicit def optionTestT[T : ScanamoFormat]: ScanamoFormat[Option[T]] = optionTest
