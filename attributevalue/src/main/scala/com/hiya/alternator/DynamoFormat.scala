@@ -1,10 +1,10 @@
 package com.hiya.alternator
 
-import cats.instances.either._
+import com.amazonaws.services.dynamodbv2.model.AttributeValue
+import cats.syntax.traverse._
 import cats.instances.list._
-import cats.syntax.all._
+import cats.instances.either._
 import com.hiya.alternator.generic.util.Exported
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 import scala.jdk.CollectionConverters._
 
@@ -38,16 +38,16 @@ object DynamoFormat extends DynamoFormatInstances with ScalarDynamoFormat.Instan
 
   final type Result[T] = Either[DynamoAttributeError, T]
 
-  val NullAttributeValue: AttributeValue = AttributeValue.builder().nul(true).build()
-  val TrueAttributeValue: AttributeValue = AttributeValue.builder().bool(true).build()
-  val FalseAttributeValue: AttributeValue = AttributeValue.builder().bool(false).build()
-  val EmptyListAttributeValue: AttributeValue = AttributeValue.builder().l(List.empty[AttributeValue].asJava).build()
-  val EmptyMapAttributeValue: AttributeValue = AttributeValue.builder().m(Map.empty[String, AttributeValue].asJava).build()
+  val NullAttributeValue: AttributeValue = new AttributeValue().withNULL(true)
+  val TrueAttributeValue: AttributeValue = new AttributeValue().withBOOL(true)
+  val FalseAttributeValue: AttributeValue = new AttributeValue().withBOOL(false)
+  val EmptyListAttributeValue: AttributeValue = new AttributeValue().withL(List.empty[AttributeValue].asJava)
+  val EmptyMapAttributeValue: AttributeValue = new AttributeValue().withM(Map.empty[String, AttributeValue].asJava)
 
   implicit def optionDynamoFormat[T: DynamoFormat]: DynamoFormat[Option[T]] = new DynamoFormat[Option[T]] {
 
     override def read(av: AttributeValue): DynamoFormat.Result[Option[T]] =
-      if (av.nul()) Right(None)
+      if (av.getNULL) Right(None)
       else DynamoFormat[T].read(av).map(Some(_))
 
     override def write(value: Option[T]): AttributeValue =
@@ -58,13 +58,13 @@ object DynamoFormat extends DynamoFormatInstances with ScalarDynamoFormat.Instan
 
   implicit def listDynamoFormat[T: DynamoFormat]: DynamoFormat[List[T]] = new DynamoFormat[List[T]] {
     override def read(av: AttributeValue): DynamoFormat.Result[List[T]] = {
-      if(av.hasL) av.l().asScala.toList.traverse(DynamoFormat[T].read)
+      if(av.getL != null) av.getL.asScala.toList.traverse(DynamoFormat[T].read)
       else Left(DynamoAttributeError.AttributeIsNull)
     }
 
     override def write(value: List[T]): AttributeValue =
       if (value.isEmpty) DynamoFormat.EmptyListAttributeValue
-      else AttributeValue.builder().l(value.map(x => DynamoFormat[T].writeIfNotEmpty(x).getOrElse(DynamoFormat.NullAttributeValue)).asJava).build()
+      else new AttributeValue().withL(value.map(x => DynamoFormat[T].writeIfNotEmpty(x).getOrElse(DynamoFormat.NullAttributeValue)).asJava)
 
     override def isEmpty(value: List[T]): Boolean = false
   }

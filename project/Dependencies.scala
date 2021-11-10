@@ -6,7 +6,8 @@ object Dependencies {
   private val akkaV = "2.6.9"
   private val akkaHttpV = "10.2.1"
 
-  private val dynamoDB            = "software.amazon.awssdk"      % "dynamodb"         % "2.15.2"
+  private val dynamoDB            = "com.amazonaws"               % "aws-java-sdk-dynamodb" % "1.11.862"
+
   private val shapeless           = "com.chuusai"                %% "shapeless"        % "2.3.3"
   private val scanamo             = "org.scanamo"                %% "scanamo"          % "1.0.0-M12-1"
   private val scalaTest           = "org.scalatest"              %% "scalatest"        % scalaCheckV

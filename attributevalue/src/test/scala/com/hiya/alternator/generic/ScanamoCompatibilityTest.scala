@@ -1,7 +1,5 @@
 package com.hiya.alternator.generic
 
-import java.nio.ByteBuffer
-
 import akka.util.ByteString
 import com.hiya.alternator.AttributeValueUtils._
 import com.hiya.alternator.DynamoFormat
@@ -13,12 +11,13 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scanamo.generic.auto._
 import org.scanamo.{DynamoFormat => ScanamoFormat}
 
+import java.nio.ByteBuffer
 import scala.reflect.runtime.universe._
 
 
 class ScanamoCompatibilityTest extends AnyFunSpec with Matchers with ScalaCheckDrivenPropertyChecks {
   import ScanamoCompatibilityTest._
-  import auto._
+  import com.hiya.alternator.generic.auto._
 
   private def testReadWrite1[A: DynamoFormat: TypeTag: ScanamoFormat](gen: Gen[A]): Unit = {
     val typeLabel = typeTag[A].tpe.toString
@@ -26,12 +25,10 @@ class ScanamoCompatibilityTest extends AnyFunSpec with Matchers with ScalaCheckD
       forAll(gen) { a: A =>
         val aws = ScanamoFormat[A].write(a).toAttributeValue
         val aws2 = DynamoFormat[A].write(a)
-        val aws2from1 = aws.toAws2
-        val aws1from2 = aws2.toAws
 
-        aws2 shouldEqual aws2from1
+        aws2 shouldEqual aws
         DynamoFormat[A].read(aws2) shouldBe ScanamoFormat[A].read(aws)
-        DynamoFormat[A].read(aws2from1) shouldBe ScanamoFormat[A].read(aws1from2)
+        DynamoFormat[A].read(aws) shouldBe ScanamoFormat[A].read(aws2)
       }
     }
   }

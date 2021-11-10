@@ -1,7 +1,7 @@
 package com.hiya.alternator.generic.format
 
-import com.hiya.alternator.DynamoAttributeError.IllegalDistriminator
 import com.hiya.alternator.DynamoFormat
+import com.hiya.alternator.DynamoAttributeError.IllegalDistriminator
 import shapeless.{HNil, LabelledGeneric}
 
 trait CaseObjectDynamoFormat[T] {

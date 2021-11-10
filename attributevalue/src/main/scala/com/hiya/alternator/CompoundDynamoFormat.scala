@@ -1,9 +1,8 @@
 package com.hiya.alternator
 
+import com.amazonaws.services.dynamodbv2.model.AttributeValue
+
 import java.util
-
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
-
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -13,12 +12,13 @@ trait CompoundDynamoFormat[T] extends DynamoFormat[T] {
   def writeFields(value: T): util.Map[String, AttributeValue]
 
   override def read(av: AttributeValue): DynamoFormat.Result[T] = {
-    if (av.hasM) readFields(av.m())
+    if (av.getM != null) readFields(av.getM)
     else Left(DynamoAttributeError.TypeError(av, "M"))
   }
 
-  override def write(value: T): AttributeValue =
-    AttributeValue.builder().m(writeFields(value)).build()
+  override def write(value: T): AttributeValue = {
+    new AttributeValue().withM(writeFields(value))
+  }
 
   override def isEmpty(value: T): Boolean = false
 
