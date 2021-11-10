@@ -46,7 +46,7 @@ object Dependencies {
   }
 
   val AttributeValue = Seq(
-    dynamoDB2,
+    dynamoDB1,
     shapeless,
     cats,
     collectionsCompat,

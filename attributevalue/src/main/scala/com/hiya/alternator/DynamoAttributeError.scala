@@ -1,6 +1,6 @@
 package com.hiya.alternator
 
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import com.amazonaws.services.dynamodbv2.model.AttributeValue
 
 sealed trait DynamoAttributeError {
   def message: String

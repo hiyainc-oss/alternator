@@ -1,14 +1,13 @@
 package com.hiya.alternator.generic.format
 
 import java.util
-
 import cats.instances.either._
 import cats.syntax.all._
+import com.amazonaws.services.dynamodbv2.model.AttributeValue
 import com.hiya.alternator.DynamoFormat.Result
 import com.hiya.alternator.{CompoundDynamoFormat, DynamoFormat}
 import shapeless._
 import shapeless.labelled.{FieldType, field}
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 import scala.jdk.CollectionConverters._
 

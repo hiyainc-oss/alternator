@@ -1,11 +1,11 @@
 package com.hiya.alternator.generic.format
 
-import java.util
-
-import com.hiya.alternator.DynamoFormat.Result
+import com.amazonaws.services.dynamodbv2.model.AttributeValue
 import com.hiya.alternator.CompoundDynamoFormat
+
+import java.util
+import com.hiya.alternator.DynamoFormat.Result
 import shapeless.{LabelledGeneric, Lazy}
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 
 trait DerivedDynamoFormat[T] extends CompoundDynamoFormat[T]

@@ -21,13 +21,13 @@ class FormatTest extends AnyFunSpec with Matchers {
     }
 
     it("should derive a case class [int]") {
-      import auto._
+      import com.hiya.alternator.generic.auto._
       final case class Test(a: Int)
       iso(Test(1))
     }
 
     it("should derive a sealed trait") {
-      import auto._
+      import com.hiya.alternator.generic.auto._
 
       sealed abstract class A
       final case class B(s: String) extends A

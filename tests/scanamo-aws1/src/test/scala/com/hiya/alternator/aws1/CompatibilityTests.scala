@@ -1,5 +1,6 @@
 package com.hiya.alternator.aws1
 
+import com.amazonaws.services.dynamodbv2.model.AttributeValue
 import com.hiya.alternator.BaseCompatibilityTests.Field
 import com.hiya.alternator.DynamoFormat.Result
 import com.hiya.alternator.{AttributeValueUtils, BaseCompatibilityTests}
@@ -7,7 +8,6 @@ import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scanamo.DynamoFormat
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 class CompatibilityTests  extends AnyFunSpec with Matchers with ScalaCheckDrivenPropertyChecks with BaseCompatibilityTests {
   import AttributeValueUtils._
@@ -16,9 +16,8 @@ class CompatibilityTests  extends AnyFunSpec with Matchers with ScalaCheckDriven
     override def compare(a: T, aws2: AttributeValue, read: AttributeValue => Result[T]): Unit = {
       val aws = DynamoFormat[T].write(a).toAttributeValue
 
-      aws2 shouldEqual aws.toAws2
-      read(aws2) shouldEqual DynamoFormat[T].read(aws.deepCopy())
-      read(aws.toAws2) shouldEqual DynamoFormat[T].read(aws2.toAws)
+      aws2 shouldEqual aws
+      read(aws2) shouldEqual DynamoFormat[T].read(aws)
 
       ()
     }

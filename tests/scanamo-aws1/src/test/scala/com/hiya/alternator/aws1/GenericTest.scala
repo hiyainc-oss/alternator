@@ -25,12 +25,9 @@ class GenericTest extends AnyFunSpec with Matchers with ScalaCheckDrivenProperty
       forAll(gen) { a: A =>
         val aws = ScanamoFormat[A].write(a).toAttributeValue
         val aws2 = DynamoFormat[A].write(a)
-        val aws2from1 = aws.toAws2
-        val aws1from2 = aws2.toAws
 
-        aws2 shouldEqual aws2from1
+        aws2 shouldEqual aws
         DynamoFormat[A].read(aws2) shouldBe ScanamoFormat[A].read(aws)
-        DynamoFormat[A].read(aws2from1) shouldBe ScanamoFormat[A].read(aws1from2)
       }
     }
   }

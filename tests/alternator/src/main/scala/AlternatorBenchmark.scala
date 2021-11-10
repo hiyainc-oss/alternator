@@ -1,8 +1,8 @@
 package com.hiya.alternator
 
+import com.amazonaws.services.dynamodbv2.model.AttributeValue
 import com.hiya.alternator.DynamoFormat.Result
 import org.openjdk.jmh.annotations._
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 
 @State(Scope.Thread)

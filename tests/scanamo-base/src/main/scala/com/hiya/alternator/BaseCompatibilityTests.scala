@@ -1,10 +1,10 @@
 package com.hiya.alternator
 
+import com.amazonaws.services.dynamodbv2.model.AttributeValue
 import com.hiya.alternator.generic.auto._
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.funspec.AnyFunSpecLike
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 import java.nio.ByteBuffer
 import scala.reflect.runtime.universe._
