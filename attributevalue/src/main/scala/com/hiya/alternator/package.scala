@@ -1,3 +1,5 @@
 package com.hiya
 
-package object alternator extends NumericCompat
+package object alternator
+  extends NumericCompat
+

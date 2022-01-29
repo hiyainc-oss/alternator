@@ -16,6 +16,7 @@ object DataPK {
 
   implicit val config = new TableConfig[DataPK] {
     override type Key = String
+    override type TableType = Table[DataPK, String]
 
     override def createData(i: Int, v: Option[Int]): (String, DataPK) = {
       i.toString -> DataPK(i.toString, v.getOrElse(i))

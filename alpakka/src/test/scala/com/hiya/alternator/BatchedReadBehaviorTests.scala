@@ -73,7 +73,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
 
       forAll (result) { case (data, pt) =>
         inside(data) {
-          case Some(p) => p shouldBe pt
+          case Some(Right(p)) => p shouldBe pt
         }
       }
     }
@@ -106,6 +106,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
 
   describe("stream with RK table") {
     it should behave like streamWrite[DataRK]
+
   }
 
 }

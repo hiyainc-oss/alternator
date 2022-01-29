@@ -17,6 +17,10 @@ object DynamoAttributeError {
     override def withFieldName(name: String): FieldFormatError = FieldFormatError(name, this)
   }
 
+  final case class InvalidFormat(exception: Exception) extends FormatError {
+    override def message: String = s"${exception.getMessage}"
+  }
+
   final case class NumberFormatError(original: String, typeName: String) extends FormatError {
     override def message: String = s"String $original cannot be parsed as $typeName"
   }

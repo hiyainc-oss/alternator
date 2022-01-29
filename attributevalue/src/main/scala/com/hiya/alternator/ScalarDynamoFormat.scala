@@ -4,7 +4,6 @@ import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, ScalarAttributeType}
 
 import java.nio.ByteBuffer
-import scala.reflect.ClassTag
 
 
 trait ScalarDynamoFormat[T] extends DynamoFormat[T] {
@@ -29,12 +28,34 @@ trait ScalarDynamoFormat[T] extends DynamoFormat[T] {
   }
 }
 
+trait StringLikeDynamoFormat[T] extends ScalarDynamoFormat[T] {
+  override def emap[B](f: T => Either[DynamoAttributeError, B], g: B => T): StringLikeDynamoFormat[B] = new StringLikeDynamoFormat[B] {
+
+    override def attributeType: ScalarAttributeType =
+      StringLikeDynamoFormat.this.attributeType
+
+    override def read(av: AttributeValue): DynamoFormat.Result[B] =
+      StringLikeDynamoFormat.this.read(av) match {
+        case Left(err) => Left(err)
+        case Right(value) => f(value)
+      }
+
+    override def write(value: B): AttributeValue =
+      StringLikeDynamoFormat.this.write(g(value))
+
+    override def isEmpty(value: B): Boolean =
+      StringLikeDynamoFormat.this.isEmpty(g(value))
+  }
+}
+
 object ScalarDynamoFormat {
+  def apply[T](implicit T: ScalarDynamoFormat[T]): ScalarDynamoFormat[T] = T
+
   def coerceNumeric[T: Numeric](av: String): DynamoFormat.Result[T] =
     Numeric[T].parseString(av).fold[DynamoFormat.Result[T]](Left(DynamoAttributeError.NumberFormatError(av, Numeric[T].toString)))(Right(_))
 
   trait Instances {
-    implicit val stringDynamoValue: ScalarDynamoFormat[String] = new ScalarDynamoFormat[String] {
+    implicit val stringDynamoValue: StringLikeDynamoFormat[String] = new StringLikeDynamoFormat[String] {
 
       override def attributeType: ScalarAttributeType =
         ScalarAttributeType.S
@@ -48,7 +69,7 @@ object ScalarDynamoFormat {
       override def isEmpty(value: String): Boolean = value.isEmpty
     }
 
-    implicit val binaryDynamoValue: ScalarDynamoFormat[SdkBytes] = new ScalarDynamoFormat[SdkBytes] {
+    implicit val binaryDynamoValue: StringLikeDynamoFormat[SdkBytes] = new StringLikeDynamoFormat[SdkBytes] {
 
       override def attributeType: ScalarAttributeType =
         ScalarAttributeType.B
@@ -63,17 +84,18 @@ object ScalarDynamoFormat {
       override def isEmpty(value: SdkBytes): Boolean = false
     }
 
-    implicit val byteArray: ScalarDynamoFormat[Array[Byte]] = binaryDynamoValue.emap({ x =>
+    implicit val byteArray: StringLikeDynamoFormat[Array[Byte]] = binaryDynamoValue.emap({ x =>
       Right(x.asByteArray())
     },
       x => SdkBytes.fromByteArray(x)
     )
-    implicit val byteString: ScalarDynamoFormat[ByteBuffer] =
+
+    implicit val byteString: StringLikeDynamoFormat[ByteBuffer] =
       binaryDynamoValue.emap({x =>
         Right(ByteBuffer.wrap(x.asByteArray()))
       }, x => SdkBytes.fromByteArray(x.array()))
 
-    implicit def numberDynamoValue[T: Numeric : ClassTag]: ScalarDynamoFormat[T] = new ScalarDynamoFormat[T] {
+    implicit def numberDynamoValue[T: Numeric]: ScalarDynamoFormat[T] = new ScalarDynamoFormat[T] {
 
       override def attributeType: ScalarAttributeType =
         ScalarAttributeType.N

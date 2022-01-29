@@ -7,7 +7,7 @@ import software.amazon.awssdk.core.exception.SdkServiceException
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, BatchGetItemRequest, BatchGetItemResponse, KeysAndAttributes, ProvisionedThroughputExceededException}
 
-import java.util
+import java.util.{Map => JMap}
 import scala.collection.compat._
 import scala.collection.immutable.Queue
 import scala.collection.mutable
@@ -32,7 +32,7 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
 
   private class AwsClientAdapter(client: DynamoDbAsyncClient) {
 
-    private def isSubMapOf(small: util.Map[String, AttributeValue], in: util.Map[String, AttributeValue]): Boolean =
+    private def isSubMapOf(small: JMap[String, AttributeValue], in: JMap[String, AttributeValue]): Boolean =
       in.entrySet().containsAll(small.entrySet())
 
 

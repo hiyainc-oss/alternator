@@ -39,9 +39,9 @@ class BatchedWriteBehaviorTests extends AnyFunSpec with Matchers with Inside wit
 
   def streamWrite[Data](implicit tableConfig: TableConfig[Data]): Unit = {
     def generateData(nums: Int, writes: Int): List[Data] = {
-      val state = Array.from((0 until nums).map {
+      val state = (0 until nums).map {
         _ -> 0
-      })
+      }.toArray
       var stateSize = state.length
       val result = List.newBuilder[Data]
 
@@ -91,7 +91,7 @@ class BatchedWriteBehaviorTests extends AnyFunSpec with Matchers with Inside wit
 
       forAll(data) { case (data, pt) =>
         inside(data) {
-          case Some(p) => p shouldBe pt
+          case Some(Right(p)) => p shouldBe pt
         }
       }
     }

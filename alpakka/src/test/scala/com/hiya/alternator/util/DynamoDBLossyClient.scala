@@ -21,14 +21,16 @@ class DynamoDbLossyClient(stableClient: DynamoDbAsyncClient)(implicit system: Ac
     override def batchWriteItem(batchWriteItemRequest: BatchWriteItemRequest): CompletableFuture[BatchWriteItemResponse] = {
       Random.nextDouble() match {
         case p if p < 0.2 =>
-          Future.failed(ProvisionedThroughputExceededException.builder().build()).toJava.toCompletableFuture
+          Future.failed[BatchWriteItemResponse](ProvisionedThroughputExceededException.builder().build())
+            .toJava.toCompletableFuture
         case p if p < 0.9 =>
           val (ok, fail) =
             fromItemMap(batchWriteItemRequest.requestItems())
               .partition(_ => Random.nextDouble() < 0.5)
 
           if (ok.isEmpty)
-            Future.failed(ProvisionedThroughputExceededException.builder().build()).toJava.toCompletableFuture
+            Future.failed[BatchWriteItemResponse](ProvisionedThroughputExceededException.builder().build())
+              .toJava.toCompletableFuture
           else {
             stableClient.batchWriteItem(
               BatchWriteItemRequest.builder().requestItems(toItemMap(ok)).build()
@@ -68,14 +70,16 @@ class DynamoDbLossyClient(stableClient: DynamoDbAsyncClient)(implicit system: Ac
     override def batchGetItem(batchGetItemRequest: BatchGetItemRequest): CompletableFuture[BatchGetItemResponse] = {
       Random.nextDouble() match {
         case p if p < 0.2 =>
-          Future.failed(ProvisionedThroughputExceededException.builder().build()).toJava.toCompletableFuture
+          Future.failed[BatchGetItemResponse](ProvisionedThroughputExceededException.builder().build())
+            .toJava.toCompletableFuture
         case p if p < 0.9 =>
           val (ok, fail) =
             fromKeyMap(batchGetItemRequest.requestItems())
               .partition(_ => Random.nextDouble() < 0.5)
 
           if (ok.isEmpty)
-            Future.failed(ProvisionedThroughputExceededException.builder().build()).toJava.toCompletableFuture
+            Future.failed[BatchGetItemResponse](ProvisionedThroughputExceededException.builder().build())
+              .toJava.toCompletableFuture
           else {
             stableClient.batchGetItem(
               BatchGetItemRequest.builder().requestItems(toKeyMap(ok)).build()

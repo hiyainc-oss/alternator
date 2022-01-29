@@ -1,41 +1,59 @@
 package com.hiya.alternator
 
+import akka.actor.ClassicActorSystemProvider
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, Scheduler}
-import akka.stream.Materializer
 import akka.stream.alpakka.dynamodb.scaladsl.DynamoDb
-import akka.stream.scaladsl.{BidiFlow, Flow}
+import akka.stream.scaladsl.{BidiFlow, Flow, Source}
 import akka.util.Timeout
 import akka.{Done, NotUsed}
-import cats.instances.option._
-import cats.syntax.traverse._
 import com.hiya.alternator.internal.BatchedBehavior
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
-import software.amazon.awssdk.services.dynamodb.model.{GetItemResponse, _}
+import software.amazon.awssdk.services.dynamodb.model._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
-class Table[V, PK](name: String, schema: TableSchema.Aux[V, PK]) {
 
+final case class Segment(segment: Int, totalSegments: Int)
+
+class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
+
+  import util._
 
   final def getBuilder(pk: PK): GetItemRequest.Builder =
     GetItemRequest.builder().key(schema.serializePK(pk)).tableName(name)
 
-  final def get(pk: PK)(implicit client: DynamoDbAsyncClient, mat: Materializer): Future[Option[V]] = {
+  final def get(pk: PK)(implicit client: DynamoDbAsyncClient, system: ClassicActorSystemProvider): Future[Option[DynamoFormat.Result[V]]] = {
     import Table.parasitic
 
-    val ret: Future[GetItemResponse] = DynamoDb.single(getBuilder(pk).build())
-    ret.flatMap(result => Future.fromTry(deserialize(result)))
+    DynamoDb.single(getBuilder(pk).build()).map(deserialize)
   }
 
-  final def deserialize(response: BatchedBehavior.AV): Try[V] = {
-    Table.orFail(schema.serializeValue.readFields(response))
+  final def scanBuilder(segment: Option[Segment] = None): ScanRequest.Builder = {
+    ScanRequest.builder()
+      .tableName(name)
+      .optApp(req => (segment: Segment) => req.segment(segment.segment).totalSegments(segment.totalSegments))(segment)
   }
 
-  final def deserialize(response: GetItemResponse): Try[Option[V]] = {
-    if (response.hasItem) Option(response.item()).traverse(deserialize)
-    else Success(None)
+  final def scan(segment: Option[Segment] = None)(implicit client: DynamoDbAsyncClient): Source[DynamoFormat.Result[V], NotUsed] = {
+    DynamoDb.source(scanBuilder(segment).build())
+      .mapConcat(deserialize)
+  }
+
+  final def deserialize(response: BatchedBehavior.AV): DynamoFormat.Result[V] = {
+    schema.serializeValue.readFields(response)
+  }
+
+  final def deserialize(response: GetItemResponse): Option[DynamoFormat.Result[V]] = {
+    if (response.hasItem) Option(response.item()).map(deserialize)
+    else None
+  }
+
+  final def deserialize(response: ScanResponse): List[DynamoFormat.Result[V]] = {
+    if (response.hasItems) response.items().asScala.toList.map(deserialize)
+    else Nil
   }
 
   final val readerFlow: BidiFlow[PK, GetItemRequest.Builder, GetItemResponse, DynamoFormat.Result[V], NotUsed] = {
@@ -45,27 +63,27 @@ class Table[V, PK](name: String, schema: TableSchema.Aux[V, PK]) {
     )
   }
 
-  final def readRequest(key: PK): Table.ReadRequest[Option[V]] =
+  final def readRequest(key: PK): Table.ReadRequest[Option[DynamoFormat.Result[V]]] =
     Table.ReadRequestWoPT(
       name -> schema.serializePK(key),
       deserialize(_:BatchedBehavior.AV)
     )
 
-  final def readRequest[PT](key: PK, pt: PT): Table.ReadRequest[(Option[V], PT)] =
+  final def readRequest[PT](key: PK, pt: PT): Table.ReadRequest[(Option[DynamoFormat.Result[V]], PT)] =
     Table.ReadRequestWPT(
       name -> schema.serializePK(key),
       deserialize(_:BatchedBehavior.AV),
       pt
     )
 
-  final def batchedGet(key: PK)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Option[V]] = {
+  final def batchedGet(key: PK)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Option[DynamoFormat.Result[V]]] = {
     readRequest(key).send()
   }
 
-  final def batchedGetFlow(parallelism: Int)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[PK, Option[V], NotUsed] =
+  final def batchedGetFlow(parallelism: Int)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[PK, Option[DynamoFormat.Result[V]], NotUsed] =
     Flow[PK].mapAsync(parallelism)(batchedGet)
 
-  final def batchedGetFlowUnordered[PT](parallelism: Int)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[(PK, PT), (Option[V], PT), NotUsed] =
+  final def batchedGetFlowUnordered[PT](parallelism: Int)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[(PK, PT), (Option[DynamoFormat.Result[V]], PT), NotUsed] =
     Flow[(PK, PT)].mapAsyncUnordered(parallelism) { case (key, pt) =>
       batchedGet(key).map(_ -> pt)(Table.parasitic)
     }
@@ -73,7 +91,7 @@ class Table[V, PK](name: String, schema: TableSchema.Aux[V, PK]) {
   final def putBuilder(item: V): PutItemRequest.Builder =
     PutItemRequest.builder().item(schema.serializeValue.writeFields(item)).tableName(name)
 
-  final def put(value: V)(implicit client: DynamoDbAsyncClient, mat: Materializer): Future[Done] = {
+  final def put(value: V)(implicit client: DynamoDbAsyncClient, system: ClassicActorSystemProvider): Future[Done] = {
     import Table.parasitic
 
     val ret: Future[PutItemResponse] = DynamoDb.single(putBuilder(value).build())
@@ -96,7 +114,7 @@ class Table[V, PK](name: String, schema: TableSchema.Aux[V, PK]) {
   final def deleteBuilder(key: PK): DeleteItemRequest.Builder =
     DeleteItemRequest.builder().key(schema.serializePK(key)).tableName(name)
 
-  final def delete(key: PK)(implicit client: DynamoDbAsyncClient, mat: Materializer): Future[Done] = {
+  final def delete(key: PK)(implicit client: DynamoDbAsyncClient, system: ClassicActorSystemProvider): Future[Done] = {
     import Table.parasitic
 
     val ret: Future[DeleteItemResponse] = DynamoDb.single(deleteBuilder(key).build())
@@ -127,7 +145,7 @@ class Table[V, PK](name: String, schema: TableSchema.Aux[V, PK]) {
 }
 
 object Table {
-  private implicit lazy val parasitic: ExecutionContext = {
+  private [alternator] implicit lazy val parasitic: ExecutionContext = {
     // The backport is present in akka, so we will just use it by reflection
     // It probably will not change, as it is a stable internal api
     val q = akka.dispatch.ExecutionContexts
@@ -150,24 +168,24 @@ object Table {
   def unorderedReader[V](parallelism: Int)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[ReadRequest[V], V, NotUsed] =
     Flow[ReadRequest[V]].mapAsyncUnordered(parallelism)(_.send())
 
-  private def sendRead[V](pk: BatchedBehavior.PK, deserializer: BatchedBehavior.AV => Try[V])(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Option[V]] =
+  private def sendRead[V](pk: BatchedBehavior.PK, deserializer: BatchedBehavior.AV => DynamoFormat.Result[V])(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Option[DynamoFormat.Result[V]]] =
     actorRef
       .ask((ref: BatchedReadBehavior.Ref) =>
         BatchedReadBehavior.Req(pk, ref)
       )
-      .flatMap(result => Future.fromTry { result.flatMap(_.traverse(deserializer)) })
+      .flatMap(result => Future.fromTry(result.map(_.map(deserializer))))
 
   sealed trait ReadRequest[V] {
     def send()(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[V]
   }
 
-  final case class ReadRequestWoPT[V](pk: BatchedBehavior.PK, deserializer: BatchedBehavior.AV => Try[V]) extends ReadRequest[Option[V]] {
-    def send()(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Option[V]] =
+  final case class ReadRequestWoPT[V](pk: BatchedBehavior.PK, deserializer: BatchedBehavior.AV => DynamoFormat.Result[V]) extends ReadRequest[Option[DynamoFormat.Result[V]]] {
+    def send()(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Option[DynamoFormat.Result[V]]] =
       sendRead(pk, deserializer)
   }
 
-  final case class ReadRequestWPT[V, PT](pk: BatchedBehavior.PK, deserializer: BatchedBehavior.AV => Try[V], pt: PT) extends ReadRequest[(Option[V], PT)] {
-    def send()(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[(Option[V], PT)] =
+  final case class ReadRequestWPT[V, PT](pk: BatchedBehavior.PK, deserializer: BatchedBehavior.AV => DynamoFormat.Result[V], pt: PT) extends ReadRequest[(Option[DynamoFormat.Result[V]], PT)] {
+    def send()(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[(Option[DynamoFormat.Result[V]], PT)] =
       sendRead(pk, deserializer).map(_ -> pt)
 
   }
@@ -191,6 +209,11 @@ object Table {
 
   def tableWithPK[V](name: String)(
     implicit tableSchema: TableSchema[V]
-  ): Table[V, tableSchema.PKType] = new Table[V, tableSchema.PKType](name, tableSchema)
+  ): Table[V, tableSchema.IndexType] = new Table[V, tableSchema.IndexType](name, tableSchema)
+
+  def tableWithRK[V](name: String)(
+    implicit tableSchema: TableSchemaWithRange[V]
+  ): TableWithRange[V, tableSchema.PK, tableSchema.RK] =
+    new TableWithRange[V, tableSchema.PK, tableSchema.RK](name, tableSchema)
 
 }
