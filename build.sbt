@@ -1,6 +1,15 @@
 ThisBuild / crossScalaVersions := Seq("2.13.7", "2.12.15")
 ThisBuild / scalaVersion := "2.13.7"
 ThisBuild / organization := "com.hiya"
+ThisBuild / versionScheme := Some("early-semver")
+
+
+ThisBuild / githubOwner := "hiyainc-oss"
+ThisBuild / githubRepository := "alternator"
+
+ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
+ThisBuild / githubWorkflowPublishTargetBranches := Seq(RefPredicate.StartsWith(Ref.Tag("v")))
+
 
 lazy val `alternator-attributevalue` = (project in (file("attributevalue")))
   .settings(
