@@ -2,7 +2,7 @@ import sbt._
 import sbt.Keys._
 
 object BuildConfig {
-  private val silencerV = "1.7.7"
+  private val silencerV = "1.7.8"
 
   private lazy val Silencer = Seq(
     compilerPlugin("com.github.ghik" % "silencer-plugin" % silencerV cross CrossVersion.full),

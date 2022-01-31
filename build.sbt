@@ -1,5 +1,5 @@
-ThisBuild / crossScalaVersions := Seq("2.13.7", "2.12.15")
-ThisBuild / scalaVersion := "2.13.7"
+ThisBuild / crossScalaVersions := Seq("2.13.8", "2.12.15")
+ThisBuild / scalaVersion := "2.13.8"
 ThisBuild / organization := "com.hiya"
 ThisBuild / versionScheme := Some("early-semver")
 
@@ -15,7 +15,7 @@ lazy val `alternator-attributevalue` = (project in (file("attributevalue")))
   .settings(
     BuildConfig.commonSettings,
     libraryDependencies ++= Dependencies.AttributeValue,
-    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
+    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
   )
 
 lazy val `alternator-alpakka` = (project in (file("alpakka")))
@@ -31,7 +31,8 @@ lazy val `alternator-alpakka` = (project in (file("alpakka")))
     Test / test := (Test / test).dependsOn(startDynamoDBLocal).value,
     Test / testOnly := (Test / testOnly).dependsOn(startDynamoDBLocal).evaluated,
     Test / testQuick := (Test / testQuick).dependsOn(startDynamoDBLocal).evaluated,
-    Test / testOptions += dynamoDBLocalTestCleanup.value
+    Test / testOptions += dynamoDBLocalTestCleanup.value,
+    Test / fork := true
   )
 
 
