@@ -11,3 +11,6 @@ addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.3")
 addSbtPlugin("com.codecommit" % "sbt-github-actions" % "0.14.2")
 
 addSbtPlugin("com.codecommit" % "sbt-github-packages" % "0.5.3")
+
+addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.1.1")
+
