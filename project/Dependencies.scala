@@ -1,8 +1,8 @@
 import sbt._
 
 object Dependencies {
-  private val akkaV = "2.6.17"
-  private val akkaHttpV = "10.2.7"
+  private val akkaHttpV = "10.1.11" // same version as in alpakka
+  private val akkaV = "2.6.14"      // same version as in alpakka
 
   private val dynamoDB2           = "software.amazon.awssdk"      % "dynamodb"         % "2.17.77"
   private val dynamoDB1           = "com.amazonaws"               % "aws-java-sdk-dynamodb" % "1.11.956"
