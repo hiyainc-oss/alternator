@@ -1,7 +1,6 @@
 import sbt._
 
 object Dependencies {
-  private val akkaHttpV = "10.1.11" // same version as in alpakka
   private val akkaV = "2.6.14"      // same version as in alpakka
 
   private val dynamoDB2           = "software.amazon.awssdk"      % "dynamodb"         % "2.17.77"
@@ -18,7 +17,6 @@ object Dependencies {
   private val akkaStream          = "com.typesafe.akka"          %% "akka-stream"      % akkaV
   private val scalaCheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.15" % "1.3.0"
   private val alpakkaDynamoDB     = "com.lightbend.akka"         %% "akka-stream-alpakka-dynamodb" % "3.0.4"
-  private val akkaHttp            = "com.typesafe.akka"          %% "akka-http"         % akkaHttpV
   private val collectionsCompat   = "org.scala-lang.modules"     %% "scala-collection-compat" % "2.6.0"
   private val scalaJava8Compat    = "org.scala-lang.modules"     %% "scala-java8-compat"     % "1.0.2"
   private val logback             = "ch.qos.logback" % "logback-classic" % "1.2.6"
@@ -28,8 +26,7 @@ object Dependencies {
     val ScanamoBase = Seq(
       dynamoDB1,
       scalaTest,
-      scalaCheck,
-      scalaCheckShapeless
+      scalaCheck
     )
 
     val ScanamoAws1 = Seq(
@@ -56,7 +53,6 @@ object Dependencies {
 
   val Alpakka = Seq(
     alpakkaDynamoDB,
-    akkaHttp,
     akkaTyped,
     akkaStream,
     akkaActor,

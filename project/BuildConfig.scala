@@ -5,8 +5,7 @@ object BuildConfig {
   private val silencerV = "1.7.8"
 
   private lazy val Silencer = Seq(
-    compilerPlugin("com.github.ghik" % "silencer-plugin" % silencerV cross CrossVersion.full),
-    "com.github.ghik" % "silencer-lib" % silencerV % Provided cross CrossVersion.full
+    compilerPlugin("com.github.ghik" % "silencer-plugin" % silencerV cross CrossVersion.full)
   )
 
   lazy val silencerSettings = Seq(

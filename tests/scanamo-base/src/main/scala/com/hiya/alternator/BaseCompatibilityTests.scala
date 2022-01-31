@@ -1,6 +1,5 @@
 package com.hiya.alternator
 
-import com.github.ghik.silencer.silent
 import com.hiya.alternator.generic.auto._
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.funspec.AnyFunSpecLike
@@ -8,6 +7,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 import java.nio.ByteBuffer
+import scala.annotation.nowarn
 import scala.reflect.runtime.universe._
 
 trait BaseCompatibilityTests extends ScalaCheckDrivenPropertyChecks with AnyFunSpecLike {
@@ -25,8 +25,7 @@ trait BaseCompatibilityTests extends ScalaCheckDrivenPropertyChecks with AnyFunS
   protected def listTest[T : ScanamoFormat]: ScanamoFormat[List[T]]
   protected def mapTest[T : ScanamoFormat]: ScanamoFormat[Map[String, T]]
 
-  @silent("AA")
-  private def testReadWrite[A](gen: Gen[A])(implicit A: ScanamoFormat[A], AA : DynamoFormat[A], TPE: TypeTag[A]): Unit = {
+  private def testReadWrite[A](gen: Gen[A])(implicit A: ScanamoFormat[A], @nowarn AA : DynamoFormat[A], TPE: TypeTag[A]): Unit = {
     val typeLabel = TPE.tpe.toString
 
     implicit def fieldTestT[T : ScanamoFormat]: ScanamoFormat[Field[T]] =  fieldTest
