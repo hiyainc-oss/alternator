@@ -1,17 +1,17 @@
 package com.hiya.alternator.internal
 
-import java.util
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
-import BatchedBehavior.RetryPolicy
+import com.hiya.alternator.RetryPolicy
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
+import java.util
 import scala.annotation.tailrec
+import scala.collection.compat._
 import scala.collection.immutable.Queue
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
-import scala.collection.compat._
 
 
 /**
@@ -145,7 +145,4 @@ object BatchedBehavior {
   private [alternator] type AV = util.Map[String, AttributeValue]
   private [alternator] type PK = (String, AV)
 
-  trait RetryPolicy {
-    def getRetry(retry: Int): FiniteDuration
-  }
 }
