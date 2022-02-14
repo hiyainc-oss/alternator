@@ -7,6 +7,7 @@ import software.amazon.awssdk.core.exception.SdkServiceException
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model._
 
+import java.util.concurrent.CompletionException
 import java.util.{Map => JMap}
 import scala.collection.compat._
 import scala.collection.immutable.Queue
@@ -132,6 +133,8 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
 
     override protected def jobFailure(ex: Throwable, keys: FuturePassThru, buffer: Buffer): BatchedReadBehavior.ProcessResult = {
       ex match {
+        case ex : CompletionException =>
+          jobFailure(ex.getCause, keys, buffer)
         case ex : ProvisionedThroughputExceededException =>
           getRetries(retryPolicy.delayForThrottle, keys, buffer, ex)
         case ex : SdkServiceException if ex.isThrottlingException  =>
@@ -139,7 +142,7 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
         case ex : SdkServiceException if ex.retryable() || ex.statusCode >= 500 =>
           getRetries(retryPolicy.delayForError, keys, buffer, ex)
         case _ =>
-          val buffer2 = keys.foldLeft(buffer) { case (buffer, key) =>
+           val buffer2 = keys.foldLeft(buffer) { case (buffer, key) =>
             val refs = buffer(key)
             sendResult(refs.refs, Failure(ex))
             buffer - key

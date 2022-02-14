@@ -11,6 +11,7 @@ import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, Inside, Inspectors}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
+import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
 
 import scala.collection.immutable
 import scala.concurrent.duration._
@@ -61,6 +62,21 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
       tableConfig.withTable(stableClient) { table =>
         Await.result(writeData(table, nums), TEST_TIMEOUT)
         f(table)
+      }
+    }
+
+    it("should report if table not exists") {
+      val table: Table[Data, tableConfig.Key] =
+        tableConfig.table("doesnotexists")
+
+      intercept[ResourceNotFoundException] {
+        Await.result(
+          Source(List(1))
+            .map(k => tableConfig.createData(k))
+            .via(table.batchedGetFlowUnordered[Data](100))
+            .grouped(Int.MaxValue)
+            .runWith(Sink.head),
+          TEST_TIMEOUT)
       }
     }
 
