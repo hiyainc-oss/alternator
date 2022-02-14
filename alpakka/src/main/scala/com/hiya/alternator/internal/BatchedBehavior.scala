@@ -2,7 +2,6 @@ package com.hiya.alternator.internal
 
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
-import com.hiya.alternator.RetryPolicy
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 import java.util
@@ -40,7 +39,7 @@ private [alternator] trait BatchedBehavior {
 
   protected case class ProcessResult(
     enqueue: List[PK],
-    retry: List[(Int, PK)],
+    retry: List[(FiniteDuration, List[PK])],
     buffer: Buffer,
     jobs: List[(FuturePassThru, Future[FutureResult])]
   )
@@ -62,8 +61,7 @@ private [alternator] trait BatchedBehavior {
     ctx: ActorContext[BatchedRequest],
     timer: TimerScheduler[BatchedRequest],
     maxWait: FiniteDuration,
-    maxQueued: Int,
-    retryPolicy: RetryPolicy
+    maxQueued: Int
   ) {
     protected def jobSuccess(futureResult: FutureResult, pt: FuturePassThru, buffer: Buffer): ProcessResult
     protected def jobFailure(ex: Throwable, pt: FuturePassThru, buffer: Buffer): ProcessResult
@@ -92,8 +90,8 @@ private [alternator] trait BatchedBehavior {
 
     private final def handleJobResult(queue: Queue[PK], result: ProcessResult): Behavior[BatchedRequest] = {
 
-      result.retry.groupMap(_._1)(_._2).foreach { case (retry, keys) =>
-        timer.startSingleTimer(Reschedule(keys), retryPolicy.getRetry(retry))
+      result.retry.foreach { case (delayTime, keys) =>
+        timer.startSingleTimer(Reschedule(keys), delayTime)
       }
 
       result.jobs.foreach { case (pt, future) =>

@@ -35,14 +35,20 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
   private implicit val timeout: Timeout = 60.seconds
   private implicit val scheduler: Scheduler = system.scheduler.toTyped
 
+  private val retryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy(
+    awsHasRetry = false,
+    maxRetries = 100,
+    throttleBackoff = BackoffStrategy.FullJitter(1.second, 20.millis)
+  )
+
   implicit val reader: ActorRef[BatchedReadBehavior.BatchedRequest] =
-    system.spawn(BatchedReadBehavior(lossyClient, 10.millis, (_: Int) => 10.millis), "reader")
+    system.spawn(BatchedReadBehavior(lossyClient, 10.millis, retryPolicy), "reader")
 
   implicit val writer: ActorRef[BatchedWriteBehavior.BatchedRequest] =
-    system.spawn(BatchedWriteBehavior(stableClient, 10.millis, (_: Int) => 10.millis), "writer")
+    system.spawn(BatchedWriteBehavior(stableClient, 10.millis, retryPolicy), "writer")
 
 
-  def streamWrite[Data](implicit tableConfig: TableConfig[Data]): Unit = {
+  def streamRead[Data](implicit tableConfig: TableConfig[Data]): Unit = {
     def writeData(table: Table[Data, tableConfig.Key], nums: immutable.Iterable[Int]): Future[Seq[Done]] = {
       Source(nums)
         .map(v => tableConfig.createData(v)._2)
@@ -101,11 +107,11 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
   }
 
   describe("stream with PK table") {
-    it should behave like streamWrite[DataPK]
+    it should behave like streamRead[DataPK]
   }
 
   describe("stream with RK table") {
-    it should behave like streamWrite[DataRK]
+    it should behave like streamRead[DataRK]
 
   }
 

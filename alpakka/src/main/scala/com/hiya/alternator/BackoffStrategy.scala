@@ -4,18 +4,18 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Random
 
-trait RetryPolicy {
+trait BackoffStrategy {
   def getRetry(retry: Int): FiniteDuration
 }
 
-object RetryPolicy {
+object BackoffStrategy {
   private val retryMax = 30
 
-  final case class Static(delay: FiniteDuration) extends RetryPolicy {
+  final case class Static(delay: FiniteDuration) extends BackoffStrategy {
     override def getRetry(retry: Int): FiniteDuration = delay
   }
 
-  final case class FullJitter(cap: FiniteDuration, base: FiniteDuration) extends RetryPolicy {
+  final case class FullJitter(cap: FiniteDuration, base: FiniteDuration) extends BackoffStrategy {
     private val baseMs = base.toMillis
     private val capMs = cap.toMillis
 
@@ -27,7 +27,7 @@ object RetryPolicy {
     }
   }
 
-  final case class EqualJitter(cap: FiniteDuration, base: FiniteDuration) extends RetryPolicy {
+  final case class EqualJitter(cap: FiniteDuration, base: FiniteDuration) extends BackoffStrategy {
     private val baseMs = base.toMillis
     private val capMs = cap.toMillis
 

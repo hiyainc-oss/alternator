@@ -15,7 +15,7 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.CollectionConverters._
-import scala.util.Success
+import scala.util.{Failure, Success}
 
 
 object BatchedWriteBehavior extends internal.BatchedBehavior {
@@ -78,11 +78,42 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
   private class WriteBehavior(
     client: AwsClientAdapter,
     maxWait: FiniteDuration,
-    retryPolicy: RetryPolicy
+    retryPolicy: BatchRetryPolicy
   )(
     ctx: ActorContext[BatchedRequest],
     scheduler: TimerScheduler[BatchedRequest]
-  ) extends BaseBehavior(ctx, scheduler, maxWait, 25, retryPolicy) {
+  ) extends BaseBehavior(ctx, scheduler, maxWait, 25) {
+
+    private def getRetries(
+      delayForThrottle: Int => Option[FiniteDuration],
+      failed: List[PK],
+      buffer: Map[PK, WriteBuffer],
+      cause: Exception
+    ): ProcessResult = {
+      var newBuffer = buffer
+      val retryMap = mutable.TreeMap[Int, Option[FiniteDuration]]()
+      val retries = mutable.TreeMap[FiniteDuration, List[PK]]()
+
+      failed.foreach { pk =>
+        val buffer = newBuffer(pk)
+        val r = buffer.retries
+        retryMap.getOrElseUpdate(r, delayForThrottle(r)) match {
+          case Some(delayTime) =>
+            newBuffer = newBuffer.updated(pk, buffer.copy(retries = r + 1))
+            retries.update(delayTime, pk :: retries.getOrElse(delayTime, Nil))
+          case None =>
+            val (refs, bufferItem) = buffer.queue.dequeue
+            sendResult(refs._2, Failure(RetriesExhausted(cause)))
+
+            newBuffer =
+              if (bufferItem.isEmpty) newBuffer.removed(pk)
+              else newBuffer.updated(pk, WriteBuffer(bufferItem, 0))
+        }
+      }
+
+      ProcessResult(Nil, retries.toList, newBuffer, Nil)
+    }
+
     override protected def jobSuccess(futureResult: BatchWriteItemResponse, keys: FuturePassThru, buffer: Buffer): BatchedWriteBehavior.ProcessResult = {
       val (success, failed) = client.processResult(keys, futureResult)
 
@@ -94,31 +125,19 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
         else buffer.updated(key, WriteBuffer(bufferItem, 0)) -> (key :: reschedule)
       }
 
-      val (buffer3, retries) = getRetries(failed, buffer2)
-
-      ProcessResult(reschedule, retries, buffer3, Nil)
+      getRetries(retryPolicy.delayForUnprocessed, failed, buffer2, Unprocessed)
+        .copy(enqueue = reschedule)
     }
-
-    private def getRetries(failed: List[(String, AV)], buffer: Buffer) = {
-      failed
-        .foldLeft(buffer -> List.empty[(Int, PK)]) { case ((pending, retries), pk) =>
-          val buffer = pending(pk)
-          pending.updated(pk, buffer.copy(retries = buffer.retries + 1)) -> ((buffer.retries -> pk) :: retries)
-        }
-    }
-
 
     override protected def jobFailure(ex: Throwable, keys: FuturePassThru, buffer: Buffer): ProcessResult = {
-      def retry(): ProcessResult = {
-        val (buffer2, retries) = getRetries(keys, buffer)
-        ProcessResult(Nil, retries, buffer2, Nil)
-      }
 
       ex match {
-        case _ : ProvisionedThroughputExceededException =>
-          retry()
-        case ex : SdkServiceException if ex.isThrottlingException || ex.retryable() || ex.statusCode >= 500 =>
-          retry()
+        case ex : ProvisionedThroughputExceededException =>
+          getRetries(retryPolicy.delayForThrottle, keys, buffer, ex)
+        case ex : SdkServiceException if ex.isThrottlingException =>
+          getRetries(retryPolicy.delayForThrottle, keys, buffer, ex)
+        case ex : SdkServiceException if ex.retryable() || ex.statusCode >= 500 =>
+          getRetries(retryPolicy.delayForError, keys, buffer, ex)
         case _ =>
           val buffer2 = keys.foldLeft(buffer) { case (buffer, key) =>
             val (refs2, bufferItem) = buffer(key).queue.dequeue
@@ -169,7 +188,7 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
   def apply(
     client: DynamoDbAsyncClient,
     maxWait: FiniteDuration,
-    retryPolicy: RetryPolicy
+    retryPolicy: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy()
   ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>

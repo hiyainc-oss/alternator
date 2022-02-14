@@ -85,7 +85,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
 
   private val TEST_TIMEOUT: FiniteDuration = 20.seconds
   private implicit val writer: ActorRef[BatchedWriteBehavior.BatchedRequest] =
-    system.spawn(BatchedWriteBehavior(client, 10.millis, (_: Int) => 10.millis), "writer")
+    system.spawn(BatchedWriteBehavior(client, 10.millis), "writer")
   private implicit val askTimeout: Timeout = 60.seconds
   private implicit val scheduler: Scheduler = system.scheduler.toTyped
 

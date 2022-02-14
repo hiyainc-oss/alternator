@@ -5,14 +5,14 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.stream.alpakka.dynamodb.DynamoDbOp
 import software.amazon.awssdk.core.exception.SdkServiceException
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
-import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, BatchGetItemRequest, BatchGetItemResponse, KeysAndAttributes, ProvisionedThroughputExceededException}
+import software.amazon.awssdk.services.dynamodb.model._
 
 import java.util.{Map => JMap}
 import scala.collection.compat._
 import scala.collection.immutable.Queue
 import scala.collection.mutable
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
@@ -84,11 +84,11 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
   private class ReadBehavior(
     client: AwsClientAdapter,
     maxWait: FiniteDuration,
-    retryPolicy: RetryPolicy
+    retryPolicy: BatchRetryPolicy
   )(
     ctx: ActorContext[BatchedRequest],
     scheduler: TimerScheduler[BatchedRequest]
-  ) extends BaseBehavior(ctx, scheduler, maxWait, 100, retryPolicy) {
+  ) extends BaseBehavior(ctx, scheduler, maxWait, 100) {
 
 
     override protected def jobSuccess(futureResult: BatchGetItemResponse, keys: FuturePassThru, buffer: Buffer): BatchedReadBehavior.ProcessResult = {
@@ -100,31 +100,44 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
         buffer - key
       }
 
-      val (buffer3: Map[(String, AV), ReadBuffer], retries: List[(Int, PK)]) = getRetries(failed, buffer2)
-
-      ProcessResult(Nil, retries, buffer3, Nil)
+      getRetries(retryPolicy.delayForUnprocessed, failed, buffer2, Unprocessed)
     }
 
-    private def getRetries(failed: List[(String, AV)], buffer: Map[(String, AV), ReadBuffer]): (Map[(String, AV), ReadBuffer], List[(Int, (String, AV))]) = {
-      failed
-        .foldLeft(buffer -> List.empty[(Int, PK)]) { case ((pending, retries), pk) =>
-          val buffer = pending(pk)
-          pending.updated(pk, buffer.copy(retries = buffer.retries + 1)) -> ((buffer.retries -> pk) :: retries)
+    private def getRetries(
+      delayForThrottle: Int => Option[FiniteDuration],
+      failed: List[(String, AV)],
+      buffer: Map[(String, AV), ReadBuffer],
+      cause: Exception
+    ): ProcessResult = {
+      var newBuffer = buffer
+      val retryMap = mutable.TreeMap[Int, Option[FiniteDuration]]()
+      val retries = mutable.TreeMap[FiniteDuration, List[PK]]()
+
+      failed.foreach { pk =>
+        val buffer = newBuffer(pk)
+        val r = buffer.retries
+        retryMap.getOrElseUpdate(r, delayForThrottle(r)) match {
+          case Some(delayTime) =>
+            newBuffer = newBuffer.updated(pk, buffer.copy(retries = r + 1))
+            retries.update(delayTime, pk :: retries.getOrElse(delayTime, Nil))
+          case None =>
+            newBuffer = newBuffer.removed(pk)
+            sendResult(buffer.refs, Failure(RetriesExhausted(cause)))
         }
+      }
+
+      ProcessResult(Nil, retries.toList, newBuffer, Nil)
     }
 
 
     override protected def jobFailure(ex: Throwable, keys: FuturePassThru, buffer: Buffer): BatchedReadBehavior.ProcessResult = {
-      def retry(): BatchedReadBehavior.ProcessResult = {
-        val (buffer2, retries) = getRetries(keys, buffer)
-        ProcessResult(Nil, retries, buffer2, Nil)
-      }
-
       ex match {
-        case _ : ProvisionedThroughputExceededException =>
-          retry()
-        case ex : SdkServiceException if ex.isThrottlingException || ex.retryable() || ex.statusCode >= 500 =>
-          retry()
+        case ex : ProvisionedThroughputExceededException =>
+          getRetries(retryPolicy.delayForThrottle, keys, buffer, ex)
+        case ex : SdkServiceException if ex.isThrottlingException  =>
+          getRetries(retryPolicy.delayForThrottle, keys, buffer, ex)
+        case ex : SdkServiceException if ex.retryable() || ex.statusCode >= 500 =>
+          getRetries(retryPolicy.delayForError, keys, buffer, ex)
         case _ =>
           val buffer2 = keys.foldLeft(buffer) { case (buffer, key) =>
             val refs = buffer(key)
@@ -162,12 +175,12 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
    */
   def apply(
     client: DynamoDbAsyncClient,
-    maxWait: FiniteDuration,
-    retryPolicy: RetryPolicy
+    maxWait: FiniteDuration = 5.millis,
+    backoffStrategy: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy()
   ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>
-        new ReadBehavior(new AwsClientAdapter(client), maxWait, retryPolicy)(ctx, scheduler).behavior(Queue.empty, Map.empty)
+        new ReadBehavior(new AwsClientAdapter(client), maxWait, backoffStrategy)(ctx, scheduler).behavior(Queue.empty, Map.empty)
       }
     }
 }
