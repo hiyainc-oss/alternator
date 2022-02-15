@@ -2,12 +2,16 @@ package com.hiya.alternator.internal
 
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import com.hiya.alternator.{BatchRetryPolicy, Unprocessed}
+import software.amazon.awssdk.core.exception.SdkServiceException
+import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, ProvisionedThroughputExceededException}
 
 import java.util
+import java.util.concurrent.CompletionException
 import scala.annotation.tailrec
 import scala.collection.compat._
 import scala.collection.immutable.Queue
+import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
@@ -21,28 +25,23 @@ import scala.util.{Failure, Success, Try}
   *   - in-progress: there is a pending aws request for that key and ClientResult or ClientFailure will be called
   */
 private [alternator] trait BatchedBehavior {
-  protected type Request
   type Result
-  protected type Buffer
-  protected type FutureResult
-  protected type FuturePassThru
-
   type Ref = ActorRef[Try[Result]]
   import BatchedBehavior.PK
+
+  protected type Request
+  protected type BufferItem <: BatchedBehavior.BufferItemBase[BufferItem]
+  protected type FutureResult
+
 
   sealed trait BatchedRequest
   case class Req(req: Request, ref: Ref) extends BatchedRequest
   private case object StartJob extends BatchedRequest
-  private case class ClientResult(futureResult: FutureResult, pt: FuturePassThru) extends BatchedRequest
-  private case class ClientFailure(ex: Throwable, pt: FuturePassThru) extends BatchedRequest
+  private case class ClientResult(futureResult: FutureResult, pt: List[PK]) extends BatchedRequest
+  private case class ClientFailure(ex: Throwable, pt: List[PK]) extends BatchedRequest
   private case class Reschedule(keys: List[PK]) extends BatchedRequest
 
-  protected case class ProcessResult(
-    enqueue: List[PK],
-    retry: List[(FiniteDuration, List[PK])],
-    buffer: Buffer,
-    jobs: List[(FuturePassThru, Future[FutureResult])]
-  )
+  protected type Buffer = Map[PK, BufferItem]
 
   private object TimerKey
 
@@ -61,12 +60,14 @@ private [alternator] trait BatchedBehavior {
     ctx: ActorContext[BatchedRequest],
     timer: TimerScheduler[BatchedRequest],
     maxWait: FiniteDuration,
+    retryPolicy: BatchRetryPolicy,
     maxQueued: Int
   ) {
-    protected def jobSuccess(futureResult: FutureResult, pt: FuturePassThru, buffer: Buffer): ProcessResult
-    protected def jobFailure(ex: Throwable, pt: FuturePassThru, buffer: Buffer): ProcessResult
-    protected def startJob(keys: List[PK], buffer: Buffer): (Future[FutureResult], FuturePassThru, Buffer)
+    protected def startJob(keys: List[PK], buffer: Buffer): (Future[FutureResult], List[PK], Buffer)
     protected def receive(req: Request, ref: Ref, pending: Buffer): (List[PK], Buffer)
+    protected def sendFailure(keys: List[PK], buffer: Buffer, ex: Throwable): Buffer
+    protected def sendRetriesExhausted(cause: Exception, buffer: Buffer, pk: PK, item: BufferItem): Buffer
+    protected def sendSuccess(futureResult: FutureResult, keys: List[PK], buffer: Buffer): (List[PK], List[PK], Buffer)
 
     protected def sendResult(refs: List[Ref], result: Try[Result]): Unit = {
       refs.foreach { _.tell(result) }
@@ -81,29 +82,78 @@ private [alternator] trait BatchedBehavior {
       queued
     }
 
-    private final def handleFuture(future: Future[FutureResult], pt: FuturePassThru): Unit = {
+    private final def handleFuture(future: Future[FutureResult], pt: List[PK]): Unit = {
       ctx.pipeToSelf(future) {
         case Success(result) => ClientResult(result, pt)
         case Failure(ex) => ClientFailure(ex, pt)
       }
     }
 
-    private final def handleJobResult(queue: Queue[PK], result: ProcessResult): Behavior[BatchedRequest] = {
-
-      result.retry.foreach { case (delayTime, keys) =>
-        timer.startSingleTimer(Reschedule(keys), delayTime)
-      }
-
-      result.jobs.foreach { case (pt, future) =>
-        handleFuture(future, pt)
-      }
-
-      behavior(enqueue(queue, result.enqueue), result.buffer)
-    }
-
     private final def enqueue(queued: Queue[PK], keys: List[PK]): Queue[PK] = {
       schedule(queued ++ keys)
     }
+
+    private def handleRetries(
+      queue: Queue[PK],
+      delayForThrottle: Int => Option[FiniteDuration],
+      failed: List[PK],
+      buffer: Buffer,
+      cause: Exception,
+      reschedule: List[PK] = Nil
+    ): Behavior[BatchedRequest] = {
+      val retryMap = mutable.TreeMap[Int, Option[FiniteDuration]]()
+      val retries = mutable.TreeMap[FiniteDuration, List[PK]]()
+
+      val newBuffer = failed.foldLeft(buffer) { case (buffer, pk) =>
+        val bufferItem = buffer(pk)
+        val r = bufferItem.retries
+
+        retryMap.getOrElseUpdate(r, delayForThrottle(r)) match {
+          case Some(delayTime) =>
+            retries.update(delayTime, pk :: retries.getOrElse(delayTime, Nil))
+            buffer.updated(pk, bufferItem.withRetries(retries = r + 1))
+          case None =>
+            sendRetriesExhausted(cause, buffer, pk, bufferItem)
+        }
+      }
+
+      retries.toList.foreach { case (delayTime, keys) =>
+        timer.startSingleTimer(Reschedule(keys), delayTime)
+      }
+
+      behavior(enqueue(queue, reschedule), newBuffer)
+    }
+
+    @tailrec
+    private final def jobFailure(queue: Queue[PK], ex: Throwable, keys: List[PK], buffer: Buffer): Behavior[BatchedRequest] = {
+      ex match {
+        case ex : CompletionException =>
+          jobFailure(queue, ex.getCause, keys, buffer)
+        case ex : ProvisionedThroughputExceededException =>
+          handleRetries(queue, retryPolicy.delayForThrottle, keys, buffer, ex)
+        case ex : SdkServiceException if ex.isThrottlingException =>
+          handleRetries(queue, retryPolicy.delayForThrottle, keys, buffer, ex)
+        case ex : SdkServiceException if ex.retryable() || ex.statusCode >= 500 =>
+          handleRetries(queue, retryPolicy.delayForError, keys, buffer, ex)
+        case _ =>
+          behavior(queue, sendFailure(keys, buffer, ex))
+
+      }
+    }
+
+    private final def jobSuccess(queue: Queue[PK], futureResult: FutureResult, keys: List[PK], buffer: Buffer): Behavior[BatchedRequest] = {
+      val (failed, reschedule, buffer2) = sendSuccess(futureResult, keys, buffer)
+
+      handleRetries(
+        queue,
+        retryPolicy.delayForUnprocessed,
+        failed,
+        buffer2,
+        Unprocessed,
+        reschedule
+      )
+    }
+
 
     final def behavior(
       queue: Queue[PK],
@@ -126,10 +176,10 @@ private [alternator] trait BatchedBehavior {
           }
 
         case ClientResult(futureResult, pt) =>
-          handleJobResult(queue, jobSuccess(futureResult, pt, buffer))
+          jobSuccess(queue, futureResult, pt, buffer)
 
         case ClientFailure(ex, pt) =>
-          handleJobResult(queue, jobFailure(ex, pt, buffer))
+          jobFailure(queue, ex, pt, buffer)
 
         case Reschedule(keys) =>
           ctx.self ! StartJob
@@ -143,4 +193,10 @@ object BatchedBehavior {
   private [alternator] type AV = util.Map[String, AttributeValue]
   private [alternator] type PK = (String, AV)
 
+  trait BufferItemBase[T <: BufferItemBase[T]] {
+    this: T =>
+
+    def retries: Int
+    def withRetries(retries: Int): T
+  }
 }

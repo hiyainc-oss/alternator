@@ -4,11 +4,9 @@ import akka.Done
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.stream.alpakka.dynamodb.DynamoDbOp
-import software.amazon.awssdk.core.exception.SdkServiceException
-import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, BatchWriteItemRequest, BatchWriteItemResponse, ProvisionedThroughputExceededException}
+import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, BatchWriteItemRequest, BatchWriteItemResponse}
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
 
-import java.util.concurrent.CompletionException
 import java.util.{Map => JMap}
 import scala.collection.compat._
 import scala.collection.immutable.Queue
@@ -23,14 +21,16 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
   import internal.BatchedBehavior._
 
   private [alternator] final case class WriteBuffer(queue: Queue[(Option[AV], List[Ref])], retries: Int)
+    extends internal.BatchedBehavior.BufferItemBase[WriteBuffer] {
+    override def withRetries(retries: Int): WriteBuffer = copy(retries = retries)
+  }
+
   private [alternator] final case class WriteRequest(pk: PK, value: Option[AV])
 
   override protected type Request = WriteRequest
   override type Result = Done
-  override protected type Buffer = Map[PK, WriteBuffer]
-
+  override protected type BufferItem = WriteBuffer
   override protected type FutureResult = BatchWriteItemResponse
-  override protected type FuturePassThru = List[PK]
 
   private class AwsClientAdapter(client: DynamoDbAsyncClient) {
     private def isSubMapOf(small: JMap[String, AttributeValue], in: JMap[String, AttributeValue]): Boolean =
@@ -83,39 +83,9 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
   )(
     ctx: ActorContext[BatchedRequest],
     scheduler: TimerScheduler[BatchedRequest]
-  ) extends BaseBehavior(ctx, scheduler, maxWait, 25) {
+  ) extends BaseBehavior(ctx, scheduler, maxWait, retryPolicy, 25) {
 
-    private def getRetries(
-      delayForThrottle: Int => Option[FiniteDuration],
-      failed: List[PK],
-      buffer: Map[PK, WriteBuffer],
-      cause: Exception
-    ): ProcessResult = {
-      var newBuffer = buffer
-      val retryMap = mutable.TreeMap[Int, Option[FiniteDuration]]()
-      val retries = mutable.TreeMap[FiniteDuration, List[PK]]()
-
-      failed.foreach { pk =>
-        val buffer = newBuffer(pk)
-        val r = buffer.retries
-        retryMap.getOrElseUpdate(r, delayForThrottle(r)) match {
-          case Some(delayTime) =>
-            newBuffer = newBuffer.updated(pk, buffer.copy(retries = r + 1))
-            retries.update(delayTime, pk :: retries.getOrElse(delayTime, Nil))
-          case None =>
-            val (refs, bufferItem) = buffer.queue.dequeue
-            sendResult(refs._2, Failure(RetriesExhausted(cause)))
-
-            newBuffer =
-              if (bufferItem.isEmpty) newBuffer.removed(pk)
-              else newBuffer.updated(pk, WriteBuffer(bufferItem, 0))
-        }
-      }
-
-      ProcessResult(Nil, retries.toList, newBuffer, Nil)
-    }
-
-    override protected def jobSuccess(futureResult: BatchWriteItemResponse, keys: FuturePassThru, buffer: Buffer): BatchedWriteBehavior.ProcessResult = {
+    protected override def sendSuccess(futureResult: BatchWriteItemResponse, keys: List[PK], buffer: Buffer): (List[PK], List[PK], Buffer) = {
       val (success, failed) = client.processResult(keys, futureResult)
 
       val (buffer2, reschedule) = success.foldLeft(buffer -> List.empty[PK]) { case ((buffer, reschedule), key) =>
@@ -126,30 +96,25 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
         else buffer.updated(key, WriteBuffer(bufferItem, 0)) -> (key :: reschedule)
       }
 
-      getRetries(retryPolicy.delayForUnprocessed, failed, buffer2, Unprocessed)
-        .copy(enqueue = reschedule)
+      (failed, reschedule, buffer2)
     }
 
-    override protected def jobFailure(ex: Throwable, keys: FuturePassThru, buffer: Buffer): ProcessResult = {
 
-      ex match {
-        case ex : CompletionException =>
-          jobFailure(ex.getCause, keys, buffer)
-        case ex : ProvisionedThroughputExceededException =>
-          getRetries(retryPolicy.delayForThrottle, keys, buffer, ex)
-        case ex : SdkServiceException if ex.isThrottlingException =>
-          getRetries(retryPolicy.delayForThrottle, keys, buffer, ex)
-        case ex : SdkServiceException if ex.retryable() || ex.statusCode >= 500 =>
-          getRetries(retryPolicy.delayForError, keys, buffer, ex)
-        case _ =>
-          val buffer2 = keys.foldLeft(buffer) { case (buffer, key) =>
-            val (refs2, bufferItem) = buffer(key).queue.dequeue
-            sendResult(refs2._2, Failure(ex))
+    protected override def sendRetriesExhausted(cause: Exception, buffer: Buffer, pk: PK, item: WriteBuffer): Buffer = {
+      val (refs, bufferItem) = item.queue.dequeue
+      sendResult(refs._2, Failure(RetriesExhausted(cause)))
 
-            if (bufferItem.isEmpty) buffer - key
-            else buffer.updated(key, WriteBuffer(bufferItem, 0))
-          }
-          ProcessResult(Nil, Nil, buffer2, Nil)
+      if (bufferItem.isEmpty) buffer.removed(pk)
+      else buffer.updated(pk, WriteBuffer(bufferItem, 0))
+    }
+
+    protected def sendFailure(keys: List[PK], buffer: BatchedWriteBehavior.Buffer, ex: Throwable): Buffer = {
+      keys.foldLeft(buffer) { case (buffer, key) =>
+        val (refs2, bufferItem) = buffer(key).queue.dequeue
+        sendResult(refs2._2, Failure(ex))
+
+        if (bufferItem.isEmpty) buffer - key
+        else buffer.updated(key, WriteBuffer(bufferItem, 0))
       }
     }
 

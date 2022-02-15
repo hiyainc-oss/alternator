@@ -3,11 +3,9 @@ package com.hiya.alternator
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.stream.alpakka.dynamodb.DynamoDbOp
-import software.amazon.awssdk.core.exception.SdkServiceException
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model._
 
-import java.util.concurrent.CompletionException
 import java.util.{Map => JMap}
 import scala.collection.compat._
 import scala.collection.immutable.Queue
@@ -22,14 +20,14 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
   import internal.BatchedBehavior._
 
   private [alternator] final case class ReadBuffer(refs: List[Ref], retries: Int)
+    extends BufferItemBase[ReadBuffer] {
+    override def withRetries(retries: Int): ReadBuffer = copy(retries = retries)
+  }
 
   override protected type Request = PK
-  override type Result = Option[AV]
-  override protected type Buffer = Map[PK, ReadBuffer]
-
-
+  override protected type BufferItem = ReadBuffer
   override protected type FutureResult = BatchGetItemResponse
-  override protected type FuturePassThru = List[PK]
+  override type Result = Option[AV]
 
   private class AwsClientAdapter(client: DynamoDbAsyncClient) {
 
@@ -89,10 +87,9 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
   )(
     ctx: ActorContext[BatchedRequest],
     scheduler: TimerScheduler[BatchedRequest]
-  ) extends BaseBehavior(ctx, scheduler, maxWait, 100) {
+  ) extends BaseBehavior(ctx, scheduler, maxWait, retryPolicy, 100) {
 
-
-    override protected def jobSuccess(futureResult: BatchGetItemResponse, keys: FuturePassThru, buffer: Buffer): BatchedReadBehavior.ProcessResult = {
+    protected override def sendSuccess(futureResult: BatchGetItemResponse, keys: List[PK], buffer: Buffer): (List[PK], List[PK], Buffer) = {
       val (success, failed) = client.processResult(keys, futureResult)
 
       val buffer2 = success.foldLeft(buffer) { case (buffer, (key, result)) =>
@@ -101,53 +98,19 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
         buffer - key
       }
 
-      getRetries(retryPolicy.delayForUnprocessed, failed, buffer2, Unprocessed)
+      (failed, Nil, buffer2)
     }
 
-    private def getRetries(
-      delayForThrottle: Int => Option[FiniteDuration],
-      failed: List[(String, AV)],
-      buffer: Map[(String, AV), ReadBuffer],
-      cause: Exception
-    ): ProcessResult = {
-      var newBuffer = buffer
-      val retryMap = mutable.TreeMap[Int, Option[FiniteDuration]]()
-      val retries = mutable.TreeMap[FiniteDuration, List[PK]]()
-
-      failed.foreach { pk =>
-        val buffer = newBuffer(pk)
-        val r = buffer.retries
-        retryMap.getOrElseUpdate(r, delayForThrottle(r)) match {
-          case Some(delayTime) =>
-            newBuffer = newBuffer.updated(pk, buffer.copy(retries = r + 1))
-            retries.update(delayTime, pk :: retries.getOrElse(delayTime, Nil))
-          case None =>
-            newBuffer = newBuffer.removed(pk)
-            sendResult(buffer.refs, Failure(RetriesExhausted(cause)))
-        }
-      }
-
-      ProcessResult(Nil, retries.toList, newBuffer, Nil)
+    override protected def sendRetriesExhausted(cause: Exception, buffer: Buffer, pk: PK, item: ReadBuffer): Buffer = {
+      sendResult(item.refs, Failure(RetriesExhausted(cause)))
+      buffer.removed(pk)
     }
 
-
-    override protected def jobFailure(ex: Throwable, keys: FuturePassThru, buffer: Buffer): BatchedReadBehavior.ProcessResult = {
-      ex match {
-        case ex : CompletionException =>
-          jobFailure(ex.getCause, keys, buffer)
-        case ex : ProvisionedThroughputExceededException =>
-          getRetries(retryPolicy.delayForThrottle, keys, buffer, ex)
-        case ex : SdkServiceException if ex.isThrottlingException  =>
-          getRetries(retryPolicy.delayForThrottle, keys, buffer, ex)
-        case ex : SdkServiceException if ex.retryable() || ex.statusCode >= 500 =>
-          getRetries(retryPolicy.delayForError, keys, buffer, ex)
-        case _ =>
-           val buffer2 = keys.foldLeft(buffer) { case (buffer, key) =>
-            val refs = buffer(key)
-            sendResult(refs.refs, Failure(ex))
-            buffer - key
-          }
-          ProcessResult(Nil, Nil, buffer2, Nil)
+    override protected def sendFailure(keys: List[PK], buffer: Buffer, ex: Throwable): Buffer = {
+      keys.foldLeft(buffer) { case (buffer, key) =>
+        val refs = buffer(key)
+        sendResult(refs.refs, Failure(ex))
+        buffer - key
       }
     }
 
