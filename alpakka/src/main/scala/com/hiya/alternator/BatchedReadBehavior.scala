@@ -83,11 +83,12 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
   private class ReadBehavior(
     client: AwsClientAdapter,
     maxWait: FiniteDuration,
-    retryPolicy: BatchRetryPolicy
+    retryPolicy: BatchRetryPolicy,
+    monitoring: BatchMonitoringPolicy
   )(
     ctx: ActorContext[BatchedRequest],
     scheduler: TimerScheduler[BatchedRequest]
-  ) extends BaseBehavior(ctx, scheduler, maxWait, retryPolicy, 100) {
+  ) extends BaseBehavior(ctx, scheduler, maxWait, retryPolicy, monitoring, 100) {
 
     protected override def sendSuccess(futureResult: BatchGetItemResponse, keys: List[PK], buffer: Buffer): (List[PK], List[PK], Buffer) = {
       val (success, failed) = client.processResult(keys, futureResult)
@@ -142,11 +143,12 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
   def apply(
     client: DynamoDbAsyncClient,
     maxWait: FiniteDuration = 5.millis,
-    backoffStrategy: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy()
-  ): Behavior[BatchedRequest] =
+    backoffStrategy: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy(),
+    monitoring: BatchMonitoringPolicy = BatchMonitoringPolicy.Disabled
+   ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>
-        new ReadBehavior(new AwsClientAdapter(client), maxWait, backoffStrategy)(ctx, scheduler).behavior(Queue.empty, Map.empty)
+        new ReadBehavior(new AwsClientAdapter(client), maxWait, backoffStrategy, monitoring)(ctx, scheduler).behavior(Queue.empty, Map.empty)
       }
     }
 }

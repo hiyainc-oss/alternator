@@ -6,6 +6,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
+import com.hiya.alternator.internal.BatchedBehavior.AV
 import com.hiya.alternator.util._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -42,8 +43,23 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
     throttleBackoff = BackoffStrategy.FullJitter(1.second, 20.millis)
   )
 
+  object monitoring extends BatchMonitoringPolicy {
+    private var inflightF: () => Int = _
+    private var queueSizeF: () => Int = _
+    var retries = 0
+    var requests = 0
+
+    def inflight(): Int = inflightF()
+    def queueSize(): Int = queueSizeF()
+
+    override def inflightCount(actorName: String, value: () => Int): Unit = inflightF = value
+    override def queueSizeGauge(actorName: String, value: () => Int): Unit = queueSizeF = value
+    override def retries(actorName: String, failed: List[(String, AV)]): Unit = ()
+    override def requestComplete(actorName: String, ex: Option[Throwable], keys: List[(String, AV)], durationNano: Long): Unit = ()
+  }
+
   implicit val reader: ActorRef[BatchedReadBehavior.BatchedRequest] =
-    system.spawn(BatchedReadBehavior(lossyClient, 10.millis, retryPolicy), "reader")
+    system.spawn(BatchedReadBehavior(lossyClient, 10.millis, retryPolicy, monitoring), "reader")
 
   implicit val writer: ActorRef[BatchedWriteBehavior.BatchedRequest] =
     system.spawn(BatchedWriteBehavior(stableClient, 10.millis, retryPolicy), "writer")
@@ -78,6 +94,9 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
             .runWith(Sink.head),
           TEST_TIMEOUT)
       }
+
+      monitoring.inflight() shouldBe 0
+      monitoring.queueSize() shouldBe 0
     }
 
     it("should read data") {
@@ -92,6 +111,8 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
       }
 
       result.size shouldBe 1000
+      monitoring.inflight() shouldBe 0
+      monitoring.queueSize() shouldBe 0
 
       forAll (result) { case (data, pt) =>
         inside(data) {
@@ -113,6 +134,8 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
       }
 
       result.size shouldBe 1000
+      monitoring.inflight() shouldBe 0
+      monitoring.queueSize() shouldBe 0
 
       forAll (result) { case (data, _) =>
         inside(data) {
