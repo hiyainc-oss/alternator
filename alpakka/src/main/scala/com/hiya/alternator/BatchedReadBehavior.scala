@@ -104,7 +104,7 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
 
     override protected def sendRetriesExhausted(cause: Exception, buffer: Buffer, pk: PK, item: ReadBuffer): Buffer = {
       sendResult(item.refs, Failure(RetriesExhausted(cause)))
-      buffer.removed(pk)
+      buffer - pk
     }
 
     override protected def sendFailure(keys: List[PK], buffer: Buffer, ex: Throwable): Buffer = {

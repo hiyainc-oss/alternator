@@ -105,7 +105,7 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
       val (refs, bufferItem) = item.queue.dequeue
       sendResult(refs._2, Failure(RetriesExhausted(cause)))
 
-      if (bufferItem.isEmpty) buffer.removed(pk)
+      if (bufferItem.isEmpty) buffer - pk
       else buffer.updated(pk, WriteBuffer(bufferItem, 0))
     }
 

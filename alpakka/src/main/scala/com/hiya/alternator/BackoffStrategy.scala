@@ -9,6 +9,13 @@ trait BackoffStrategy {
 }
 
 object BackoffStrategy {
+
+  // Not a really good random
+  private def random(upper: Long): Long = {
+    Math.abs(Random.nextLong()) % upper
+  }
+
+
   private val retryMax = 30
 
   final case class Static(delay: FiniteDuration) extends BackoffStrategy {
@@ -23,7 +30,7 @@ object BackoffStrategy {
 
     override def getRetry(retry: Int): FiniteDuration = {
       val maxDelay = capMs.min(baseMs << retry.min(retryMax))
-      FiniteDuration(Random.between(0, maxDelay), TimeUnit.MILLISECONDS)
+      FiniteDuration(random(maxDelay), TimeUnit.MILLISECONDS)
     }
   }
 
@@ -35,7 +42,7 @@ object BackoffStrategy {
 
     override def getRetry(retry: Int): FiniteDuration = {
       val maxDelay = capMs.min(baseMs << retry.min(retryMax))
-      FiniteDuration(maxDelay / 2 + Random.between(0, maxDelay / 2), TimeUnit.MILLISECONDS)
+      FiniteDuration(maxDelay / 2 + random(maxDelay / 2), TimeUnit.MILLISECONDS)
     }
   }
 

@@ -11,7 +11,6 @@ import java.util
 import java.util.concurrent.CompletionException
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
-import scala.collection.compat._
 import scala.collection.immutable.Queue
 import scala.collection.mutable
 import scala.concurrent.Future
