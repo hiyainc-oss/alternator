@@ -148,7 +148,7 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
    ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>
-        new ReadBehavior(new AwsClientAdapter(client), maxWait, backoffStrategy, monitoring)(ctx, scheduler).behavior(Queue.empty, Map.empty)
+        new ReadBehavior(new AwsClientAdapter(client), maxWait, backoffStrategy, monitoring)(ctx, scheduler).behavior(Queue.empty, Map.empty, None)
       }
     }
 }

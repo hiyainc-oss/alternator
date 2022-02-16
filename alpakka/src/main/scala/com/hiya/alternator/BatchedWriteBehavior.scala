@@ -162,7 +162,7 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
   ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>
-        new WriteBehavior(new AwsClientAdapter(client), maxWait, retryPolicy, monitoring)(ctx, scheduler).behavior(Queue.empty, Map.empty)
+        new WriteBehavior(new AwsClientAdapter(client), maxWait, retryPolicy, monitoring)(ctx, scheduler).behavior(Queue.empty, Map.empty, None)
       }
     }
 }

@@ -1,5 +1,6 @@
 package com.hiya.alternator.internal
 
+import akka.Done
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
 import com.hiya.alternator.{BatchMonitoringPolicy, BatchRetryPolicy, Unprocessed}
@@ -37,6 +38,7 @@ private [alternator] trait BatchedBehavior {
 
   sealed trait BatchedRequest
   case class Req(req: Request, ref: Ref) extends BatchedRequest
+  case class GracefulShutdown(ref: ActorRef[Done]) extends BatchedRequest
   private case object StartJob extends BatchedRequest
   private case class ClientResult(futureResult: FutureResult, keys: List[PK], durationNano: Long) extends BatchedRequest
   private case class ClientFailure(ex: Throwable, keys: List[PK], durationNano: Long) extends BatchedRequest
@@ -109,6 +111,7 @@ private [alternator] trait BatchedBehavior {
       failed: List[PK],
       buffer: Buffer,
       cause: Exception,
+      shutdown: Option[ActorRef[Done]],
       reschedule: List[PK] = Nil
     ): Behavior[BatchedRequest] = {
       val retryMap = mutable.TreeMap[Int, Option[FiniteDuration]]()
@@ -133,35 +136,35 @@ private [alternator] trait BatchedBehavior {
         timer.startSingleTimer(Reschedule(keys), delayTime)
       }
 
-      behavior(enqueue(queue, reschedule), newBuffer)
+      checkShutdown(enqueue(queue, reschedule), newBuffer, shutdown)
     }
 
     @tailrec
-    private final def jobFailure(queue: Queue[PK], ex: Throwable, keys: List[PK], buffer: Buffer, durationNano: Long): Behavior[BatchedRequest] = {
+    private final def jobFailure(queue: Queue[PK], ex: Throwable, keys: List[PK], buffer: Buffer, durationNano: Long, shutdown: Option[ActorRef[Done]]): Behavior[BatchedRequest] = {
       ex match {
         case ex : CompletionException =>
-          jobFailure(queue, ex.getCause, keys, buffer, durationNano)
+          jobFailure(queue, ex.getCause, keys, buffer, durationNano, shutdown)
 
         case ex : ProvisionedThroughputExceededException =>
           monitoring.requestComplete(name, Some(ex), keys, durationNano)
-          handleRetries(queue, retryPolicy.delayForThrottle, keys, buffer, ex)
+          handleRetries(queue, retryPolicy.delayForThrottle, keys, buffer, ex, shutdown)
 
         case ex : SdkServiceException if ex.isThrottlingException =>
           monitoring.requestComplete(name, Some(ex), keys, durationNano)
-          handleRetries(queue, retryPolicy.delayForThrottle, keys, buffer, ex)
+          handleRetries(queue, retryPolicy.delayForThrottle, keys, buffer, ex, shutdown)
 
         case ex : SdkServiceException if ex.retryable() || ex.statusCode >= 500 =>
           monitoring.requestComplete(name, Some(ex), keys, durationNano)
-          handleRetries(queue, retryPolicy.delayForError, keys, buffer, ex)
+          handleRetries(queue, retryPolicy.delayForError, keys, buffer, ex, shutdown)
 
         case _ =>
           monitoring.requestComplete(name, Some(ex), keys, durationNano)
-          behavior(queue, sendFailure(keys, buffer, ex))
+          checkShutdown(queue, sendFailure(keys, buffer, ex), shutdown)
 
       }
     }
 
-    private final def jobSuccess(queue: Queue[PK], futureResult: FutureResult, keys: List[PK], buffer: Buffer, durationNano: Long): Behavior[BatchedRequest] = {
+    private final def jobSuccess(queue: Queue[PK], futureResult: FutureResult, keys: List[PK], buffer: Buffer, durationNano: Long, shutdown: Option[ActorRef[Done]]): Behavior[BatchedRequest] = {
       monitoring.requestComplete(name, None, keys, durationNano)
 
       val (failed, reschedule, buffer2) = sendSuccess(futureResult, keys, buffer)
@@ -172,45 +175,69 @@ private [alternator] trait BatchedBehavior {
         failed,
         buffer2,
         Unprocessed,
+        shutdown,
         reschedule
       )
     }
 
+    private def checkShutdown(
+      queue: Queue[PK],
+      buffer: Buffer,
+      running: Option[ActorRef[Done]]
+    ): Behavior[BatchedRequest] = {
+      running match {
+        case Some(ref) if queue.isEmpty =>
+          ref.tell(Done)
+          Behaviors.stopped
+        case _ =>
+          behavior(queue, buffer, running)
+      }
+    }
 
     final def behavior(
       queue: Queue[PK],
-      buffer: Buffer
+      buffer: Buffer,
+      shutdown: Option[ActorRef[Done]]
     ): Behavior[BatchedRequest] =
       Behaviors.receiveMessage {
+        case GracefulShutdown(ref) =>
+          if (shutdown.isEmpty) {
+            behavior(queue, buffer, Some(ref))
+          } else {
+            Behaviors.unhandled
+          }
+
         case Req(req, ref) =>
-          queueSize.incrementAndGet()
-          val (keys, pending2) = receive(req, ref, buffer)
-          behavior(enqueue(queue, keys), pending2)
+          if (shutdown.isEmpty) {
+            queueSize.incrementAndGet()
+            val (keys, pending2) = receive(req, ref, buffer)
+            checkShutdown(enqueue(queue, keys), pending2, shutdown)
+          } else Behaviors.unhandled
 
         case StartJob =>
           val (keys, queued2) = deque(queue, maxQueued)
           inflightCount.addAndGet(keys.size)
 
           if (keys.isEmpty) {
-            behavior(queue, buffer)
+            checkShutdown(queue, buffer, shutdown)
           } else {
             val startTime = System.nanoTime()
             val (future, pt, buffer2) = startJob(keys, buffer)
             handleFuture(future, pt, startTime)
-            behavior(schedule(queued2), buffer2)
+            checkShutdown(schedule(queued2), buffer2, shutdown)
           }
 
         case ClientResult(futureResult, keys, durationNano) =>
           inflightCount.addAndGet(-keys.size)
-          jobSuccess(queue, futureResult, keys, buffer, durationNano)
+          jobSuccess(queue, futureResult, keys, buffer, durationNano, shutdown)
 
         case ClientFailure(ex, keys, durationNano) =>
           inflightCount.addAndGet(-keys.size)
-          jobFailure(queue, ex, keys, buffer, durationNano)
+          jobFailure(queue, ex, keys, buffer, durationNano, shutdown)
 
         case Reschedule(keys) =>
           ctx.self ! StartJob
-          behavior(keys ++: queue, buffer)
+          checkShutdown(keys ++: queue, buffer, shutdown)
       }
 
   }
