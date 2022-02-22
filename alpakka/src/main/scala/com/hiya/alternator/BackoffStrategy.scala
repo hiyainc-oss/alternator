@@ -15,7 +15,6 @@ object BackoffStrategy {
     Math.abs(Random.nextLong()) % upper
   }
 
-
   private val retryMax = 30
 
   final case class Static(delay: FiniteDuration) extends BackoffStrategy {
@@ -26,7 +25,8 @@ object BackoffStrategy {
     private val baseMs = base.toMillis
     private val capMs = cap.toMillis
 
-    assert(baseMs >=0 && baseMs < Integer.MAX_VALUE)
+    require(baseMs >=0, "base delay should not be negative")
+    require(baseMs < Integer.MAX_VALUE, "base delay should be less than 2^31 milliseconds")
 
     override def getRetry(retry: Int): FiniteDuration = {
       val maxDelay = capMs.min(baseMs << retry.min(retryMax))
