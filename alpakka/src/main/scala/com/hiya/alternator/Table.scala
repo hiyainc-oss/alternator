@@ -102,8 +102,7 @@ class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
     putRequest(value).send()
 
   final def putRequest(item: V): Table.WriteRequest[Done] = {
-    val itemValue = schema.serializeValue.writeFields(item)
-    Table.WriteRequest(name -> schema.serializePK(schema.extract(item)), Some(itemValue), Done)
+    putRequest(item, Done)
   }
 
   final def putRequest[PT](item: V, pt: PT): Table.WriteRequest[PT] = {
@@ -135,7 +134,11 @@ class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
     }
   }
 
-  final def deleteRequest[T, PT](item: T, pt: PT = Done)(implicit T : ItemMagnet[T]): Table.WriteRequest[PT] = {
+  final def deleteRequest[T](item: T)(implicit T : ItemMagnet[T]): Table.WriteRequest[Done] = {
+    deleteRequest(item, Done)
+  }
+
+  final def deleteRequest[T, PT](item: T, pt: PT)(implicit T : ItemMagnet[T]): Table.WriteRequest[PT] = {
     Table.WriteRequest(name -> schema.serializePK(T.key(item)), None, pt)
   }
 

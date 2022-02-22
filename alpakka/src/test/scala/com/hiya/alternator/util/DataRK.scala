@@ -18,10 +18,14 @@ object DataRK {
     override type Key = (String, String)
     override type TableType = TableWithRange[DataRK, String, String]
 
+
+    override def table(tableName: String): TableWithRange[DataRK, String, String] =
+      Table.tableWithRK[DataRK](tableName)
+
     override def withTable[T](client: DynamoDbAsyncClient)(f: TableType => T): T = {
       val tableName = s"test-table-${UUID.randomUUID()}"
       LocalDynamoDB.withTable(client)(tableName)("key" -> ScalarAttributeType.S, "range" -> ScalarAttributeType.S) {
-        f(Table.tableWithRK[DataRK](tableName))
+        f(table(tableName))
       }
     }
 

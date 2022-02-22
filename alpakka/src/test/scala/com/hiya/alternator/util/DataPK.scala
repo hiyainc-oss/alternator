@@ -18,6 +18,10 @@ object DataPK {
     override type Key = String
     override type TableType = Table[DataPK, String]
 
+
+    override def table(tableName: String): Table[DataPK, String] =
+      Table.tableWithPK[DataPK](tableName)
+
     override def createData(i: Int, v: Option[Int]): (String, DataPK) = {
       i.toString -> DataPK(i.toString, v.getOrElse(i))
     }
@@ -25,7 +29,7 @@ object DataPK {
     override def withTable[T](client: DynamoDbAsyncClient)(f: Table[DataPK, String] => T): T = {
       val tableName = s"test-table-${UUID.randomUUID()}"
       LocalDynamoDB.withTable(client)(tableName)("key" -> ScalarAttributeType.S)(
-        f(Table.tableWithPK[DataPK](tableName))
+        f(table(tableName))
       )
     }
   }

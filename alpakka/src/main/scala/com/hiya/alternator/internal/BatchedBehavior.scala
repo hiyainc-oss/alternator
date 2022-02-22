@@ -1,17 +1,21 @@
 package com.hiya.alternator.internal
 
-import java.util
+import akka.Done
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
-import BatchedBehavior.RetryPolicy
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import com.hiya.alternator.{BatchMonitoringPolicy, BatchRetryPolicy, Unprocessed}
+import software.amazon.awssdk.core.exception.SdkServiceException
+import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, ProvisionedThroughputExceededException}
 
+import java.util
+import java.util.concurrent.CompletionException
+import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
+import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
-import scala.collection.compat._
 
 
 /**
@@ -22,28 +26,24 @@ import scala.collection.compat._
   *   - in-progress: there is a pending aws request for that key and ClientResult or ClientFailure will be called
   */
 private [alternator] trait BatchedBehavior {
-  protected type Request
   type Result
-  protected type Buffer
-  protected type FutureResult
-  protected type FuturePassThru
-
   type Ref = ActorRef[Try[Result]]
   import BatchedBehavior.PK
 
+  protected type Request
+  protected type BufferItem <: BatchedBehavior.BufferItemBase[BufferItem]
+  protected type FutureResult
+
+
   sealed trait BatchedRequest
   case class Req(req: Request, ref: Ref) extends BatchedRequest
+  case class GracefulShutdown(ref: ActorRef[Done]) extends BatchedRequest
   private case object StartJob extends BatchedRequest
-  private case class ClientResult(futureResult: FutureResult, pt: FuturePassThru) extends BatchedRequest
-  private case class ClientFailure(ex: Throwable, pt: FuturePassThru) extends BatchedRequest
+  private case class ClientResult(futureResult: FutureResult, keys: List[PK], durationNano: Long) extends BatchedRequest
+  private case class ClientFailure(ex: Throwable, keys: List[PK], durationNano: Long) extends BatchedRequest
   private case class Reschedule(keys: List[PK]) extends BatchedRequest
 
-  protected case class ProcessResult(
-    enqueue: List[PK],
-    retry: List[(Int, PK)],
-    buffer: Buffer,
-    jobs: List[(FuturePassThru, Future[FutureResult])]
-  )
+  protected type Buffer = Map[PK, BufferItem]
 
   private object TimerKey
 
@@ -62,15 +62,25 @@ private [alternator] trait BatchedBehavior {
     ctx: ActorContext[BatchedRequest],
     timer: TimerScheduler[BatchedRequest],
     maxWait: FiniteDuration,
-    maxQueued: Int,
-    retryPolicy: RetryPolicy
+    retryPolicy: BatchRetryPolicy,
+    monitoring: BatchMonitoringPolicy,
+    maxQueued: Int
   ) {
-    protected def jobSuccess(futureResult: FutureResult, pt: FuturePassThru, buffer: Buffer): ProcessResult
-    protected def jobFailure(ex: Throwable, pt: FuturePassThru, buffer: Buffer): ProcessResult
-    protected def startJob(keys: List[PK], buffer: Buffer): (Future[FutureResult], FuturePassThru, Buffer)
+    private val name = ctx.self.path.name
+    private val queueSize = new AtomicInteger()
+    private val inflightCount = new AtomicInteger()
+
+    monitoring.queueSizeGauge(name, () => queueSize.get())
+    monitoring.inflightCount(name, () => inflightCount.get())
+
+    protected def startJob(keys: List[PK], buffer: Buffer): (Future[FutureResult], List[PK], Buffer)
     protected def receive(req: Request, ref: Ref, pending: Buffer): (List[PK], Buffer)
+    protected def sendFailure(keys: List[PK], buffer: Buffer, ex: Throwable): Buffer
+    protected def sendRetriesExhausted(cause: Exception, buffer: Buffer, pk: PK, item: BufferItem): Buffer
+    protected def sendSuccess(futureResult: FutureResult, keys: List[PK], buffer: Buffer): (List[PK], List[PK], Buffer)
 
     protected def sendResult(refs: List[Ref], result: Try[Result]): Unit = {
+      queueSize.addAndGet(-refs.size)
       refs.foreach { _.tell(result) }
     }
 
@@ -83,59 +93,150 @@ private [alternator] trait BatchedBehavior {
       queued
     }
 
-    private final def handleFuture(future: Future[FutureResult], pt: FuturePassThru): Unit = {
+    private final def handleFuture(future: Future[FutureResult], keys: List[PK], startNano: Long): Unit = {
       ctx.pipeToSelf(future) {
-        case Success(result) => ClientResult(result, pt)
-        case Failure(ex) => ClientFailure(ex, pt)
+        case Success(result) => ClientResult(result, keys, System.nanoTime() - startNano)
+        case Failure(ex) => ClientFailure(ex, keys, System.nanoTime() - startNano)
       }
-    }
-
-    private final def handleJobResult(queue: Queue[PK], result: ProcessResult): Behavior[BatchedRequest] = {
-
-      result.retry.groupMap(_._1)(_._2).foreach { case (retry, keys) =>
-        timer.startSingleTimer(Reschedule(keys), retryPolicy.getRetry(retry))
-      }
-
-      result.jobs.foreach { case (pt, future) =>
-        handleFuture(future, pt)
-      }
-
-      behavior(enqueue(queue, result.enqueue), result.buffer)
     }
 
     private final def enqueue(queued: Queue[PK], keys: List[PK]): Queue[PK] = {
       schedule(queued ++ keys)
     }
 
+    private def handleRetries(
+      queue: Queue[PK],
+      delayForThrottle: Int => Option[FiniteDuration],
+      failed: List[PK],
+      buffer: Buffer,
+      cause: Exception,
+      shutdown: Option[ActorRef[Done]],
+      reschedule: List[PK] = Nil
+    ): Behavior[BatchedRequest] = {
+      val retryMap = mutable.TreeMap[Int, Option[FiniteDuration]]()
+      val retries = mutable.TreeMap[FiniteDuration, List[PK]]()
+
+      val newBuffer = failed.foldLeft(buffer) { case (buffer, pk) =>
+        val bufferItem = buffer(pk)
+        val r = bufferItem.retries
+
+        retryMap.getOrElseUpdate(r, delayForThrottle(r)) match {
+          case Some(delayTime) =>
+            retries.update(delayTime, pk :: retries.getOrElse(delayTime, Nil))
+            buffer.updated(pk, bufferItem.withRetries(retries = r + 1))
+          case None =>
+            sendRetriesExhausted(cause, buffer, pk, bufferItem)
+        }
+      }
+
+      monitoring.retries(name, failed)
+
+      retries.toList.foreach { case (delayTime, keys) =>
+        timer.startSingleTimer(Reschedule(keys), delayTime)
+      }
+
+      checkShutdown(enqueue(queue, reschedule), newBuffer, shutdown)
+    }
+
+    @tailrec
+    private final def jobFailure(queue: Queue[PK], ex: Throwable, keys: List[PK], buffer: Buffer, durationNano: Long, shutdown: Option[ActorRef[Done]]): Behavior[BatchedRequest] = {
+      ex match {
+        case ex : CompletionException =>
+          jobFailure(queue, ex.getCause, keys, buffer, durationNano, shutdown)
+
+        case ex : ProvisionedThroughputExceededException =>
+          monitoring.requestComplete(name, Some(ex), keys, durationNano)
+          handleRetries(queue, retryPolicy.delayForThrottle, keys, buffer, ex, shutdown)
+
+        case ex : SdkServiceException if ex.isThrottlingException =>
+          monitoring.requestComplete(name, Some(ex), keys, durationNano)
+          handleRetries(queue, retryPolicy.delayForThrottle, keys, buffer, ex, shutdown)
+
+        case ex : SdkServiceException if ex.retryable() || ex.statusCode >= 500 =>
+          monitoring.requestComplete(name, Some(ex), keys, durationNano)
+          handleRetries(queue, retryPolicy.delayForError, keys, buffer, ex, shutdown)
+
+        case _ =>
+          monitoring.requestComplete(name, Some(ex), keys, durationNano)
+          checkShutdown(queue, sendFailure(keys, buffer, ex), shutdown)
+
+      }
+    }
+
+    private final def jobSuccess(queue: Queue[PK], futureResult: FutureResult, keys: List[PK], buffer: Buffer, durationNano: Long, shutdown: Option[ActorRef[Done]]): Behavior[BatchedRequest] = {
+      monitoring.requestComplete(name, None, keys, durationNano)
+
+      val (failed, reschedule, buffer2) = sendSuccess(futureResult, keys, buffer)
+
+      handleRetries(
+        queue,
+        retryPolicy.delayForUnprocessed,
+        failed,
+        buffer2,
+        Unprocessed,
+        shutdown,
+        reschedule
+      )
+    }
+
+    private def checkShutdown(
+      queue: Queue[PK],
+      buffer: Buffer,
+      running: Option[ActorRef[Done]]
+    ): Behavior[BatchedRequest] = {
+      running match {
+        case Some(ref) if queue.isEmpty =>
+          ref.tell(Done)
+          Behaviors.stopped
+        case _ =>
+          behavior(queue, buffer, running)
+      }
+    }
+
     final def behavior(
       queue: Queue[PK],
-      buffer: Buffer
+      buffer: Buffer,
+      shutdown: Option[ActorRef[Done]]
     ): Behavior[BatchedRequest] =
       Behaviors.receiveMessage {
+        case GracefulShutdown(ref) =>
+          if (shutdown.isEmpty) {
+            behavior(queue, buffer, Some(ref))
+          } else {
+            Behaviors.unhandled
+          }
+
         case Req(req, ref) =>
-          val (keys, pending2) = receive(req, ref, buffer)
-          behavior(enqueue(queue, keys), pending2)
+          if (shutdown.isEmpty) {
+            queueSize.incrementAndGet()
+            val (keys, pending2) = receive(req, ref, buffer)
+            checkShutdown(enqueue(queue, keys), pending2, shutdown)
+          } else Behaviors.unhandled
 
         case StartJob =>
           val (keys, queued2) = deque(queue, maxQueued)
+          inflightCount.addAndGet(keys.size)
 
           if (keys.isEmpty) {
-            behavior(queue, buffer)
+            checkShutdown(queue, buffer, shutdown)
           } else {
+            val startTime = System.nanoTime()
             val (future, pt, buffer2) = startJob(keys, buffer)
-            handleFuture(future, pt)
-            behavior(schedule(queued2), buffer2)
+            handleFuture(future, pt, startTime)
+            checkShutdown(schedule(queued2), buffer2, shutdown)
           }
 
-        case ClientResult(futureResult, pt) =>
-          handleJobResult(queue, jobSuccess(futureResult, pt, buffer))
+        case ClientResult(futureResult, keys, durationNano) =>
+          inflightCount.addAndGet(-keys.size)
+          jobSuccess(queue, futureResult, keys, buffer, durationNano, shutdown)
 
-        case ClientFailure(ex, pt) =>
-          handleJobResult(queue, jobFailure(ex, pt, buffer))
+        case ClientFailure(ex, keys, durationNano) =>
+          inflightCount.addAndGet(-keys.size)
+          jobFailure(queue, ex, keys, buffer, durationNano, shutdown)
 
         case Reschedule(keys) =>
           ctx.self ! StartJob
-          behavior(keys ++: queue, buffer)
+          checkShutdown(keys ++: queue, buffer, shutdown)
       }
 
   }
@@ -145,7 +246,10 @@ object BatchedBehavior {
   private [alternator] type AV = util.Map[String, AttributeValue]
   private [alternator] type PK = (String, AV)
 
-  trait RetryPolicy {
-    def getRetry(retry: Int): FiniteDuration
+  trait BufferItemBase[T <: BufferItemBase[T]] {
+    this: T =>
+
+    def retries: Int
+    def withRetries(retries: Int): T
   }
 }

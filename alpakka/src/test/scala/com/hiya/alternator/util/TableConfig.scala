@@ -9,4 +9,5 @@ abstract class TableConfig[Data] {
 
   def createData(i: Int, v: Option[Int] = None): (Key, Data)
   def withTable[T](client: DynamoDbAsyncClient)(f: TableType => T): T
+  def table(name: String): TableType
 }

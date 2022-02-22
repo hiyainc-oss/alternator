@@ -6,11 +6,13 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
+import com.hiya.alternator.internal.BatchedBehavior.AV
 import com.hiya.alternator.util._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, Inside, Inspectors}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
+import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
 
 import scala.collection.immutable
 import scala.concurrent.duration._
@@ -35,14 +37,35 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
   private implicit val timeout: Timeout = 60.seconds
   private implicit val scheduler: Scheduler = system.scheduler.toTyped
 
+  private val retryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy(
+    awsHasRetry = false,
+    maxRetries = 100,
+    throttleBackoff = BackoffStrategy.FullJitter(1.second, 20.millis)
+  )
+
+  object monitoring extends BatchMonitoringPolicy {
+    private var inflightF: () => Int = _
+    private var queueSizeF: () => Int = _
+    var retries = 0
+    var requests = 0
+
+    def inflight(): Int = inflightF()
+    def queueSize(): Int = queueSizeF()
+
+    override def inflightCount(actorName: String, value: () => Int): Unit = inflightF = value
+    override def queueSizeGauge(actorName: String, value: () => Int): Unit = queueSizeF = value
+    override def retries(actorName: String, failed: List[(String, AV)]): Unit = ()
+    override def requestComplete(actorName: String, ex: Option[Throwable], keys: List[(String, AV)], durationNano: Long): Unit = ()
+  }
+
   implicit val reader: ActorRef[BatchedReadBehavior.BatchedRequest] =
-    system.spawn(BatchedReadBehavior(lossyClient, 10.millis, (_: Int) => 10.millis), "reader")
+    system.spawn(BatchedReadBehavior(lossyClient, 10.millis, retryPolicy, monitoring), "reader")
 
   implicit val writer: ActorRef[BatchedWriteBehavior.BatchedRequest] =
-    system.spawn(BatchedWriteBehavior(stableClient, 10.millis, (_: Int) => 10.millis), "writer")
+    system.spawn(BatchedWriteBehavior(stableClient, 10.millis, retryPolicy), "writer")
 
 
-  def streamWrite[Data](implicit tableConfig: TableConfig[Data]): Unit = {
+  def streamRead[Data](implicit tableConfig: TableConfig[Data]): Unit = {
     def writeData(table: Table[Data, tableConfig.Key], nums: immutable.Iterable[Int]): Future[Seq[Done]] = {
       Source(nums)
         .map(v => tableConfig.createData(v)._2)
@@ -58,6 +81,24 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
       }
     }
 
+    it("should report if table not exists") {
+      val table: Table[Data, tableConfig.Key] =
+        tableConfig.table("doesnotexists")
+
+      intercept[ResourceNotFoundException] {
+        Await.result(
+          Source(List(1))
+            .map(k => tableConfig.createData(k))
+            .via(table.batchedGetFlowUnordered[Data](100))
+            .grouped(Int.MaxValue)
+            .runWith(Sink.head),
+          TEST_TIMEOUT)
+      }
+
+      monitoring.inflight() shouldBe 0
+      monitoring.queueSize() shouldBe 0
+    }
+
     it("should read data") {
       val result = withData(1 to 100) { table =>
         Await.result(
@@ -70,6 +111,8 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
       }
 
       result.size shouldBe 1000
+      monitoring.inflight() shouldBe 0
+      monitoring.queueSize() shouldBe 0
 
       forAll (result) { case (data, pt) =>
         inside(data) {
@@ -91,6 +134,8 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
       }
 
       result.size shouldBe 1000
+      monitoring.inflight() shouldBe 0
+      monitoring.queueSize() shouldBe 0
 
       forAll (result) { case (data, _) =>
         inside(data) {
@@ -101,11 +146,11 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
   }
 
   describe("stream with PK table") {
-    it should behave like streamWrite[DataPK]
+    it should behave like streamRead[DataPK]
   }
 
   describe("stream with RK table") {
-    it should behave like streamWrite[DataRK]
+    it should behave like streamRead[DataRK]
 
   }
 
