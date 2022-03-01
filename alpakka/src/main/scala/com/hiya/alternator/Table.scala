@@ -7,7 +7,7 @@ import akka.stream.alpakka.dynamodb.scaladsl.DynamoDb
 import akka.stream.scaladsl.{BidiFlow, Flow, Source}
 import akka.util.Timeout
 import akka.{Done, NotUsed}
-import com.hiya.alternator.internal.BatchedBehavior
+import com.hiya.alternator.Table.AV
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model._
 
@@ -42,7 +42,7 @@ class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
       .mapConcat(deserialize)
   }
 
-  final def deserialize(response: BatchedBehavior.AV): DynamoFormat.Result[V] = {
+  final def deserialize(response: AV): DynamoFormat.Result[V] = {
     schema.serializeValue.readFields(response)
   }
 
@@ -66,13 +66,13 @@ class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
   final def readRequest(key: PK): Table.ReadRequest[Option[DynamoFormat.Result[V]]] =
     Table.ReadRequestWoPT(
       name -> schema.serializePK(key),
-      deserialize(_:BatchedBehavior.AV)
+      deserialize(_:AV)
     )
 
   final def readRequest[PT](key: PK, pt: PT): Table.ReadRequest[(Option[DynamoFormat.Result[V]], PT)] =
     Table.ReadRequestWPT(
       name -> schema.serializePK(key),
-      deserialize(_:BatchedBehavior.AV),
+      deserialize(_:AV),
       pt
     )
 
@@ -148,6 +148,8 @@ class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
 }
 
 object Table {
+
+
   private [alternator] implicit lazy val parasitic: ExecutionContext = {
     // The backport is present in akka, so we will just use it by reflection
     // It probably will not change, as it is a stable internal api
@@ -171,7 +173,7 @@ object Table {
   def unorderedReader[V](parallelism: Int)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[ReadRequest[V], V, NotUsed] =
     Flow[ReadRequest[V]].mapAsyncUnordered(parallelism)(_.send())
 
-  private def sendRead[V](pk: BatchedBehavior.PK, deserializer: BatchedBehavior.AV => DynamoFormat.Result[V])(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Option[DynamoFormat.Result[V]]] =
+  private def sendRead[V](pk: PK, deserializer: AV => DynamoFormat.Result[V])(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Option[DynamoFormat.Result[V]]] =
     actorRef
       .ask((ref: BatchedReadBehavior.Ref) =>
         BatchedReadBehavior.Req(pk, ref)
@@ -182,18 +184,18 @@ object Table {
     def send()(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[V]
   }
 
-  final case class ReadRequestWoPT[V](pk: BatchedBehavior.PK, deserializer: BatchedBehavior.AV => DynamoFormat.Result[V]) extends ReadRequest[Option[DynamoFormat.Result[V]]] {
+  final case class ReadRequestWoPT[V](pk: PK, deserializer: AV => DynamoFormat.Result[V]) extends ReadRequest[Option[DynamoFormat.Result[V]]] {
     def send()(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Option[DynamoFormat.Result[V]]] =
       sendRead(pk, deserializer)
   }
 
-  final case class ReadRequestWPT[V, PT](pk: BatchedBehavior.PK, deserializer: BatchedBehavior.AV => DynamoFormat.Result[V], pt: PT) extends ReadRequest[(Option[DynamoFormat.Result[V]], PT)] {
+  final case class ReadRequestWPT[V, PT](pk: PK, deserializer: AV => DynamoFormat.Result[V], pt: PT) extends ReadRequest[(Option[DynamoFormat.Result[V]], PT)] {
     def send()(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[(Option[DynamoFormat.Result[V]], PT)] =
       sendRead(pk, deserializer).map(_ -> pt)
 
   }
 
-  final case class WriteRequest[V](pk: BatchedBehavior.PK, value: Option[BatchedBehavior.AV], ret: V) {
+  final case class WriteRequest[V](pk: PK, value: Option[AV], ret: V) {
     def send()(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[V] =
       actorRef
         .ask((ref: BatchedWriteBehavior.Ref) =>
@@ -219,4 +221,6 @@ object Table {
   ): TableWithRange[V, tableSchema.PK, tableSchema.RK] =
     new TableWithRange[V, tableSchema.PK, tableSchema.RK](name, tableSchema)
 
+  type AV = java.util.Map[String, AttributeValue]
+  type PK = (String, AV)
 }

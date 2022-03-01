@@ -3,11 +3,11 @@ package com.hiya.alternator.internal
 import akka.Done
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
+import com.hiya.alternator.Table.PK
 import com.hiya.alternator.{BatchMonitoringPolicy, BatchRetryPolicy, Unprocessed}
 import software.amazon.awssdk.core.exception.SdkServiceException
-import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, ProvisionedThroughputExceededException}
+import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughputExceededException
 
-import java.util
 import java.util.concurrent.CompletionException
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
@@ -28,7 +28,6 @@ import scala.util.{Failure, Success, Try}
 private [alternator] trait BatchedBehavior {
   type Result
   type Ref = ActorRef[Try[Result]]
-  import BatchedBehavior.PK
 
   protected type Request
   protected type BufferItem <: BatchedBehavior.BufferItemBase[BufferItem]
@@ -243,8 +242,6 @@ private [alternator] trait BatchedBehavior {
 }
 
 object BatchedBehavior {
-  private [alternator] type AV = util.Map[String, AttributeValue]
-  private [alternator] type PK = (String, AV)
 
   trait BufferItemBase[T <: BufferItemBase[T]] {
     this: T =>

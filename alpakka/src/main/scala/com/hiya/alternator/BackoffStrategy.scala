@@ -9,7 +9,6 @@ trait BackoffStrategy {
 }
 
 object BackoffStrategy {
-
   // Not a really good random
   private def random(upper: Long): Long = {
     Math.abs(Random.nextLong()) % upper
@@ -45,6 +44,4 @@ object BackoffStrategy {
       FiniteDuration(maxDelay / 2 + random(maxDelay / 2), TimeUnit.MILLISECONDS)
     }
   }
-
-
 }
