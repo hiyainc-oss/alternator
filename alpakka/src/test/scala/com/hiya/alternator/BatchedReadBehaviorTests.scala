@@ -43,7 +43,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
     throttleBackoff = BackoffStrategy.FullJitter(1.second, 20.millis)
   )
 
-  object monitoring extends BatchMonitoringPolicy {
+  object monitoring extends BatchMonitoring {
     private var inflightF: () => Int = _
     private var queueSizeF: () => Int = _
     var retries = 0
@@ -52,8 +52,12 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
     def inflight(): Int = inflightF()
     def queueSize(): Int = queueSizeF()
 
-    override def inflightCount(actorName: String, value: () => Int): Unit = inflightF = value
-    override def queueSizeGauge(actorName: String, value: () => Int): Unit = queueSizeF = value
+
+    override def register(actorName: String, behavior: BatchedBehavior): Unit = {
+      inflightF = () => behavior.inflight
+      queueSizeF = () => behavior.queueSize
+    }
+
     override def retries(actorName: String, failed: List[PK]): Unit = ()
     override def requestComplete(actorName: String, ex: Option[Throwable], keys: List[PK], durationNano: Long): Unit = ()
   }

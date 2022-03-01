@@ -80,7 +80,7 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
     client: AwsClientAdapter,
     maxWait: FiniteDuration,
     retryPolicy: BatchRetryPolicy,
-    monitoring: BatchMonitoringPolicy
+    monitoring: BatchMonitoring
   )(
     ctx: ActorContext[BatchedRequest],
     scheduler: TimerScheduler[BatchedRequest]
@@ -158,7 +158,7 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
     client: DynamoDbAsyncClient,
     maxWait: FiniteDuration,
     retryPolicy: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy(),
-    monitoring: BatchMonitoringPolicy = BatchMonitoringPolicy.Disabled
+    monitoring: BatchMonitoring = BatchMonitoring.Disabled
   ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>
