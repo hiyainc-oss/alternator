@@ -4,6 +4,7 @@ import akka.Done
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.stream.alpakka.dynamodb.DynamoDbOp
+import com.hiya.alternator.Table.{AV, PK}
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, BatchWriteItemRequest, BatchWriteItemResponse}
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
 
@@ -18,7 +19,6 @@ import scala.util.{Failure, Success}
 
 
 object BatchedWriteBehavior extends internal.BatchedBehavior {
-  import internal.BatchedBehavior._
 
   private [alternator] final case class WriteBuffer(queue: Queue[(Option[AV], List[Ref])], retries: Int)
     extends internal.BatchedBehavior.BufferItemBase[WriteBuffer] {

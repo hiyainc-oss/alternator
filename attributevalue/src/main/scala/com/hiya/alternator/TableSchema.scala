@@ -1,12 +1,11 @@
 package com.hiya.alternator
 
-import java.util.{Map => JMap}
-
+import cats.instances.either._
+import cats.syntax.apply._
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, ScalarAttributeType}
 
+import java.util.{Map => JMap}
 import scala.jdk.CollectionConverters._
-import cats.syntax.apply._
-import cats.instances.either._
 
 
 abstract class TableSchema[V](val serializeValue: CompoundDynamoFormat[V]) {

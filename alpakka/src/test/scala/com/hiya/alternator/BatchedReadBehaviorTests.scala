@@ -6,7 +6,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
-import com.hiya.alternator.internal.BatchedBehavior.AV
+import com.hiya.alternator.Table.PK
 import com.hiya.alternator.util._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -54,8 +54,8 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
 
     override def inflightCount(actorName: String, value: () => Int): Unit = inflightF = value
     override def queueSizeGauge(actorName: String, value: () => Int): Unit = queueSizeF = value
-    override def retries(actorName: String, failed: List[(String, AV)]): Unit = ()
-    override def requestComplete(actorName: String, ex: Option[Throwable], keys: List[(String, AV)], durationNano: Long): Unit = ()
+    override def retries(actorName: String, failed: List[PK]): Unit = ()
+    override def requestComplete(actorName: String, ex: Option[Throwable], keys: List[PK], durationNano: Long): Unit = ()
   }
 
   implicit val reader: ActorRef[BatchedReadBehavior.BatchedRequest] =
