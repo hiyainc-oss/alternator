@@ -3,11 +3,13 @@ package com.hiya.alternator
 import akka.Done
 import akka.actor.ActorSystem
 import akka.actor.typed.scaladsl.adapter._
+import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
 import com.hiya.alternator.Table.PK
 import com.hiya.alternator.util._
+import com.hiya.alternator.syntax._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, Inside, Inspectors}
@@ -30,6 +32,8 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
   private val lossyClient: DynamoDbAsyncClient = new DynamoDbLossyClient(stableClient)
 
   override protected def afterAll(): Unit = {
+    Await.result(reader.terminate(), 10.seconds)
+    Await.result(writer.terminate(), 10.seconds)
     Await.result(system.terminate(), 60.seconds)
     super.afterAll()
   }
@@ -60,6 +64,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
 
     override def retries(actorName: String, failed: List[PK]): Unit = ()
     override def requestComplete(actorName: String, ex: Option[Throwable], keys: List[PK], durationNano: Long): Unit = ()
+    override def close(): Unit = {}
   }
 
   implicit val reader: ActorRef[BatchedReadBehavior.BatchedRequest] =
@@ -146,6 +151,14 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
           case None =>
         }
       }
+    }
+
+    it("should stop") {
+      val reader: ActorRef[BatchedReadBehavior.BatchedRequest] =
+        system.spawn(BatchedReadBehavior(lossyClient, 10.millis, retryPolicy, monitoring), "reader2")
+
+      Await.result(reader.terminate(), 10.seconds)
+
     }
   }
 

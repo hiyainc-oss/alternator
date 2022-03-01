@@ -5,6 +5,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
+import com.hiya.alternator.syntax._
 import com.hiya.alternator.util._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -119,6 +120,15 @@ class BatchedWriteBehaviorTests extends AnyFunSpec with Matchers with Inside wit
         }
       }
     }
+
+    it("should stop") {
+      val writer: ActorRef[BatchedWriteBehavior.BatchedRequest] =
+        system.spawn(BatchedWriteBehavior(lossyClient, 10.millis, retryPolicy), "writer2")
+
+      Await.result(writer.terminate(), 10.seconds)
+
+    }
+
   }
 
   describe("stream with PK table") {

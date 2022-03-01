@@ -1,7 +1,7 @@
 package com.hiya.alternator.internal
 
 import akka.Done
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
+import akka.actor.typed.scaladsl._
 import akka.actor.typed.{ActorRef, Behavior}
 import com.hiya.alternator.Table.PK
 import com.hiya.alternator.{BatchMonitoring, BatchRetryPolicy, Unprocessed}
@@ -187,6 +187,7 @@ private [alternator] trait BatchedBehavior {
     ): Behavior[BatchedRequest] = {
       running match {
         case Some(ref) if queue.isEmpty =>
+          monitoring.close()
           ref.tell(Done)
           Behaviors.stopped
         case _ =>
@@ -202,7 +203,7 @@ private [alternator] trait BatchedBehavior {
       Behaviors.receiveMessage {
         case GracefulShutdown(ref) =>
           if (shutdown.isEmpty) {
-            behavior(queue, buffer, Some(ref))
+            checkShutdown(queue, buffer, Some(ref))
           } else {
             Behaviors.unhandled
           }
