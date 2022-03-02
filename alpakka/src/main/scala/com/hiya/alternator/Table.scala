@@ -88,6 +88,20 @@ class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
       batchedGet(key).map(_ -> pt)(Table.parasitic)
     }
 
+  final def getAllBuilder(items: Seq[PK]): BatchGetItemRequest.Builder = {
+    BatchGetItemRequest
+      .builder()
+      .requestItems(Map(name ->
+        KeysAndAttributes.builder().keys(
+          items.map(item => schema.serializePK(item)).asJava
+        ).build()
+      ).asJava)
+  }
+
+  final def getAll(values: Seq[V])(implicit client: DynamoDbAsyncClient, system: ClassicActorSystemProvider): Future[BatchWriteItemResponse] = {
+    DynamoDb.single(putAllBuilder(values).build())
+  }
+
   final def putBuilder(item: V): PutItemRequest.Builder =
     PutItemRequest.builder().item(schema.serializeValue.writeFields(item)).tableName(name)
 
@@ -96,6 +110,20 @@ class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
 
     val ret: Future[PutItemResponse] = DynamoDb.single(putBuilder(value).build())
     ret.map(_ => Done)
+  }
+
+  final def putAllBuilder(items: Seq[V]): BatchWriteItemRequest.Builder = {
+    BatchWriteItemRequest
+      .builder()
+      .requestItems(Map(name -> items.map(item =>
+        WriteRequest.builder().putRequest(
+          PutRequest.builder().item(schema.serializeValue.writeFields(item)).build()
+        ).build()
+      ).asJava).asJava)
+  }
+
+  final def putAll(values: Seq[V])(implicit client: DynamoDbAsyncClient, system: ClassicActorSystemProvider): Future[BatchWriteItemResponse] = {
+    DynamoDb.single(putAllBuilder(values).build())
   }
 
   final def batchedPut(value: V)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Done] =
@@ -145,6 +173,19 @@ class Table[V, PK](val name: String, schema: TableSchema.Aux[V, PK]) {
   final def batchedDelete[T : ItemMagnet](value: T)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Done] =
     deleteRequest(value).send()
 
+  final def deleteAllBuilder[T](items: Seq[T])(implicit T : ItemMagnet[T]): BatchWriteItemRequest.Builder = {
+    BatchWriteItemRequest
+      .builder()
+      .requestItems(Map(name -> items.map(item =>
+        WriteRequest.builder().deleteRequest(
+          DeleteRequest.builder().key(schema.serializePK(T.key(item))).build()
+        ).build()
+      ).asJava).asJava)
+  }
+
+  final def deleteAll[T : ItemMagnet](values: Seq[T])(implicit client: DynamoDbAsyncClient, system: ClassicActorSystemProvider): Future[BatchWriteItemResponse] = {
+    DynamoDb.single(deleteAllBuilder(values).build())
+  }
 }
 
 object Table {
