@@ -18,7 +18,7 @@ object Dependencies {
   private val scalaCheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.15" % "1.3.0"
   private val alpakkaDynamoDB     = "com.lightbend.akka"         %% "akka-stream-alpakka-dynamodb" % "3.0.4"
   private val collectionsCompat   = "org.scala-lang.modules"     %% "scala-collection-compat" % "2.6.0"
-  private val scalaJava8Compat    = "org.scala-lang.modules"     %% "scala-java8-compat"     % "1.0.2"
+  private val scalaJava8Compat    = "org.scala-lang.modules"     %% "scala-java8-compat"     % "0.9.1"
   private val logback             = "ch.qos.logback" % "logback-classic" % "1.2.6"
 
 
