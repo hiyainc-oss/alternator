@@ -51,6 +51,11 @@ object Dependencies {
     scalaCheckShapeless % Test
   )
 
+  val Testkit = Seq(
+    dynamoDB2,
+    scalaJava8Compat,
+  )
+
   val Alpakka = Seq(
     alpakkaDynamoDB,
     akkaTyped,

@@ -1,26 +1,25 @@
 package com.hiya.alternator
 
 import akka.Done
-import akka.actor.{ActorSystem, ClassicActorSystemProvider}
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.{ActorRef, Scheduler}
+import akka.actor.{ActorSystem, ClassicActorSystemProvider}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
 import com.hiya.alternator.generic.semiauto
 import com.hiya.alternator.syntax._
-import com.hiya.alternator.util.{DataPK, DataRK, LocalDynamoDB}
+import com.hiya.alternator.testkit.{LocalDynamoDB, Timeout => TestTimeout}
+import com.hiya.alternator.util.{DataPK, DataRK}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAllConfigMap, ConfigMap}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
 
 import java.util.UUID
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfigMap {
+class DynamoDBTest extends AnyFunSpec with Matchers {
 
   case class ExampleData(pk: String, intValue: Int, stringValue: String)
   object ExampleData {
@@ -43,29 +42,25 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
 
   }
 
-  implicit val system = ActorSystem()
-  implicit val materializer = Materializer.matFromSystem
-  implicit var client: DynamoDbAsyncClient = LocalDynamoDB.client(Option(System.getProperty("dynamoDBLocalPort")).map(_.toInt).getOrElse(8484))
-  val timeout = 3.seconds
+  private implicit val system = ActorSystem()
+  private implicit val materializer = Materializer.matFromSystem
+  private implicit val ec = system.dispatcher
+  private implicit val client: DynamoDbAsyncClient = LocalDynamoDB.client()
+  private val timeout = 3.seconds
+  private implicit val testTimeout: TestTimeout = 60.seconds
 
   def wait[T](body: Future[T]): T = {
     Await.result(body, timeout)
   }
 
-  override protected def beforeAll(configMap: ConfigMap): Unit = {
-    super.beforeAll(configMap)
-    client = LocalDynamoDB.client(configMap.get("dynamoDBLocalPort").map(_.asInstanceOf[String].toInt).getOrElse(8484))
-  }
-
   describe("DynamoDB") {
     it("can read/write items in custom test table") {
 
-      val schema: (String, ScalarAttributeType) = "pk" -> ScalarAttributeType.S
       val tableName = s"test-table-${UUID.randomUUID()}"
 
       val exampleDBInstance = new ExampleDB(tableName)
       val exampleDBInstance2 = new ExampleDB(tableName)
-      LocalDynamoDB.withTable(client)(tableName)(schema) {
+      LocalDynamoDB.withTable(client)(tableName)(LocalDynamoDB.schema[ExampleData]) {
         val key = "primaryKey"
 
         val data = ExampleData(key, 12, "string value")
@@ -107,7 +102,6 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     }
 
     it("should compile =") {
-      import Table.parasitic
 
       val result = withRangeData(5) { table =>
         Await.result(table.query(pk = "5", rk == "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
@@ -117,7 +111,6 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     }
 
     it("should compile <") {
-      import Table.parasitic
 
       val result = withRangeData(5) { table =>
         Await.result(table.query(pk = "5", rk < "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
@@ -127,7 +120,6 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     }
 
     it("should compile <=") {
-      import Table.parasitic
 
       val result = withRangeData(5) { table =>
         Await.result(table.query(pk = "5", rk <= "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
@@ -137,7 +129,6 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     }
 
     it("should compile >") {
-      import Table.parasitic
 
       val result = withRangeData(5) { table =>
         Await.result(table.query(pk = "5", rk > "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
@@ -147,7 +138,6 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     }
 
     it("should compile >=") {
-      import Table.parasitic
 
       val result = withRangeData(5) { table =>
         Await.result(table.query(pk = "5", rk >= "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
@@ -157,7 +147,6 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     }
 
     it("should compile between") {
-      import Table.parasitic
 
       val result = withRangeData(5) { table =>
         Await.result(table.query(pk = "5", rk.between("2", "3")).runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
@@ -167,7 +156,6 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     }
 
     it("should compile startswith") {
-      import Table.parasitic
 
       val result = withRangeData(13) { table =>
         Await.result(table.query(pk = "13", rk.beginsWith("1")).runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
@@ -177,7 +165,6 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     }
 
     it("should work without rk condition") {
-      import Table.parasitic
 
       val result = withRangeData(13) { table =>
         Await.result(table.query(pk = "13").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
@@ -187,7 +174,6 @@ class DynamoDBTest extends AnyFunSpec with Matchers with BeforeAndAfterAllConfig
     }
 
     it("should work with a lots of data") {
-      import Table.parasitic
 
       val payload = "0123456789abcdefghijklmnopqrstuvwxyz" * 1000
 

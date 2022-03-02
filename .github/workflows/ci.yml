@@ -58,7 +58,7 @@ jobs:
         run: sbt ++${{ matrix.scala }} test
 
       - name: Compress target directories
-        run: tar cf targets.tar alpakka/target attributevalue/target tests/scanamo-aws1/target tests/target tests/scanamo-base/target target tests/alternator/target tests/scanamo-aws2/target project/target
+        run: tar cf targets.tar alpakka/target attributevalue/target tests/scanamo-aws1/target testkit/target tests/target tests/scanamo-base/target target tests/alternator/target tests/scanamo-aws2/target project/target
 
       - name: Upload target directories
         uses: actions/upload-artifact@v2

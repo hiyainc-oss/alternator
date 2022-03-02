@@ -3,13 +3,14 @@ package com.hiya.alternator
 import akka.Done
 import akka.actor.ActorSystem
 import akka.actor.typed.scaladsl.adapter._
-import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
 import com.hiya.alternator.Table.PK
-import com.hiya.alternator.util._
 import com.hiya.alternator.syntax._
+import com.hiya.alternator.testkit.{DynamoDBLossyClient, LocalDynamoDB}
+import com.hiya.alternator.testkit.{Timeout => TestTimeout}
+import com.hiya.alternator.util._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, Inside, Inspectors}
@@ -25,11 +26,11 @@ import scala.util.Random
 class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with BeforeAndAfterAll with Inspectors {
 
   private implicit val system = ActorSystem()
-
+  private implicit val ec = system.dispatcher
   private val TEST_TIMEOUT = 20.seconds
 
-  private val stableClient = LocalDynamoDB.client(Option(System.getProperty("dynamoDBLocalPort")).map(_.toInt).getOrElse(8484))
-  private val lossyClient: DynamoDbAsyncClient = new DynamoDbLossyClient(stableClient)
+  private val stableClient = LocalDynamoDB.client()
+  private val lossyClient: DynamoDbAsyncClient = new DynamoDBLossyClient(stableClient)
 
   override protected def afterAll(): Unit = {
     Await.result(reader.terminate(), 10.seconds)
@@ -39,6 +40,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
   }
 
   private implicit val timeout: Timeout = 60.seconds
+  private implicit val testTimeout: TestTimeout = 60.seconds
   private implicit val scheduler: Scheduler = system.scheduler.toTyped
 
   private val retryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy(

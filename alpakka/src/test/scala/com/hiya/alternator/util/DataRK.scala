@@ -1,10 +1,11 @@
 package com.hiya.alternator.util
 
+import com.hiya.alternator.testkit.{LocalDynamoDB, Timeout}
 import com.hiya.alternator.{Table, TableSchema, TableSchemaWithRange, TableWithRange}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType
 
 import java.util.UUID
+import scala.concurrent.ExecutionContext
 
 case class DataRK(key: String, range: String, value: String)
 
@@ -22,9 +23,10 @@ object DataRK {
     override def table(tableName: String): TableWithRange[DataRK, String, String] =
       Table.tableWithRK[DataRK](tableName)
 
-    override def withTable[T](client: DynamoDbAsyncClient)(f: TableType => T): T = {
+    override def withTable[T](client: DynamoDbAsyncClient)(f: TableType => T)
+                             (implicit ec: ExecutionContext, timeout: Timeout): T = {
       val tableName = s"test-table-${UUID.randomUUID()}"
-      LocalDynamoDB.withTable(client)(tableName)("key" -> ScalarAttributeType.S, "range" -> ScalarAttributeType.S) {
+      LocalDynamoDB.withTable(client)(tableName)(LocalDynamoDB.schema[DataRK]) {
         f(table(tableName))
       }
     }

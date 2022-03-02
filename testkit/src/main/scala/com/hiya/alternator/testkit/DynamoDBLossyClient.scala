@@ -1,21 +1,18 @@
-package com.hiya.alternator.util
+package com.hiya.alternator.testkit
 
-import akka.actor.ActorSystem
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model._
 
 import java.util
 import java.util.concurrent.CompletableFuture
 import scala.compat.java8.FutureConverters._
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 import scala.util.Random
 
 
-class DynamoDbLossyClient(stableClient: DynamoDbAsyncClient)(implicit system: ActorSystem) extends DynamoDbAsyncClient {
-    import system.dispatcher
-
-    override def serviceName(): String = stableClient.serviceName()
+class DynamoDBLossyClient(stableClient: DynamoDbAsyncClient)(implicit ec: ExecutionContext) extends DynamoDbAsyncClient {
+  override def serviceName(): String = stableClient.serviceName()
     override def close(): Unit = stableClient.close()
 
     override def batchWriteItem(batchWriteItemRequest: BatchWriteItemRequest): CompletableFuture[BatchWriteItemResponse] = {
