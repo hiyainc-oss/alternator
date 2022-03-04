@@ -7,6 +7,8 @@ import akka.actor.typed.{ActorRef, Scheduler}
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
 import com.hiya.alternator.Table.PK
+import com.hiya.alternator.alpakka._
+import com.hiya.alternator.testkit.{DynamoDBLossyClient, LocalDynamoDB, Timeout => TestTimeout}
 import com.hiya.alternator.util._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -23,18 +25,21 @@ import scala.util.Random
 class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with BeforeAndAfterAll with Inspectors {
 
   private implicit val system = ActorSystem()
-
+  private implicit val ec = system.dispatcher
   private val TEST_TIMEOUT = 20.seconds
 
-  private val stableClient = LocalDynamoDB.client(Option(System.getProperty("dynamoDBLocalPort")).map(_.toInt).getOrElse(8484))
-  private val lossyClient: DynamoDbAsyncClient = new DynamoDbLossyClient(stableClient)
+  private val stableClient = LocalDynamoDB.client()
+  private val lossyClient: DynamoDbAsyncClient = new DynamoDBLossyClient(stableClient)
 
   override protected def afterAll(): Unit = {
+    Await.result(reader.terminate(), 10.seconds)
+    Await.result(writer.terminate(), 10.seconds)
     Await.result(system.terminate(), 60.seconds)
     super.afterAll()
   }
 
   private implicit val timeout: Timeout = 60.seconds
+  private implicit val testTimeout: TestTimeout = 60.seconds
   private implicit val scheduler: Scheduler = system.scheduler.toTyped
 
   private val retryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy(
@@ -43,7 +48,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
     throttleBackoff = BackoffStrategy.FullJitter(1.second, 20.millis)
   )
 
-  object monitoring extends BatchMonitoringPolicy {
+  object monitoring extends BatchMonitoring {
     private var inflightF: () => Int = _
     private var queueSizeF: () => Int = _
     var retries = 0
@@ -52,21 +57,26 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
     def inflight(): Int = inflightF()
     def queueSize(): Int = queueSizeF()
 
-    override def inflightCount(actorName: String, value: () => Int): Unit = inflightF = value
-    override def queueSizeGauge(actorName: String, value: () => Int): Unit = queueSizeF = value
+
+    override def register(actorName: String, behavior: BatchedBehavior): Unit = {
+      inflightF = () => behavior.inflight
+      queueSizeF = () => behavior.queueSize
+    }
+
     override def retries(actorName: String, failed: List[PK]): Unit = ()
     override def requestComplete(actorName: String, ex: Option[Throwable], keys: List[PK], durationNano: Long): Unit = ()
+    override def close(): Unit = {}
   }
 
   implicit val reader: ActorRef[BatchedReadBehavior.BatchedRequest] =
-    system.spawn(BatchedReadBehavior(lossyClient, 10.millis, retryPolicy, monitoring), "reader")
+    system.spawn(alpakka.BatchedReadBehavior(lossyClient, 10.millis, retryPolicy, monitoring), "reader")
 
   implicit val writer: ActorRef[BatchedWriteBehavior.BatchedRequest] =
-    system.spawn(BatchedWriteBehavior(stableClient, 10.millis, retryPolicy), "writer")
+    system.spawn(alpakka.BatchedWriteBehavior(stableClient, 10.millis, retryPolicy), "writer")
 
 
   def streamRead[Data](implicit tableConfig: TableConfig[Data]): Unit = {
-    def writeData(table: Table[Data, tableConfig.Key], nums: immutable.Iterable[Int]): Future[Seq[Done]] = {
+    def writeData(table: AlpakkaTable[Data, tableConfig.Key], nums: immutable.Iterable[Int]): Future[Seq[Done]] = {
       Source(nums)
         .map(v => tableConfig.createData(v)._2)
         .mapAsync(10)(table.batchedPut)
@@ -74,7 +84,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
         .runWith(Sink.head)
     }
 
-    def withData[T](nums: immutable.Iterable[Int])(f: Table[Data, tableConfig.Key] => T): T = {
+    def withData[T](nums: immutable.Iterable[Int])(f: AlpakkaTable[Data, tableConfig.Key] => T): T = {
       tableConfig.withTable(stableClient) { table =>
         Await.result(writeData(table, nums), TEST_TIMEOUT)
         f(table)
@@ -82,8 +92,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
     }
 
     it("should report if table not exists") {
-      val table: Table[Data, tableConfig.Key] =
-        tableConfig.table("doesnotexists")
+      val table: AlpakkaTable[Data, tableConfig.Key] = tableConfig.table("doesnotexists", stableClient)
 
       intercept[ResourceNotFoundException] {
         Await.result(
@@ -142,6 +151,14 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
           case None =>
         }
       }
+    }
+
+    it("should stop") {
+      val reader: ActorRef[BatchedReadBehavior.BatchedRequest] =
+        system.spawn(alpakka.BatchedReadBehavior(lossyClient, 10.millis, retryPolicy, monitoring), "reader2")
+
+      Await.result(reader.terminate(), 10.seconds)
+
     }
   }
 

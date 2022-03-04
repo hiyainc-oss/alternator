@@ -1,10 +1,12 @@
-package com.hiya.alternator.internal
+package com.hiya.alternator.alpakka.internal
 
 import akka.Done
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
+import akka.actor.typed.scaladsl._
 import akka.actor.typed.{ActorRef, Behavior}
 import com.hiya.alternator.Table.PK
-import com.hiya.alternator.{BatchMonitoringPolicy, BatchRetryPolicy, Unprocessed}
+import com.hiya.alternator.alpakka
+import com.hiya.alternator.alpakka.AlpakkaException.Unprocessed
+import com.hiya.alternator.alpakka.{BatchMonitoring, BatchRetryPolicy}
 import software.amazon.awssdk.core.exception.SdkServiceException
 import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughputExceededException
 
@@ -58,19 +60,21 @@ private [alternator] trait BatchedBehavior {
   }
 
   abstract class BaseBehavior(
-    ctx: ActorContext[BatchedRequest],
-    timer: TimerScheduler[BatchedRequest],
-    maxWait: FiniteDuration,
-    retryPolicy: BatchRetryPolicy,
-    monitoring: BatchMonitoringPolicy,
-    maxQueued: Int
-  ) {
+                               ctx: ActorContext[BatchedRequest],
+                               timer: TimerScheduler[BatchedRequest],
+                               maxWait: FiniteDuration,
+                               retryPolicy: BatchRetryPolicy,
+                               monitoring: BatchMonitoring,
+                               maxQueued: Int
+  ) extends alpakka.BatchedBehavior {
     private val name = ctx.self.path.name
-    private val queueSize = new AtomicInteger()
-    private val inflightCount = new AtomicInteger()
+    private val atomicQueueSize = new AtomicInteger()
+    private val atomicInflightCount = new AtomicInteger()
 
-    monitoring.queueSizeGauge(name, () => queueSize.get())
-    monitoring.inflightCount(name, () => inflightCount.get())
+    monitoring.register(name, this)
+
+    override def queueSize: Int = atomicQueueSize.get()
+    override def inflight: Int = atomicInflightCount.get()
 
     protected def startJob(keys: List[PK], buffer: Buffer): (Future[FutureResult], List[PK], Buffer)
     protected def receive(req: Request, ref: Ref, pending: Buffer): (List[PK], Buffer)
@@ -79,7 +83,7 @@ private [alternator] trait BatchedBehavior {
     protected def sendSuccess(futureResult: FutureResult, keys: List[PK], buffer: Buffer): (List[PK], List[PK], Buffer)
 
     protected def sendResult(refs: List[Ref], result: Try[Result]): Unit = {
-      queueSize.addAndGet(-refs.size)
+      atomicQueueSize.addAndGet(-refs.size)
       refs.foreach { _.tell(result) }
     }
 
@@ -185,6 +189,7 @@ private [alternator] trait BatchedBehavior {
     ): Behavior[BatchedRequest] = {
       running match {
         case Some(ref) if queue.isEmpty =>
+          monitoring.close()
           ref.tell(Done)
           Behaviors.stopped
         case _ =>
@@ -200,21 +205,21 @@ private [alternator] trait BatchedBehavior {
       Behaviors.receiveMessage {
         case GracefulShutdown(ref) =>
           if (shutdown.isEmpty) {
-            behavior(queue, buffer, Some(ref))
+            checkShutdown(queue, buffer, Some(ref))
           } else {
             Behaviors.unhandled
           }
 
         case Req(req, ref) =>
           if (shutdown.isEmpty) {
-            queueSize.incrementAndGet()
+            atomicQueueSize.incrementAndGet()
             val (keys, pending2) = receive(req, ref, buffer)
             checkShutdown(enqueue(queue, keys), pending2, shutdown)
           } else Behaviors.unhandled
 
         case StartJob =>
           val (keys, queued2) = deque(queue, maxQueued)
-          inflightCount.addAndGet(keys.size)
+          atomicInflightCount.addAndGet(keys.size)
 
           if (keys.isEmpty) {
             checkShutdown(queue, buffer, shutdown)
@@ -226,11 +231,11 @@ private [alternator] trait BatchedBehavior {
           }
 
         case ClientResult(futureResult, keys, durationNano) =>
-          inflightCount.addAndGet(-keys.size)
+          atomicInflightCount.addAndGet(-keys.size)
           jobSuccess(queue, futureResult, keys, buffer, durationNano, shutdown)
 
         case ClientFailure(ex, keys, durationNano) =>
-          inflightCount.addAndGet(-keys.size)
+          atomicInflightCount.addAndGet(-keys.size)
           jobFailure(queue, ex, keys, buffer, durationNano, shutdown)
 
         case Reschedule(keys) =>

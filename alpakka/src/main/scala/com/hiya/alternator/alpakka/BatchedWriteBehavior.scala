@@ -1,10 +1,11 @@
-package com.hiya.alternator
+package com.hiya.alternator.alpakka
 
 import akka.Done
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.stream.alpakka.dynamodb.DynamoDbOp
 import com.hiya.alternator.Table.{AV, PK}
+import com.hiya.alternator.alpakka.AlpakkaException.RetriesExhausted
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, BatchWriteItemRequest, BatchWriteItemResponse}
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
 
@@ -20,12 +21,12 @@ import scala.util.{Failure, Success}
 
 object BatchedWriteBehavior extends internal.BatchedBehavior {
 
-  private [alternator] final case class WriteBuffer(queue: Queue[(Option[AV], List[Ref])], retries: Int)
+  private[alternator] final case class WriteBuffer(queue: Queue[(Option[AV], List[Ref])], retries: Int)
     extends internal.BatchedBehavior.BufferItemBase[WriteBuffer] {
     override def withRetries(retries: Int): WriteBuffer = copy(retries = retries)
   }
 
-  private [alternator] final case class WriteRequest(pk: PK, value: Option[AV])
+  private[alternator] final case class WriteRequest(pk: PK, value: Option[AV])
 
   override protected type Request = WriteRequest
   override type Result = Done
@@ -63,11 +64,11 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
           key
             .groupMap(_._1._1)(x => x._1._2 -> x._2)
             .view.mapValues(_.map({
-                case (_, Some(value)) =>
-                  model.WriteRequest.builder().putRequest(model.PutRequest.builder().item(value).build()).build()
-                case (key, None) =>
-                  model.WriteRequest.builder().deleteRequest(model.DeleteRequest.builder().key(key).build()).build()
-              }).asJavaCollection)
+            case (_, Some(value)) =>
+              model.WriteRequest.builder().putRequest(model.PutRequest.builder().item(value).build()).build()
+            case (key, None) =>
+              model.WriteRequest.builder().deleteRequest(model.DeleteRequest.builder().key(key).build()).build()
+          }).asJavaCollection)
             .toMap.asJava
         )
         .build()
@@ -77,14 +78,14 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
   }
 
   private class WriteBehavior(
-    client: AwsClientAdapter,
-    maxWait: FiniteDuration,
-    retryPolicy: BatchRetryPolicy,
-    monitoring: BatchMonitoringPolicy
-  )(
-    ctx: ActorContext[BatchedRequest],
-    scheduler: TimerScheduler[BatchedRequest]
-  ) extends BaseBehavior(ctx, scheduler, maxWait, retryPolicy, monitoring, 25) {
+                               client: AwsClientAdapter,
+                               maxWait: FiniteDuration,
+                               retryPolicy: BatchRetryPolicy,
+                               monitoring: BatchMonitoring
+                             )(
+                               ctx: ActorContext[BatchedRequest],
+                               scheduler: TimerScheduler[BatchedRequest]
+                             ) extends BaseBehavior(ctx, scheduler, maxWait, retryPolicy, monitoring, 25) {
 
     protected override def sendSuccess(futureResult: BatchWriteItemResponse, keys: List[PK], buffer: Buffer): (List[PK], List[PK], Buffer) = {
       val (success, failed) = client.processResult(keys, futureResult)
@@ -146,24 +147,23 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
   }
 
   /**
-    * DynamoDB batched writer
-    *
-    * The actor waits for the maximum size of write requests (25) or maxWait time before created a batched write
-    * request. If the requests fails with a retryable error the elements will be rescheduled later (using the given
-    * retryPolicy). Unprocessed items are rescheduled similarly.
-    *
-    * The received requests are deduplicated, only the last write to the key is executed.
-    */
+   * DynamoDB batched writer
+   *
+   * The actor waits for the maximum size of write requests (25) or maxWait time before created a batched write
+   * request. If the requests fails with a retryable error the elements will be rescheduled later (using the given
+   * retryPolicy). Unprocessed items are rescheduled similarly.
+   *
+   * The received requests are deduplicated, only the last write to the key is executed.
+   */
   def apply(
-    client: DynamoDbAsyncClient,
-    maxWait: FiniteDuration,
-    retryPolicy: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy(),
-    monitoring: BatchMonitoringPolicy = BatchMonitoringPolicy.Disabled
-  ): Behavior[BatchedRequest] =
+             client: DynamoDbAsyncClient,
+             maxWait: FiniteDuration,
+             retryPolicy: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy(),
+             monitoring: BatchMonitoring = BatchMonitoring.Disabled
+           ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>
         new WriteBehavior(new AwsClientAdapter(client), maxWait, retryPolicy, monitoring)(ctx, scheduler).behavior(Queue.empty, Map.empty, None)
       }
     }
 }
-

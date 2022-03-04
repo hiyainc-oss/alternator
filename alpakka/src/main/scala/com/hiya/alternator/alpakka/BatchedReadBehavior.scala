@@ -1,11 +1,13 @@
-package com.hiya.alternator
+package com.hiya.alternator.alpakka
 
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import akka.stream.alpakka.dynamodb.DynamoDbOp
 import com.hiya.alternator.Table.{AV, PK}
+import com.hiya.alternator.alpakka.AlpakkaException.RetriesExhausted
+import com.hiya.alternator.alpakka.internal.BatchedBehavior.BufferItemBase
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
-import software.amazon.awssdk.services.dynamodb.model._
+import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, BatchGetItemRequest, BatchGetItemResponse, KeysAndAttributes}
 
 import java.util.{Map => JMap}
 import scala.collection.compat._
@@ -18,9 +20,8 @@ import scala.util.{Failure, Success}
 
 
 object BatchedReadBehavior extends internal.BatchedBehavior {
-  import internal.BatchedBehavior._
 
-  private [alternator] final case class ReadBuffer(refs: List[Ref], retries: Int)
+  private[alternator] final case class ReadBuffer(refs: List[Ref], retries: Int)
     extends BufferItemBase[ReadBuffer] {
     override def withRetries(retries: Int): ReadBuffer = copy(retries = retries)
   }
@@ -53,7 +54,7 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
      *   - list of key-value pairs for the successful items, where the value is None if the row does not exists
      *   - list of keys for the unsuccessful items
      *
-     * @param keys original keys for the request
+     * @param keys     original keys for the request
      * @param response response from the dynamodb client
      * @return a pair of processed and unprocessed items
      */
@@ -82,14 +83,14 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
   }
 
   private class ReadBehavior(
-    client: AwsClientAdapter,
-    maxWait: FiniteDuration,
-    retryPolicy: BatchRetryPolicy,
-    monitoring: BatchMonitoringPolicy
-  )(
-    ctx: ActorContext[BatchedRequest],
-    scheduler: TimerScheduler[BatchedRequest]
-  ) extends BaseBehavior(ctx, scheduler, maxWait, retryPolicy, monitoring, 100) {
+                              client: AwsClientAdapter,
+                              maxWait: FiniteDuration,
+                              retryPolicy: BatchRetryPolicy,
+                              monitoring: BatchMonitoring
+                            )(
+                              ctx: ActorContext[BatchedRequest],
+                              scheduler: TimerScheduler[BatchedRequest]
+                            ) extends BaseBehavior(ctx, scheduler, maxWait, retryPolicy, monitoring, 100) {
 
     protected override def sendSuccess(futureResult: BatchGetItemResponse, keys: List[PK], buffer: Buffer): (List[PK], List[PK], Buffer) = {
       val (success, failed) = client.processResult(keys, futureResult)
@@ -142,15 +143,14 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
    *
    */
   def apply(
-    client: DynamoDbAsyncClient,
-    maxWait: FiniteDuration = 5.millis,
-    backoffStrategy: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy(),
-    monitoring: BatchMonitoringPolicy = BatchMonitoringPolicy.Disabled
-   ): Behavior[BatchedRequest] =
+             client: DynamoDbAsyncClient,
+             maxWait: FiniteDuration = 5.millis,
+             backoffStrategy: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy(),
+             monitoring: BatchMonitoring = BatchMonitoring.Disabled
+           ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>
         new ReadBehavior(new AwsClientAdapter(client), maxWait, backoffStrategy, monitoring)(ctx, scheduler).behavior(Queue.empty, Map.empty, None)
       }
     }
 }
-

@@ -11,6 +11,8 @@ abstract class TableSchemaWithRange[V](serializeValue: CompoundDynamoFormat[V], 
 
   override type IndexType = (PK, RK)
 
+
+  override def withName(tableName: String) = new TableWithRangeKey[V, PK, RK](tableName, this)
 }
 
 object TableSchemaWithRange {
