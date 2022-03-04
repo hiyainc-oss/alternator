@@ -1,10 +1,12 @@
-package com.hiya.alternator.internal
+package com.hiya.alternator.alpakka.internal
 
 import akka.Done
 import akka.actor.typed.scaladsl._
 import akka.actor.typed.{ActorRef, Behavior}
 import com.hiya.alternator.Table.PK
-import com.hiya.alternator.{BatchMonitoring, BatchRetryPolicy, Unprocessed}
+import com.hiya.alternator.alpakka
+import com.hiya.alternator.alpakka.AlpakkaException.Unprocessed
+import com.hiya.alternator.alpakka.{BatchMonitoring, BatchRetryPolicy}
 import software.amazon.awssdk.core.exception.SdkServiceException
 import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughputExceededException
 
@@ -64,7 +66,7 @@ private [alternator] trait BatchedBehavior {
                                retryPolicy: BatchRetryPolicy,
                                monitoring: BatchMonitoring,
                                maxQueued: Int
-  ) extends com.hiya.alternator.BatchedBehavior {
+  ) extends alpakka.BatchedBehavior {
     private val name = ctx.self.path.name
     private val atomicQueueSize = new AtomicInteger()
     private val atomicInflightCount = new AtomicInteger()

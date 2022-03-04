@@ -7,9 +7,8 @@ import akka.actor.typed.{ActorRef, Scheduler}
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
 import com.hiya.alternator.Table.PK
-import com.hiya.alternator.syntax._
-import com.hiya.alternator.testkit.{DynamoDBLossyClient, LocalDynamoDB}
-import com.hiya.alternator.testkit.{Timeout => TestTimeout}
+import com.hiya.alternator.alpakka._
+import com.hiya.alternator.testkit.{DynamoDBLossyClient, LocalDynamoDB, Timeout => TestTimeout}
 import com.hiya.alternator.util._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -70,14 +69,14 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
   }
 
   implicit val reader: ActorRef[BatchedReadBehavior.BatchedRequest] =
-    system.spawn(BatchedReadBehavior(lossyClient, 10.millis, retryPolicy, monitoring), "reader")
+    system.spawn(alpakka.BatchedReadBehavior(lossyClient, 10.millis, retryPolicy, monitoring), "reader")
 
   implicit val writer: ActorRef[BatchedWriteBehavior.BatchedRequest] =
-    system.spawn(BatchedWriteBehavior(stableClient, 10.millis, retryPolicy), "writer")
+    system.spawn(alpakka.BatchedWriteBehavior(stableClient, 10.millis, retryPolicy), "writer")
 
 
   def streamRead[Data](implicit tableConfig: TableConfig[Data]): Unit = {
-    def writeData(table: Table[Data, tableConfig.Key], nums: immutable.Iterable[Int]): Future[Seq[Done]] = {
+    def writeData(table: AlpakkaTable[Data, tableConfig.Key], nums: immutable.Iterable[Int]): Future[Seq[Done]] = {
       Source(nums)
         .map(v => tableConfig.createData(v)._2)
         .mapAsync(10)(table.batchedPut)
@@ -85,7 +84,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
         .runWith(Sink.head)
     }
 
-    def withData[T](nums: immutable.Iterable[Int])(f: Table[Data, tableConfig.Key] => T): T = {
+    def withData[T](nums: immutable.Iterable[Int])(f: AlpakkaTable[Data, tableConfig.Key] => T): T = {
       tableConfig.withTable(stableClient) { table =>
         Await.result(writeData(table, nums), TEST_TIMEOUT)
         f(table)
@@ -93,8 +92,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
     }
 
     it("should report if table not exists") {
-      val table: Table[Data, tableConfig.Key] =
-        tableConfig.table("doesnotexists")
+      val table: AlpakkaTable[Data, tableConfig.Key] = tableConfig.table("doesnotexists", stableClient)
 
       intercept[ResourceNotFoundException] {
         Await.result(
@@ -157,7 +155,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
 
     it("should stop") {
       val reader: ActorRef[BatchedReadBehavior.BatchedRequest] =
-        system.spawn(BatchedReadBehavior(lossyClient, 10.millis, retryPolicy, monitoring), "reader2")
+        system.spawn(alpakka.BatchedReadBehavior(lossyClient, 10.millis, retryPolicy, monitoring), "reader2")
 
       Await.result(reader.terminate(), 10.seconds)
 

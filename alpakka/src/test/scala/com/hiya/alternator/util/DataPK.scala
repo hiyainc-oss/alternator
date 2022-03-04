@@ -1,7 +1,9 @@
 package com.hiya.alternator.util
 
-import com.hiya.alternator.testkit.{LocalDynamoDB, Timeout}
+import akka.actor.ClassicActorSystemProvider
 import com.hiya.alternator.{Table, TableSchema}
+import com.hiya.alternator.alpakka.{Alpakka, AlpakkaTable}
+import com.hiya.alternator.testkit.{LocalDynamoDB, Timeout}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 import java.util.UUID
@@ -18,22 +20,24 @@ object DataPK {
 
   implicit val config = new TableConfig[DataPK] {
     override type Key = String
-    override type TableType = Table[DataPK, String]
+    override type TableType = AlpakkaTable[DataPK, String]
 
 
-    override def table(tableName: String): Table[DataPK, String] =
-      Table.tableWithPK[DataPK](tableName)
+    override def table(tableName: String, client: DynamoDbAsyncClient)(implicit system: ClassicActorSystemProvider): AlpakkaTable[DataPK, String] =
+      Table.tableWithPK[DataPK](tableName).withClient(Alpakka(client))
+
 
     override def createData(i: Int, v: Option[Int]): (String, DataPK) = {
       i.toString -> DataPK(i.toString, v.getOrElse(i))
     }
 
-    override def withTable[T](client: DynamoDbAsyncClient)(f: Table[DataPK, String] => T)
-                             (implicit ec: ExecutionContext, timeout: Timeout): T = {
+    override def withTable[T](client: DynamoDbAsyncClient)(f: AlpakkaTable[DataPK, String] => T)
+                             (implicit ec: ExecutionContext, system: ClassicActorSystemProvider, timeout: Timeout): T = {
       val tableName = s"test-table-${UUID.randomUUID()}"
       LocalDynamoDB.withTable(client)(tableName)(LocalDynamoDB.schema[DataPK])(
-        f(table(tableName))
+        f(table(tableName, client))
       )
+
     }
   }
 }

@@ -26,9 +26,10 @@ lazy val `alternator-alpakka` = (project in file("alpakka"))
   .settings(
     BuildConfig.commonSettings,
     libraryDependencies ++= Dependencies.Alpakka,
+    addCompilerPlugin("org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full),
     dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
     dynamoDBLocalHeapSize := Some(256),
-    dynamoDBLocalPort := 8000,
+    dynamoDBLocalPort := 8484,
     (Test / javaOptions) += s"-DdynamoDBLocalPort=8484",
     startDynamoDBLocal := startDynamoDBLocal.dependsOn(Test / compile).value,
     Test / test := (Test / test).dependsOn(startDynamoDBLocal).value,

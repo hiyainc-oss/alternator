@@ -1,10 +1,10 @@
-package com.hiya.alternator.syntax
+package com.hiya.alternator.alpakka.internal
 
 import akka.Done
-import akka.actor.typed.{ActorRef, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern._
+import akka.actor.typed.{ActorRef, Scheduler}
 import akka.util.Timeout
-import com.hiya.alternator.{BatchedReadBehavior, BatchedWriteBehavior}
+import com.hiya.alternator.alpakka.{BatchedReadBehavior, BatchedWriteBehavior}
 
 import scala.concurrent.Future
 

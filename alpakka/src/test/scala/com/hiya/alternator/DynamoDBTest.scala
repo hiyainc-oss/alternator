@@ -1,12 +1,12 @@
 package com.hiya.alternator
 
-import akka.Done
 import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.{ActorRef, Scheduler}
 import akka.actor.{ActorSystem, ClassicActorSystemProvider}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
+import com.hiya.alternator.alpakka._
 import com.hiya.alternator.generic.semiauto
 import com.hiya.alternator.syntax._
 import com.hiya.alternator.testkit.{LocalDynamoDB, Timeout => TestTimeout}
@@ -30,15 +30,13 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
 
   class ExampleDB(name: String)(implicit val client: DynamoDbAsyncClient, system: ClassicActorSystemProvider)
   {
-    import Table.parasitic
+    import Alpakka.parasitic
 
-    val table = Table.tableWithPK[ExampleData](name)
+    val table = Table.tableWithPK[ExampleData](name).withClient(Alpakka(client))
 
     def get(key: String): Future[Option[ExampleData]] = table.get(key).throwErrors
-
-    def put(data: ExampleData): Future[Done] = table.put(data)
-
-    def delete(key: String): Future[Done] = table.delete(key)
+    def put(data: ExampleData): Future[Unit] = table.put(data)
+    def delete(key: String): Future[Unit] = table.delete(key)
 
   }
 
@@ -66,12 +64,12 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
         val data = ExampleData(key, 12, "string value")
         wait(exampleDBInstance.get(key)) shouldBe None
 
-        wait(exampleDBInstance.put(data)) shouldBe Done
+        wait(exampleDBInstance.put(data)) shouldBe (())
 
         wait(exampleDBInstance.get(key)) shouldBe Some(data)
         wait(exampleDBInstance2.get(key)) shouldBe Some(data)
 
-        wait(exampleDBInstance.delete(key)) shouldBe Done
+        wait(exampleDBInstance.delete(key)) shouldBe (())
         wait(exampleDBInstance.get(key)) shouldBe None
         wait(exampleDBInstance2.get(key)) shouldBe None
       }
@@ -80,12 +78,12 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
 
   private val TEST_TIMEOUT: FiniteDuration = 20.seconds
   private implicit val writer: ActorRef[BatchedWriteBehavior.BatchedRequest] =
-    system.spawn(BatchedWriteBehavior(client, 10.millis), "writer")
+    system.spawn(alpakka.BatchedWriteBehavior(client, 10.millis), "writer")
   private implicit val askTimeout: Timeout = 60.seconds
   private implicit val scheduler: Scheduler = system.scheduler.toTyped
 
   describe("query") {
-    def withRangeData[T](num: Int, payload: Option[String] = None)(f: TableWithRange[DataRK, String, String] => T): T = {
+    def withRangeData[T](num: Int, payload: Option[String] = None)(f: AlpakkaTableWithRange[DataRK, String, String] => T): T = {
       DataRK.config.withTable(client) { table =>
         Await.result({
           Source(List(num, 11))
@@ -187,7 +185,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
 
 
   describe("scan") {
-    def withData[T](f: Table[DataPK, String] => T): T = {
+    def withData[T](f: AlpakkaTable[DataPK, String] => T): T = {
       DataPK.config.withTable(client) { table =>
         Await.result({
           Source(1 to 1000)

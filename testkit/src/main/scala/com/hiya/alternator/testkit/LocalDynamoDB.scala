@@ -18,7 +18,7 @@ import scala.compat.java8.DurationConverters._
 
 object LocalDynamoDB {
   val DEFAULT_PORT = 8000
-  val configuredPort: Int =
+  val configuredPort: Int = 
     Option(System.getProperty("dynamoDBLocalPort")).map(_.toInt).getOrElse(DEFAULT_PORT)
 
   def clientConfig[B <: DynamoDbBaseClientBuilder[B, _]](builder: B, port: Int = configuredPort): B =

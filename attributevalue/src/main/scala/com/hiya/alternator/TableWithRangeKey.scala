@@ -1,16 +1,13 @@
 package com.hiya.alternator
 
-import akka.NotUsed
-import akka.stream.alpakka.dynamodb.scaladsl.DynamoDb
-import akka.stream.scaladsl.Source
 import com.hiya.alternator.syntax.RKCondition
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model.{QueryRequest, QueryResponse}
 
 import scala.jdk.CollectionConverters._
 
-class TableWithRange[V, PK, RK](name: String, schema: TableSchemaWithRange.Aux[V, PK, RK])
-  extends Table[V, (PK, RK)](name, schema) {
+
+class TableWithRangeKey[V, PK, RK](tableName: String, schema: TableSchemaWithRange.Aux[V, PK, RK])
+  extends Table[V, (PK, RK)](tableName, schema) {
 
   def queryBuilder(pk: PK, rk: RKCondition[RK] = RKCondition.empty): QueryRequest.Builder = {
     rk.render(
@@ -19,7 +16,7 @@ class TableWithRange[V, PK, RK](name: String, schema: TableSchemaWithRange.Aux[V
     )(
       QueryRequest
         .builder()
-        .tableName(name)
+        .tableName(tableName)
     )
   }
 
@@ -28,8 +25,6 @@ class TableWithRange[V, PK, RK](name: String, schema: TableSchemaWithRange.Aux[V
     else Nil
   }
 
-  def query(pk: PK, rk: RKCondition[RK] = RKCondition.empty)(implicit client: DynamoDbAsyncClient): Source[DynamoFormat.Result[V], NotUsed] = {
-    val q = queryBuilder(pk, rk).build()
-    DynamoDb.source(q).mapConcat(deserialize)
-  }
+  override def withClient(client: Client): client.RKClient[V, PK, RK] =
+    client.createRkClient(this)
 }

@@ -1,4 +1,4 @@
-package com.hiya.alternator
+package com.hiya.alternator.alpakka
 
 import com.hiya.alternator.Table.PK
 

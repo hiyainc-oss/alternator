@@ -1,12 +1,6 @@
 package com.hiya.alternator
 
-import akka.actor.typed.ActorRef
-import cats.Traverse
-import com.hiya.alternator.util.MonadErrorThrowable
-
 package object syntax {
-  implicit def toTry[T, F[_]: MonadErrorThrowable, M[_]: Traverse](underlying: F[M[DynamoFormat.Result[T]]]): ThrowErrorsExt[T, F, M] =
-    new ThrowErrorsExt[T, F, M](underlying)
 
   object rk {
     def <[T : ScalarDynamoFormat](rhs: T): RKCondition.LT[T] = RKCondition.LT[T](rhs)
@@ -17,8 +11,6 @@ package object syntax {
     def beginsWith[T : StringLikeDynamoFormat](rhs: T): RKCondition.BEGINS_WITH[T] = RKCondition.BEGINS_WITH(rhs)
     def between[T : ScalarDynamoFormat](lower: T, upper: T): RKCondition.BETWEEN[T] = RKCondition.BETWEEN(lower, upper)
   }
-
-  implicit def shutdownExts[T](actorRef: ActorRef[T])(implicit T: ShutdownExts.Support[T]): ShutdownExts[T] = T(actorRef)
 
 
 }

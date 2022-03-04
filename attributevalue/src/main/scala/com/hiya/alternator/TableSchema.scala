@@ -15,6 +15,8 @@ abstract class TableSchema[V](val serializeValue: CompoundDynamoFormat[V]) {
   def extract(av: JMap[String, AttributeValue]): DynamoFormat.Result[IndexType]
   def extract(value: V): IndexType
   def schema: List[(String, ScalarAttributeType)]
+
+  def withName(tableName: String) = new Table[V, IndexType](tableName, this)
 }
 
 object TableSchema {
@@ -63,4 +65,5 @@ object TableSchema {
     override def schema: List[(String, ScalarAttributeType)] =
       pkField -> PK.attributeType :: rkField -> RK.attributeType :: Nil
   }
+
 }
