@@ -59,8 +59,8 @@ class AlpakkaTableInternal[V, PK](val table: Table[V, PK])(implicit client: Dyna
       batchedGet(key).map(_ -> pt)(Alpakka.parasitic)
     }
 
-  final def batchGet(values: Seq[V]): Future[BatchWriteItemResponse] = {
-    DynamoDb.single(table.batchPut(values).build())
+  final def batchGet(values: Seq[PK]): Future[BatchGetItemResponse] = {
+    DynamoDb.single(table.batchGet(values).build())
   }
 
 
