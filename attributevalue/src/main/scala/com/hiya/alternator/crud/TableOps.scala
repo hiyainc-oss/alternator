@@ -1,7 +1,7 @@
 package com.hiya.alternator.crud
 
 import com.hiya.alternator.syntax.RKCondition
-import com.hiya.alternator.{DynamoFormat, Segment, Table}
+import com.hiya.alternator.{DynamoFormat, Segment, Table, TableWithRangeKey}
 import software.amazon.awssdk.services.dynamodb.model.{BatchGetItemResponse, BatchWriteItemResponse}
 
 trait TableOps[V, PK, Future[_], Source[_]] {
@@ -19,5 +19,6 @@ trait TableOps[V, PK, Future[_], Source[_]] {
 }
 
 trait TableWithRangeOps[V, PK, RK, F[_], S[_]] extends TableOps[V, (PK, RK), F, S] {
+  override val table: TableWithRangeKey[V, PK, RK]
   def query(pk: PK, rk: RKCondition[RK] = RKCondition.empty): S[DynamoFormat.Result[V]]
 }

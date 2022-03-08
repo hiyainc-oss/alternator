@@ -9,7 +9,7 @@ import com.hiya.alternator.syntax.RKCondition
 import com.hiya.alternator.{DynamoFormat, TableWithRangeKey}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
-class AlpakkaTableWithRangeInternal[V, PK, RK](table: TableWithRangeKey[V, PK, RK])(implicit client: DynamoDbAsyncClient, system: ClassicActorSystemProvider)
+class AlpakkaTableWithRangeInternal[V, PK, RK](override val table: TableWithRangeKey[V, PK, RK])(implicit client: DynamoDbAsyncClient, system: ClassicActorSystemProvider)
   extends AlpakkaTableInternal[V, (PK, RK)](table) with AlpakkaTableWithRange[V, PK, RK] {
 
   def query(pk: PK, rk: RKCondition[RK] = RKCondition.empty): Source[DynamoFormat.Result[V], NotUsed] = {
