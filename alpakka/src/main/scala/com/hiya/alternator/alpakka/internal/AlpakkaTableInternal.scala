@@ -15,7 +15,7 @@ import software.amazon.awssdk.services.dynamodb.model._
 import scala.concurrent.Future
 
 
-class AlpakkaTableInternal[V, PK](val table: Table[V, PK])(implicit client: DynamoDbAsyncClient, system: ClassicActorSystemProvider)
+class AlpakkaTableInternal[V, PK](val table: Table[V, PK])(implicit val client: DynamoDbAsyncClient, system: ClassicActorSystemProvider)
   extends AlpakkaTable[V, PK]
 {
   final def get(pk: PK): Future[Option[DynamoFormat.Result[V]]] = {
