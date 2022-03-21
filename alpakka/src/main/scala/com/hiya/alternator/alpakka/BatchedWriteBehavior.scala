@@ -14,7 +14,7 @@ import scala.collection.compat._
 import scala.collection.immutable.Queue
 import scala.collection.mutable
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
@@ -146,6 +146,10 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
     }
   }
 
+  val DEFAULT_MAX_WAIT: FiniteDuration = 5.millis
+  val DEFAULT_RETRY_POLICY: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy()
+  val DEFAULT_MONITORING: BatchMonitoring = BatchMonitoring.Disabled
+
   /**
    * DynamoDB batched writer
    *
@@ -157,9 +161,9 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
    */
   def apply(
              client: DynamoDbAsyncClient,
-             maxWait: FiniteDuration,
-             retryPolicy: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy(),
-             monitoring: BatchMonitoring = BatchMonitoring.Disabled
+             maxWait: FiniteDuration = DEFAULT_MAX_WAIT,
+             retryPolicy: BatchRetryPolicy = DEFAULT_RETRY_POLICY,
+             monitoring: BatchMonitoring = DEFAULT_MONITORING
            ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>

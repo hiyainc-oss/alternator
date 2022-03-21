@@ -132,6 +132,10 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
     }
   }
 
+  val DEFAULT_MAX_WAIT: FiniteDuration = 5.millis
+  val DEFAULT_RETRY_POLICY: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy()
+  val DEFAULT_MONITORING: BatchMonitoring = BatchMonitoring.Disabled
+
   /**
    * DynamoDB batched reader
    *
@@ -144,13 +148,13 @@ object BatchedReadBehavior extends internal.BatchedBehavior {
    */
   def apply(
              client: DynamoDbAsyncClient,
-             maxWait: FiniteDuration = 5.millis,
-             backoffStrategy: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy(),
-             monitoring: BatchMonitoring = BatchMonitoring.Disabled
+             maxWait: FiniteDuration = DEFAULT_MAX_WAIT,
+             retryPolicy: BatchRetryPolicy = DEFAULT_RETRY_POLICY,
+             monitoring: BatchMonitoring = DEFAULT_MONITORING
            ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>
-        new ReadBehavior(new AwsClientAdapter(client), maxWait, backoffStrategy, monitoring)(ctx, scheduler).behavior(Queue.empty, Map.empty, None)
+        new ReadBehavior(new AwsClientAdapter(client), maxWait, retryPolicy, monitoring)(ctx, scheduler).behavior(Queue.empty, Map.empty, None)
       }
     }
 }
