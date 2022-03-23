@@ -15,7 +15,7 @@ object DataPK {
   import com.hiya.alternator.generic.auto._
 
   implicit val tableSchemaWithPK: TableSchema.Aux[DataPK, String] =
-    TableSchema.schemaWithPK[String, DataPK]("key", _.key)
+    TableSchema.schemaWithPK[DataPK, String]("key", _.key)
 
 
   implicit val config = new TableConfig[DataPK] {

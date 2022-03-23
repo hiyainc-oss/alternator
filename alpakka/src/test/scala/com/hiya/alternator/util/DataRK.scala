@@ -15,7 +15,7 @@ object DataRK {
   import com.hiya.alternator.generic.auto._
 
   private implicit val tableSchemaWithRK: TableSchemaWithRange.Aux[DataRK, String, String] =
-    TableSchema.schemaWithRK[String, String, DataRK]("key", "range", x => x.key -> x.range)
+    TableSchema.schemaWithRK[DataRK, String, String]("key", "range", x => x.key -> x.range)
 
   implicit val config = new TableConfig[DataRK] {
     override type Key = (String, String)
