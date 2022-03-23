@@ -76,7 +76,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
 
 
   def streamRead[Data](implicit tableConfig: TableConfig[Data]): Unit = {
-    def writeData(table: AlpakkaTable[Data, tableConfig.Key], nums: immutable.Iterable[Int]): Future[Seq[Done]] = {
+    def writeData(table: AlpakkaTableOps[Data, tableConfig.Key], nums: immutable.Iterable[Int]): Future[Seq[Done]] = {
       Source(nums)
         .map(v => tableConfig.createData(v)._2)
         .mapAsync(10)(table.batchedPut)
@@ -84,7 +84,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
         .runWith(Sink.head)
     }
 
-    def withData[T](nums: immutable.Iterable[Int])(f: AlpakkaTable[Data, tableConfig.Key] => T): T = {
+    def withData[T](nums: immutable.Iterable[Int])(f: AlpakkaTableOps[Data, tableConfig.Key] => T): T = {
       tableConfig.withTable(stableClient) { table =>
         Await.result(writeData(table, nums), TEST_TIMEOUT)
         f(table)
@@ -92,7 +92,7 @@ class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with
     }
 
     it("should report if table not exists") {
-      val table: AlpakkaTable[Data, tableConfig.Key] = tableConfig.table("doesnotexists", stableClient)
+      val table: AlpakkaTableOps[Data, tableConfig.Key] = tableConfig.table("doesnotexists", stableClient)
 
       intercept[ResourceNotFoundException] {
         Await.result(

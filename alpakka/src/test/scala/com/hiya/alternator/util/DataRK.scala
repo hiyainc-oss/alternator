@@ -1,7 +1,7 @@
 package com.hiya.alternator.util
 
 import akka.actor.ClassicActorSystemProvider
-import com.hiya.alternator.alpakka.{Alpakka, AlpakkaTableWithRange}
+import com.hiya.alternator.alpakka.{Alpakka, AlpakkaTableOpsWithRange}
 import com.hiya.alternator.testkit.{LocalDynamoDB, Timeout}
 import com.hiya.alternator.{Table, TableSchema, TableSchemaWithRange}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
@@ -19,11 +19,11 @@ object DataRK {
 
   implicit val config = new TableConfig[DataRK] {
     override type Key = (String, String)
-    override type TableType = AlpakkaTableWithRange[DataRK, String, String]
+    override type TableType = AlpakkaTableOpsWithRange[DataRK, String, String]
 
 
     override def table(tableName: String, client: DynamoDbAsyncClient)
-                      (implicit system: ClassicActorSystemProvider): AlpakkaTableWithRange[DataRK, String, String] =
+                      (implicit system: ClassicActorSystemProvider): AlpakkaTableOpsWithRange[DataRK, String, String] =
       Table.tableWithRK[DataRK](tableName).withClient(Alpakka(client))
 
     override def withTable[T](client: DynamoDbAsyncClient)(f: TableType => T)

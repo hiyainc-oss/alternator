@@ -6,8 +6,8 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.{ActorRef, Behavior, Props, Scheduler}
 import akka.stream.scaladsl.Flow
 import akka.util.Timeout
-import com.hiya.alternator.alpakka.AlpakkaTable.{ReadRequest, WriteRequest}
-import com.hiya.alternator.alpakka.internal.{AlpakkaTableInternal, AlpakkaTableWithRangeInternal}
+import com.hiya.alternator.alpakka.AlpakkaTableOps.{ReadRequest, WriteRequest}
+import com.hiya.alternator.alpakka.internal.{AlpakkaTableOpsInternal, AlpakkaTableOpsWithRangeInternal}
 import com.hiya.alternator.{Client, Table, TableWithRangeKey}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
@@ -15,14 +15,14 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
 class Alpakka(val client: DynamoDbAsyncClient)(implicit system: ClassicActorSystemProvider) extends Client {
-  override type PKClient[V, PK] = AlpakkaTable[V, PK]
-  override type RKClient[V, PK, RK] = AlpakkaTableWithRange[V, PK, RK]
+  override type PKClient[V, PK] = AlpakkaTableOps[V, PK]
+  override type RKClient[V, PK, RK] = AlpakkaTableOpsWithRange[V, PK, RK]
 
-  override def createPkClient[V, PK](table: Table[V, PK]): AlpakkaTable[V, PK] =
-    new AlpakkaTableInternal(table)(client, system)
+  override def createPkClient[V, PK](table: Table[V, PK]): AlpakkaTableOps[V, PK] =
+    new AlpakkaTableOpsInternal(table)(client, system)
 
-  override def createRkClient[V, PK, RK](table: TableWithRangeKey[V, PK, RK]): AlpakkaTableWithRange[V, PK, RK] =
-    new AlpakkaTableWithRangeInternal(table)(client, system)
+  override def createRkClient[V, PK, RK](table: TableWithRangeKey[V, PK, RK]): AlpakkaTableOpsWithRange[V, PK, RK] =
+    new AlpakkaTableOpsWithRangeInternal(table)(client, system)
 
   def createBatchedReader(
     name: String,

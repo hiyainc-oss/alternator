@@ -6,6 +6,7 @@ import akka.actor.typed.{ActorRef, Scheduler}
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
 import com.hiya.alternator.alpakka._
+import com.hiya.alternator.alpakka.stream._
 import com.hiya.alternator.testkit.{DynamoDBLossyClient, LocalDynamoDB, Timeout => TestTimeout}
 import com.hiya.alternator.util._
 import org.scalatest.funspec.AnyFunSpec
@@ -81,7 +82,7 @@ class BatchedWriteBehaviorTests extends AnyFunSpec with Matchers with Inside wit
         Await.result(
           Source(List(1))
             .map(k => tableConfig.createData(k))
-            .map(k => table.deleteRequest(k._1))
+            .map { case (k, _) => toStreamOps(table.table).deleteRequest(k) }
             .via(Alpakka.unorderedWriter(100))
             .grouped(Int.MaxValue)
             .runWith(Sink.head),

@@ -8,20 +8,22 @@ import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 
-class Table[V, PK](val tableName: String, val schema: TableSchema.Aux[V, PK]) {
-  sealed trait ItemMagnet[T] {
-    def key(t: T): PK
+sealed trait ItemMagnet[T, V, PK] {
+  def key(t: T)(implicit schema: TableSchema.Aux[V, PK]): PK
+}
+
+object ItemMagnet {
+  implicit def whole[V, PK]: ItemMagnet[V, V, PK] = new ItemMagnet[V, V, PK] {
+    override def key(t: V)(implicit schema: TableSchema.Aux[V, PK]): PK = schema.extract(t)
   }
 
-  object ItemMagnet {
-    implicit object WholeItem extends ItemMagnet[V] {
-      override def key(t: V): PK = schema.extract(t)
-    }
-
-    implicit object ItemKey extends ItemMagnet[PK] {
-      override def key(t: PK): PK = t
-    }
+  implicit def itemKey[V, PK]: ItemMagnet[PK, V, PK] = new ItemMagnet[PK, V, PK] {
+    override def key(t: PK)(implicit schema: TableSchema.Aux[V, PK]): PK = t
   }
+}
+
+
+class Table[V, PK](val tableName: String)(implicit val schema: TableSchema.Aux[V, PK]) {
 
   final def deserialize(response: AV): DynamoFormat.Result[V] = {
     schema.serializeValue.readFields(response)
@@ -67,7 +69,7 @@ class Table[V, PK](val tableName: String, val schema: TableSchema.Aux[V, PK]) {
   final def delete(key: PK): DeleteItemRequest.Builder =
     DeleteItemRequest.builder().key(schema.serializePK(key)).tableName(tableName)
 
-  final def batchDelete[T](items: Seq[T])(implicit T : ItemMagnet[T]): BatchWriteItemRequest.Builder =
+  final def batchDelete[T](items: Seq[T])(implicit T : ItemMagnet[T, V, PK]): BatchWriteItemRequest.Builder =
     batchWrite(items.map(x => Left(T.key(x))))
 
   final def batchWrite(items: Seq[Either[PK, V]]): BatchWriteItemRequest.Builder = {
@@ -102,7 +104,7 @@ object Table {
 
   def tableWithPK[V](name: String)(
     implicit tableSchema: TableSchema[V]
-  ): Table[V, tableSchema.IndexType] = new Table[V, tableSchema.IndexType](name, tableSchema)
+  ): Table[V, tableSchema.IndexType] = new Table[V, tableSchema.IndexType](name)(tableSchema)
 
   def tableWithRK[V](name: String)(
     implicit tableSchema: TableSchemaWithRange[V]

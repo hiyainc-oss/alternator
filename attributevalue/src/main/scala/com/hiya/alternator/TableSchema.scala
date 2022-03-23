@@ -16,7 +16,7 @@ abstract class TableSchema[V](val serializeValue: CompoundDynamoFormat[V]) {
   def extract(value: V): IndexType
   def schema: List[(String, ScalarAttributeType)]
 
-  def withName(tableName: String) = new Table[V, IndexType](tableName, this)
+  def withName(tableName: String) = new Table[V, IndexType](tableName)(this)
 }
 
 object TableSchema {
