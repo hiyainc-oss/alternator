@@ -6,18 +6,19 @@ import akka.stream.alpakka.dynamodb.scaladsl.DynamoDb
 import akka.stream.scaladsl.{BidiFlow, Flow, Source}
 import akka.util.Timeout
 import akka.{Done, NotUsed}
-import com.hiya.alternator.Table.AV
 import com.hiya.alternator._
-import com.hiya.alternator.alpakka.{Alpakka, AlpakkaTable, BatchedReadBehavior, BatchedWriteBehavior}
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
+import com.hiya.alternator.alpakka.stream._
+import com.hiya.alternator.alpakka.{Alpakka, AlpakkaTableOps, BatchedReadBehavior, BatchedWriteBehavior}
 import software.amazon.awssdk.services.dynamodb.model._
 
 import scala.concurrent.Future
 
 
-class AlpakkaTableInternal[V, PK](val table: Table[V, PK])(implicit val client: DynamoDbAsyncClient, system: ClassicActorSystemProvider)
-  extends AlpakkaTable[V, PK]
+class AlpakkaTableOpsInternal[V, PK](override val table: Table[V, PK], override val client: Alpakka)(implicit system: ClassicActorSystemProvider)
+  extends AlpakkaTableOps[V, PK]
 {
+  protected implicit val dynamo = client.client
+
   final def get(pk: PK): Future[Option[DynamoFormat.Result[V]]] = {
     import com.hiya.alternator.alpakka.Alpakka.parasitic
     DynamoDb.single(table.get(pk).build()).map(table.deserialize)
@@ -34,21 +35,9 @@ class AlpakkaTableInternal[V, PK](val table: Table[V, PK])(implicit val client: 
     )
   }
 
-  final def readRequest(key: PK): AlpakkaTable.ReadRequest[Option[DynamoFormat.Result[V]]] =
-    AlpakkaTable.ReadRequestWoPT(
-      table.tableName -> table.schema.serializePK(key),
-      table.deserialize(_:AV)
-    )
-
-  final def readRequest[PT](key: PK, pt: PT): AlpakkaTable.ReadRequest[(Option[DynamoFormat.Result[V]], PT)] =
-    AlpakkaTable.ReadRequestWPT(
-      table.tableName -> table.schema.serializePK(key),
-      table.deserialize(_:AV),
-      pt
-    )
 
   final def batchedGet(key: PK)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Option[DynamoFormat.Result[V]]] = {
-    readRequest(key).send()
+    table.readRequest(key).send()
   }
 
   final def batchedGetFlow(parallelism: Int)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[PK, Option[DynamoFormat.Result[V]], NotUsed] =
@@ -64,15 +53,6 @@ class AlpakkaTableInternal[V, PK](val table: Table[V, PK])(implicit val client: 
   }
 
 
-  final def putRequest(item: V): AlpakkaTable.WriteRequest[Done] = {
-    putRequest(item, Done)
-  }
-
-  final def putRequest[PT](item: V, pt: PT): AlpakkaTable.WriteRequest[PT] = {
-    val itemValue = table.schema.serializeValue.writeFields(item)
-    AlpakkaTable.WriteRequest(table.tableName -> table.schema.serializePK(table.schema.extract(item)), Some(itemValue), pt)
-  }
-
   final def put(value: V): Future[Unit] = {
     import Alpakka.parasitic
     DynamoDb.single(table.put(value).build()).map(_ => ())
@@ -83,7 +63,7 @@ class AlpakkaTableInternal[V, PK](val table: Table[V, PK])(implicit val client: 
   }
 
   final def batchedPut(value: V)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Done] =
-    putRequest(value).send()
+    table.putRequest(value).send()
 
 
   final def delete(key: PK): Future[Unit] = {
@@ -91,18 +71,11 @@ class AlpakkaTableInternal[V, PK](val table: Table[V, PK])(implicit val client: 
     DynamoDb.single(table.delete(key).build()).map(_ => ())
   }
 
-  final def deleteRequest[T](item: T)(implicit T : table.ItemMagnet[T]): AlpakkaTable.WriteRequest[Done] = {
-    deleteRequest(item, Done)
+  final def batchedDelete[T](value: T)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler, T : ItemMagnet[T, V, PK]): Future[Done] = {
+    table.deleteRequest(value).send()
   }
 
-  final def deleteRequest[T, PT](item: T, pt: PT)(implicit T : table.ItemMagnet[T]): AlpakkaTable.WriteRequest[PT] = {
-    AlpakkaTable.WriteRequest(table.tableName -> table.schema.serializePK(T.key(item)), None, pt)
-  }
-
-  final def batchedDelete[T : table.ItemMagnet](value: T)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Done] =
-    deleteRequest(value).send()
-
-  final def batchDelete[T : table.ItemMagnet](values: Seq[T]): Future[BatchWriteItemResponse] = {
+  final def batchDelete[T](values: Seq[T])(implicit T: ItemMagnet[T, V, PK]): Future[BatchWriteItemResponse] = {
     DynamoDb.single(table.batchDelete(values).build())
   }
 

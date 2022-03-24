@@ -1,13 +1,12 @@
 package com.hiya.alternator.crud
 
 import com.hiya.alternator.syntax.RKCondition
-import com.hiya.alternator.{DynamoFormat, Segment, Table, TableWithRangeKey}
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
+import com.hiya.alternator._
 import software.amazon.awssdk.services.dynamodb.model.{BatchGetItemResponse, BatchWriteItemResponse}
 
 trait TableOps[V, PK, Future[_], Source[_]] {
   val table: Table[V, PK]
-  def client: DynamoDbAsyncClient
+  def client: Client
 
   def get(pk: PK): Future[Option[DynamoFormat.Result[V]]]
   def put(value: V): Future[Unit]
@@ -16,7 +15,7 @@ trait TableOps[V, PK, Future[_], Source[_]] {
 
   def batchGet(values: Seq[PK]): Future[BatchGetItemResponse]
   def batchPut(values: Seq[V]): Future[BatchWriteItemResponse]
-  def batchDelete[T : table.ItemMagnet](values: Seq[T]): Future[BatchWriteItemResponse]
+  def batchDelete[T](values: Seq[T])(implicit T: ItemMagnet[T, V, PK]): Future[BatchWriteItemResponse]
   def batchWrite(values: Seq[Either[PK, V]]): Future[BatchWriteItemResponse]
 }
 

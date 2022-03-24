@@ -24,7 +24,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
   case class ExampleData(pk: String, intValue: Int, stringValue: String)
   object ExampleData {
     implicit val format: CompoundDynamoFormat[ExampleData] = semiauto.deriveCompound
-    implicit val schema: TableSchema.Aux[ExampleData, String] = TableSchema.schemaWithPK[String, ExampleData]("pk", _.pk)
+    implicit val schema: TableSchema.Aux[ExampleData, String] = TableSchema.schemaWithPK[ExampleData, String]("pk", _.pk)
   }
 
 
@@ -83,7 +83,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
   private implicit val scheduler: Scheduler = system.scheduler.toTyped
 
   describe("query") {
-    def withRangeData[T](num: Int, payload: Option[String] = None)(f: AlpakkaTableWithRange[DataRK, String, String] => T): T = {
+    def withRangeData[T](num: Int, payload: Option[String] = None)(f: AlpakkaTableOpsWithRange[DataRK, String, String] => T): T = {
       DataRK.config.withTable(client) { table =>
         Await.result({
           Source(List(num, 11))
@@ -185,7 +185,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
 
 
   describe("scan") {
-    def withData[T](f: AlpakkaTable[DataPK, String] => T): T = {
+    def withData[T](f: AlpakkaTableOps[DataPK, String] => T): T = {
       DataPK.config.withTable(client) { table =>
         Await.result({
           Source(1 to 1000)

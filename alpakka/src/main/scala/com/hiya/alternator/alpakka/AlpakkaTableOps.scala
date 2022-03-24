@@ -10,25 +10,18 @@ import com.hiya.alternator._
 
 import scala.concurrent.Future
 
-trait AlpakkaTable[V, PK] extends crud.TableOps[V, PK, Future, Source[*, NotUsed]] {
-//  val readerFlow: BidiFlow[PK, GetItemRequest.Builder, GetItemResponse, DynamoFormat.Result[V], NotUsed]
-
-  def readRequest(key: PK): AlpakkaTable.ReadRequest[Option[DynamoFormat.Result[V]]]
-  def readRequest[PT](key: PK, pt: PT): AlpakkaTable.ReadRequest[(Option[DynamoFormat.Result[V]], PT)]
-  def putRequest(item: V): AlpakkaTable.WriteRequest[Done]
-  def putRequest[PT](item: V, pt: PT): AlpakkaTable.WriteRequest[PT]
-  def deleteRequest[T](item: T)(implicit T : table.ItemMagnet[T]): AlpakkaTable.WriteRequest[Done]
-  def deleteRequest[T, PT](item: T, pt: PT)(implicit T : table.ItemMagnet[T]): AlpakkaTable.WriteRequest[PT]
+trait AlpakkaTableOps[V, PK] extends crud.TableOps[V, PK, Future, Source[*, NotUsed]] {
+  override def client: Alpakka
 
   def batchedGet(key: PK)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Option[DynamoFormat.Result[V]]]
   def batchedPut(value: V)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Done]
-  def batchedDelete[T : table.ItemMagnet](value: T)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Done]
+  def batchedDelete[T](value: T)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler, T : ItemMagnet[T, V, PK]): Future[Done]
 
   def batchedGetFlow(parallelism: Int)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[PK, Option[DynamoFormat.Result[V]], NotUsed]
   def batchedGetFlowUnordered[PT](parallelism: Int)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[(PK, PT), (Option[DynamoFormat.Result[V]], PT), NotUsed]
 }
 
-object AlpakkaTable {
+object AlpakkaTableOps {
   import Alpakka.parasitic
   import com.hiya.alternator.Table.PK
 

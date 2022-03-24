@@ -16,13 +16,13 @@ abstract class TableSchema[V](val serializeValue: CompoundDynamoFormat[V]) {
   def extract(value: V): IndexType
   def schema: List[(String, ScalarAttributeType)]
 
-  def withName(tableName: String) = new Table[V, IndexType](tableName, this)
+  def withName(tableName: String) = new Table[V, IndexType](tableName)(this)
 }
 
 object TableSchema {
   type Aux[V, PK] = TableSchema[V] { type IndexType = PK }
 
-  def schemaWithPK[PK, V](pkField: String, extractPK: V => PK)(
+  def schemaWithPK[V, PK](pkField: String, extractPK: V => PK)(
     implicit PK: ScalarDynamoFormat[PK],
     V: CompoundDynamoFormat[V]
   ): TableSchema.Aux[V, PK] = new TableSchema[V](V) {
@@ -40,7 +40,7 @@ object TableSchema {
     override def schema: List[(String, ScalarAttributeType)] = pkField -> PK.attributeType :: Nil
   }
 
-  def schemaWithRK[PKType, RKType, V](pkField: String, rkField: String, extractPK: V => (PKType, RKType))(
+  def schemaWithRK[V, PKType, RKType](pkField: String, rkField: String, extractPK: V => (PKType, RKType))(
     implicit
     V: CompoundDynamoFormat[V],
     PKType: ScalarDynamoFormat[PKType],

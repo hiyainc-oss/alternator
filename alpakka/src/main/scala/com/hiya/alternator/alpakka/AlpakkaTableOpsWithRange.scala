@@ -8,7 +8,7 @@ import com.hiya.alternator.syntax.RKCondition
 
 import scala.concurrent.Future
 
-trait AlpakkaTableWithRange[V, PK, RK] extends TableWithRangeOps[V, PK, RK, Future, Source[*, NotUsed]] with AlpakkaTable[V, (PK, RK)] {
+trait AlpakkaTableOpsWithRange[V, PK, RK] extends TableWithRangeOps[V, PK, RK, Future, Source[*, NotUsed]] with AlpakkaTableOps[V, (PK, RK)] {
   def query(pk: PK, rk: RKCondition[RK] = RKCondition.empty): Source[DynamoFormat.Result[V], NotUsed]
 }
 
