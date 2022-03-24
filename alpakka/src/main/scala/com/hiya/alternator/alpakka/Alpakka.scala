@@ -19,10 +19,10 @@ class Alpakka(val client: DynamoDbAsyncClient)(implicit system: ClassicActorSyst
   override type RKClient[V, PK, RK] = AlpakkaTableOpsWithRange[V, PK, RK]
 
   override def createPkClient[V, PK](table: Table[V, PK]): AlpakkaTableOps[V, PK] =
-    new AlpakkaTableOpsInternal(table)(client, system)
+    new AlpakkaTableOpsInternal(table, this)(system)
 
   override def createRkClient[V, PK, RK](table: TableWithRangeKey[V, PK, RK]): AlpakkaTableOpsWithRange[V, PK, RK] =
-    new AlpakkaTableOpsWithRangeInternal(table)(client, system)
+    new AlpakkaTableOpsWithRangeInternal(table, this)(system)
 
   def createBatchedReader(
     name: String,

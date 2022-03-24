@@ -11,6 +11,7 @@ import com.hiya.alternator._
 import scala.concurrent.Future
 
 trait AlpakkaTableOps[V, PK] extends crud.TableOps[V, PK, Future, Source[*, NotUsed]] {
+  override def client: Alpakka
 
   def batchedGet(key: PK)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Option[DynamoFormat.Result[V]]]
   def batchedPut(value: V)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Done]
