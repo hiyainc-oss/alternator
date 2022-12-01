@@ -1,5 +1,7 @@
-ThisBuild / crossScalaVersions := Seq("2.13.8", "2.12.15")
-ThisBuild / scalaVersion := "2.13.8"
+import _root_.io.github.davidgregory084._
+
+ThisBuild / crossScalaVersions := Seq("2.13.10", "2.12.17")
+ThisBuild / scalaVersion := "2.13.10"
 ThisBuild / organization := "com.hiya"
 ThisBuild / versionScheme := Some("early-semver")
 
@@ -10,10 +12,21 @@ ThisBuild / githubRepository := "alternator"
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches := Seq(RefPredicate.StartsWith(Ref.Tag("v")))
 
+ThisBuild / tpolecatDefaultOptionsMode := {
+  if (insideCI.value) CiMode else DevMode
+}
+  
+lazy val commonSettings = Seq(
+  scalacOptions ++= (CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some((2, p)) if p < 13 => Seq.empty
+    case _ => Seq("-Wconf:cat=unused-imports&origin=scala.collection.compat._:s")
+  })
+)
+
 
 lazy val `alternator-attributevalue` = (project in file("attributevalue"))
   .settings(
-    BuildConfig.commonSettings,
+    commonSettings,
     libraryDependencies ++= Dependencies.AttributeValue,
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
   )
@@ -24,7 +37,7 @@ lazy val `alternator-alpakka` = (project in file("alpakka"))
     `alternator-testkit` % Test
   )
   .settings(
-    BuildConfig.commonSettings,
+    commonSettings,
     libraryDependencies ++= Dependencies.Alpakka,
     addCompilerPlugin("org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full),
     dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
@@ -42,7 +55,7 @@ lazy val `alternator-alpakka` = (project in file("alpakka"))
 lazy val `alternator-testkit` = (project in file("testkit"))
   .dependsOn(`alternator-attributevalue`)
   .settings(
-      BuildConfig.commonSettings,
+      commonSettings,
       libraryDependencies ++= Dependencies.Testkit,
       dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
       dynamoDBLocalHeapSize := Some(256),

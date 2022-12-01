@@ -1,8 +1,8 @@
 resolvers += "github" at "https://maven.pkg.github.com/hiyainc-oss/_"
 
-addSbtPlugin("io.github.davidgregory084" % "sbt-tpolecat" % "0.1.20")
+addSbtPlugin("io.github.davidgregory084" % "sbt-tpolecat" % "0.4.1")
 
-addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.3")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.0")
 
 addSbtPlugin("com.localytics" % "sbt-dynamodb" % "2.0.3")
 
