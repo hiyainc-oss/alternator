@@ -12,10 +12,6 @@ import scala.jdk.CollectionConverters._
 trait DynamoFormat[T] extends Serializable {
   def read(av: AttributeValue): DynamoFormat.Result[T]
   def write(value: T): AttributeValue
-  final def writeIfNotEmpty(value: T): Option[AttributeValue] = {
-    if (isEmpty(value)) None
-    else Some(write(value))
-  }
   def isEmpty(value: T): Boolean
 
   def emap[B](f: T => Either[DynamoAttributeError, B], g: B => T): DynamoFormat[B] = new DynamoFormat[B] {
@@ -53,7 +49,7 @@ object DynamoFormat extends DynamoFormatInstances with ScalarDynamoFormat.Instan
     override def write(value: Option[T]): AttributeValue =
       value.fold(DynamoFormat.NullAttributeValue)(DynamoFormat[T].write)
 
-    override def isEmpty(value: Option[T]): Boolean = value.fold(true)(DynamoFormat[T].isEmpty)
+    override def isEmpty(value: Option[T]): Boolean = value.isEmpty //value.fold(true)(DynamoFormat[T].isEmpty)
   }
 
   implicit def listDynamoFormat[T: DynamoFormat]: DynamoFormat[List[T]] = new DynamoFormat[List[T]] {
@@ -64,7 +60,7 @@ object DynamoFormat extends DynamoFormatInstances with ScalarDynamoFormat.Instan
 
     override def write(value: List[T]): AttributeValue =
       if (value.isEmpty) DynamoFormat.EmptyListAttributeValue
-      else AttributeValue.builder().l(value.map(x => DynamoFormat[T].writeIfNotEmpty(x).getOrElse(DynamoFormat.NullAttributeValue)).asJava).build()
+      else AttributeValue.builder().l(value.map(x => DynamoFormat[T].write(x)).asJava).build()
 
     override def isEmpty(value: List[T]): Boolean = false
   }
@@ -76,5 +72,3 @@ private [alternator] trait LowPriorityDynamoFormats {
 
   final implicit def importedDynamoFormat[A](implicit exported: Exported[CompoundDynamoFormat[A]]): CompoundDynamoFormat[A] = exported.instance
 }
-
-

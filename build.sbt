@@ -15,7 +15,7 @@ ThisBuild / githubWorkflowPublishTargetBranches := Seq(RefPredicate.StartsWith(R
 ThisBuild / tpolecatDefaultOptionsMode := {
   if (insideCI.value) CiMode else DevMode
 }
-  
+
 lazy val commonSettings = Seq(
   scalacOptions ++= (CrossVersion.partialVersion(scalaVersion.value) match {
     case Some((2, p)) if p < 13 => Seq.empty
@@ -33,7 +33,7 @@ lazy val `alternator-attributevalue` = (project in file("attributevalue"))
 
 lazy val `alternator-alpakka` = (project in file("alpakka"))
   .dependsOn(
-    `alternator-attributevalue`,
+    `alternator-attributevalue` % "compile->compile;test->test",
     `alternator-testkit` % Test
   )
   .settings(

@@ -29,10 +29,8 @@ object ReprDynamoFormat {
   ) extends HConsBase[FieldType[HK, HV] ::  TKV] {
     @inline override def writeInternal(value: FieldType[HK, HV] :: TKV): List[(String, AttributeValue)] = {
       val tail = ct.value.writeInternal(value.tail)
-      ch.value.writeIfNotEmpty(value.head) match {
-        case None => tail
-        case Some(value) => key.value.name -> value :: tail
-      }
+      if (ch.value.isEmpty(value.head)) tail
+      else key.value.name -> ch.value.write(value.head) :: tail
     }
 
     @inline override def readFields(av: util.Map[String, AttributeValue]): DynamoFormat.Result[FieldType[HK, HV] :: TKV] = {
