@@ -4,10 +4,8 @@ object Dependencies {
   private val akkaV = "2.6.20"
 
   private val dynamoDB2           = "software.amazon.awssdk"      % "dynamodb"         % "2.17.77"
-  private val dynamoDB1           = "com.amazonaws"               % "aws-java-sdk-dynamodb" % "1.11.956"
   private val shapeless           = "com.chuusai"                %% "shapeless"        % "2.3.10"
-  private val scanamoAws1         = "org.scanamo"                %% "scanamo"          % "1.0.0-M12-1"
-  private val scanamoAws2         = "org.scanamo"                %% "scanamo"          % "1.0.0-M15"
+  private val scanamoAws2         = "org.scanamo"                %% "scanamo"          % "1.0.0-M23"
   private val scalaTest           = "org.scalatest"              %% "scalatest"        % "3.2.14"
   private val scalaCheck          = "org.scalatestplus"          %% "scalacheck-1-16"  % "3.2.14.0"
   private val cats                = "org.typelevel"              %% "cats-core"        % "2.9.0"
@@ -24,13 +22,8 @@ object Dependencies {
 
   object Tests {
     val ScanamoBase = Seq(
-      dynamoDB1,
       scalaTest,
       scalaCheck
-    )
-
-    val ScanamoAws1 = Seq(
-      scanamoAws1
     )
 
     val ScanamoAws2 = Seq(

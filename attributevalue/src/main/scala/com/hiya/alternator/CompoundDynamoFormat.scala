@@ -65,7 +65,7 @@ object CompoundDynamoFormat {
       }
 
       override def writeFields(value: Map[String, T]): java.util.Map[String, AttributeValue] =
-        value.view.mapValues({x => DynamoFormat[T].writeIfNotEmpty(x).getOrElse(DynamoFormat.NullAttributeValue)}).toMap.asJava
+        value.view.mapValues({x => DynamoFormat[T].write(x)}).toMap.asJava
     }
   }
 }

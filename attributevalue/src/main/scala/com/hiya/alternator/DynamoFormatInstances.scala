@@ -24,15 +24,13 @@ trait DynamoFormatInstances {
   implicit val stringSetDynamoFormat: DynamoFormat[Set[String]] =
     new SetDynamoFormat[String](
       _.ss().asScala.asRight,
-      x => if (x.isEmpty) DynamoFormat.NullAttributeValue
-           else AttributeValue.builder().ss(x.asJava).build()
+      x => AttributeValue.builder().ss(x.asJava).build()
     )
 
   implicit def numberSetDynamoFormat[T: Numeric]: DynamoFormat[Set[T]] =
     new SetDynamoFormat[T](
       _.ns().asScala.toList.traverse(ScalarDynamoFormat.coerceNumeric[T]),
-      x => if(x.isEmpty) DynamoFormat.NullAttributeValue
-           else AttributeValue.builder().ns(x.map(_.toString).asJava).build()
+      x => AttributeValue.builder().ns(x.map(_.toString).asJava).build()
     )
 
   implicit val byteSetDynamoFormat: DynamoFormat[Set[SdkBytes]] =
@@ -66,7 +64,8 @@ object DynamoFormatInstances {
     }
 
     override def write(value: Set[T]): AttributeValue =
-      writer(value)
+      if (isEmpty(value)) DynamoFormat.NullAttributeValue
+      else writer(value)
 
     override def isEmpty(value: Set[T]): Boolean =
       value.isEmpty
