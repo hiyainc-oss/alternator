@@ -9,14 +9,12 @@ import scala.jdk.CollectionConverters._
 class TableWithRangeKey[V, PK, RK](tableName: String, schema: TableSchemaWithRange.Aux[V, PK, RK])
   extends Table[V, (PK, RK)](tableName)(schema) {
 
-  def queryBuilder(pk: PK, rk: RKCondition[RK] = RKCondition.empty): QueryRequest.Builder = {
+  def query(pk: PK, rk: RKCondition[RK] = RKCondition.empty): QueryRequest.Builder = {
     rk.render(
       schema.rkField,
       RKCondition.EQ(pk)(schema.PK).render(schema.pkField, RKCondition.QueryBuilder)
     )(
-      QueryRequest
-        .builder()
-        .tableName(tableName)
+      QueryRequest.builder().tableName(tableName)
     )
   }
 
