@@ -34,7 +34,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
 
     val table = Table.tableWithPK[ExampleData](name).withClient(Alpakka(client))
 
-    def get(key: String): Future[Option[ExampleData]] = table.get(key).throwErrors
+    def get(key: String): Future[Option[ExampleData]] = table.get(key).raiseError
     def put(data: ExampleData): Future[Unit] = table.put(data)
     def delete(key: String): Future[Unit] = table.delete(key)
 
@@ -102,7 +102,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
     it("should compile =") {
 
       val result = withRangeData(5) { table =>
-        Await.result(table.query(pk = "5", rk == "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
+        Await.result(table.query(pk = "5", rk == "3").runWith(Sink.seq).raiseError, TEST_TIMEOUT)
       }
 
       result shouldBe List(DataRK("5", "3", "5/3"))
@@ -111,7 +111,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
     it("should compile <") {
 
       val result = withRangeData(5) { table =>
-        Await.result(table.query(pk = "5", rk < "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
+        Await.result(table.query(pk = "5", rk < "3").runWith(Sink.seq).raiseError, TEST_TIMEOUT)
       }
 
       result shouldBe (0 until 3).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -120,7 +120,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
     it("should compile <=") {
 
       val result = withRangeData(5) { table =>
-        Await.result(table.query(pk = "5", rk <= "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
+        Await.result(table.query(pk = "5", rk <= "3").runWith(Sink.seq).raiseError, TEST_TIMEOUT)
       }
 
       result shouldBe (0 to 3).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -129,7 +129,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
     it("should compile >") {
 
       val result = withRangeData(5) { table =>
-        Await.result(table.query(pk = "5", rk > "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
+        Await.result(table.query(pk = "5", rk > "3").runWith(Sink.seq).raiseError, TEST_TIMEOUT)
       }
 
       result shouldBe (4 until 5).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -138,7 +138,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
     it("should compile >=") {
 
       val result = withRangeData(5) { table =>
-        Await.result(table.query(pk = "5", rk >= "3").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
+        Await.result(table.query(pk = "5", rk >= "3").runWith(Sink.seq).raiseError, TEST_TIMEOUT)
       }
 
       result shouldBe (3 until 5).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -147,7 +147,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
     it("should compile between") {
 
       val result = withRangeData(5) { table =>
-        Await.result(table.query(pk = "5", rk.between("2", "3")).runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
+        Await.result(table.query(pk = "5", rk.between("2", "3")).runWith(Sink.seq).raiseError, TEST_TIMEOUT)
       }
 
       result shouldBe (2 to 3).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -156,7 +156,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
     it("should compile startswith") {
 
       val result = withRangeData(13) { table =>
-        Await.result(table.query(pk = "13", rk.beginsWith("1")).runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
+        Await.result(table.query(pk = "13", rk.beginsWith("1")).runWith(Sink.seq).raiseError, TEST_TIMEOUT)
       }
 
       result shouldBe (1 :: (10 until 13).toList).map { j => DataRK("13", s"$j", s"13/$j") }
@@ -165,7 +165,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
     it("should work without rk condition") {
 
       val result = withRangeData(13) { table =>
-        Await.result(table.query(pk = "13").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
+        Await.result(table.query(pk = "13").runWith(Sink.seq).raiseError, TEST_TIMEOUT)
       }
 
       result should contain theSameElementsAs (0 until 13).map { j => DataRK("13", s"$j", s"13/$j") }
@@ -176,7 +176,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
       val payload = "0123456789abcdefghijklmnopqrstuvwxyz" * 1000
 
       val result = withRangeData(1000, payload = Some(payload)) { table =>
-        Await.result(table.query(pk = "1000").runWith(Sink.seq).throwErrors, TEST_TIMEOUT)
+        Await.result(table.query(pk = "1000").runWith(Sink.seq).raiseError, TEST_TIMEOUT)
       }
 
       result should have size(1000)
