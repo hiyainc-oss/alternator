@@ -4,7 +4,6 @@ Alternator is an alternative dynamodb client for scala, influenced by
 [Scanamo](scanamo.org).
 
 
-
 ## AttributeValue mapping
 An almost perfectly scanamo compatible implementation of attribute-value mapping.
 
@@ -12,6 +11,7 @@ An almost perfectly scanamo compatible implementation of attribute-value mapping
  - case objects are only supported in sealed traits 
  - Scanamo does not support binary sets ([withBS](https://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/services/dynamodbv2/model/AttributeValue.html#withBS-java.nio.ByteBuffer...-)),
     we map `Set[SdkBytes]`, `Set[ByteBuffer]` and `Set[Array[Byte]]` to binary set.
+ - 
 
 ### Benchmark
 
@@ -27,4 +27,3 @@ write_10|81271.801|103485.906|83890.453
 write_100|7998.594|12228.823|8889.472
 write_1000|770.602|1191.022|864.936
 write_10000|73.338|113.524|83.749
-

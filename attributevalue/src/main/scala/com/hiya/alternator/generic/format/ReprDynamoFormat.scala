@@ -18,7 +18,7 @@ trait ReprDynamoFormat[T] extends CompoundDynamoFormat[T]
 object ReprDynamoFormat {
   sealed trait HConsBase[T] extends ReprDynamoFormat[T] {
     def writeInternal(value: T): List[(String, AttributeValue)]
-    final override def writeFields(value: T): util.Map[String, AttributeValue] =
+    @inline final override def writeFields(value: T): util.Map[String, AttributeValue] =
       writeInternal(value).toMap.asJava
   }
 
@@ -27,15 +27,13 @@ object ReprDynamoFormat {
     key: Witness.Aux[HK],
     ct: Lazy[HConsBase[TKV]]
   ) extends HConsBase[FieldType[HK, HV] ::  TKV] {
-    override def writeInternal(value: FieldType[HK, HV] :: TKV): List[(String, AttributeValue)] = {
+    @inline override def writeInternal(value: FieldType[HK, HV] :: TKV): List[(String, AttributeValue)] = {
       val tail = ct.value.writeInternal(value.tail)
-      ch.value.writeIfNotEmpty(value.head) match {
-        case None => tail
-        case Some(value) => key.value.name -> value :: tail
-      }
+      if (ch.value.isEmpty(value.head)) tail
+      else key.value.name -> ch.value.write(value.head) :: tail
     }
 
-    override def readFields(av: util.Map[String, AttributeValue]): DynamoFormat.Result[FieldType[HK, HV] :: TKV] = {
+    @inline override def readFields(av: util.Map[String, AttributeValue]): DynamoFormat.Result[FieldType[HK, HV] :: TKV] = {
       val head = ch.value.read(av.getOrDefault(key.value.name, DynamoFormat.NullAttributeValue)).map(field[HK](_))
         .left.map(_.withFieldName(key.value.name))
       val tail = ct.value.readFields(av)
@@ -47,12 +45,12 @@ object ReprDynamoFormat {
     ch: Lazy[DynamoFormat[HV]],
     key: Witness.Aux[HK]
   ) extends HConsBase[FieldType[HK, HV] :: HNil] {
-    override def writeInternal(value: FieldType[HK, HV] :: HNil): List[(String, AttributeValue)] = {
+    @inline override def writeInternal(value: FieldType[HK, HV] :: HNil): List[(String, AttributeValue)] = {
       if (!ch.value.isEmpty(value.head)) List(key.value.name -> ch.value.write(value.head))
       else Nil
     }
 
-    override def readFields(av: util.Map[String, AttributeValue]): DynamoFormat.Result[FieldType[HK, HV] :: HNil] = {
+    @inline override def readFields(av: util.Map[String, AttributeValue]): DynamoFormat.Result[FieldType[HK, HV] :: HNil] = {
       val head = ch.value.read(av.getOrDefault(key.value.name, DynamoFormat.NullAttributeValue)).map(field[HK](_))
       val tail = Right(HNil)
       (head, tail).mapN(_ :: _)
@@ -78,12 +76,12 @@ object ReprDynamoFormat {
     ct: Lazy[ReprDynamoFormat[TKV]]
   ) extends ReprDynamoFormat[FieldType[HK, HV] :+: TKV] {
 
-    override def writeFields(value: FieldType[HK, HV] :+: TKV): util.Map[String, AttributeValue] =
+    @inline override def writeFields(value: FieldType[HK, HV] :+: TKV): util.Map[String, AttributeValue] =
       value.eliminate({ value =>
         Map(key.value.name -> ch.value.write(value)).asJava
       }, ct.value.writeFields)
 
-    override def readFields(av: util.Map[String, AttributeValue]): Result[FieldType[HK, HV] :+: TKV] =
+    @inline override def readFields(av: util.Map[String, AttributeValue]): Result[FieldType[HK, HV] :+: TKV] =
       Option(av.get(key.value.name)) match {
         case Some(data) => ch.value.read(data).map(v => Inl(field[HK](v)))
         case None       => ct.value.readFields(av).map(Inr(_))
@@ -95,12 +93,12 @@ object ReprDynamoFormat {
     key: Witness.Aux[HK],
     ct: Lazy[ReprDynamoFormat[TKV]]
   ) extends ReprDynamoFormat[FieldType[HK, HV] :+: TKV] {
-    override def writeFields(value: FieldType[HK, HV] :+: TKV): util.Map[String, AttributeValue] =
+    @inline override def writeFields(value: FieldType[HK, HV] :+: TKV): util.Map[String, AttributeValue] =
       value.eliminate({ value =>
         Map(key.value.name -> ch.value.format(key.value.name).write(value)).asJava
       }, ct.value.writeFields)
 
-    override def readFields(av: util.Map[String, AttributeValue]): Result[FieldType[HK, HV] :+: TKV] =
+    @inline override def readFields(av: util.Map[String, AttributeValue]): Result[FieldType[HK, HV] :+: TKV] =
       Option(av.get(key.value.name)) match {
         case Some(data) => ch.value.format(key.value.name).read(data).map(v => Inl(field[HK](v)))
         case None       => ct.value.readFields(av).map(Inr(_))
@@ -122,8 +120,8 @@ object ReprDynamoFormat {
   ): ReprDynamoFormat[FieldType[HK, HV] :+: TKV] = new CConsFormat0(ch, key, ct)
 
   final implicit def deriveCNil: ReprDynamoFormat[CNil] = new ReprDynamoFormat[CNil] {
-    final override def writeFields(value: CNil): util.Map[String, AttributeValue] = ???
-    final override def readFields(av: util.Map[String, AttributeValue]): Result[CNil] = ???
+    @inline final override def writeFields(value: CNil): util.Map[String, AttributeValue] = ???
+    @inline final override def readFields(av: util.Map[String, AttributeValue]): Result[CNil] = ???
   }
 
 }

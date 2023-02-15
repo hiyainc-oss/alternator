@@ -6,6 +6,9 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 
 @State(Scope.Thread)
+@Fork(3)
+@Warmup(iterations = 5, batchSize = 1000, time = 1)
+@Measurement(iterations = 3, batchSize = 1000, time = 1)
 class AlternatorBenchmark {
 
   import FormatBenchmarkData._

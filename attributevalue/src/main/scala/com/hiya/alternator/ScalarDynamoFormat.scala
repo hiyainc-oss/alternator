@@ -44,7 +44,7 @@ trait StringLikeDynamoFormat[T] extends ScalarDynamoFormat[T] {
       StringLikeDynamoFormat.this.write(g(value))
 
     override def isEmpty(value: B): Boolean =
-      StringLikeDynamoFormat.this.isEmpty(g(value))
+      false
   }
 }
 
@@ -66,7 +66,7 @@ object ScalarDynamoFormat {
 
       override def write(value: String): AttributeValue = AttributeValue.builder().s(value).build()
 
-      override def isEmpty(value: String): Boolean = value.isEmpty
+      override def isEmpty(value: String): Boolean = false
     }
 
     implicit val binaryDynamoValue: StringLikeDynamoFormat[SdkBytes] = new StringLikeDynamoFormat[SdkBytes] {
