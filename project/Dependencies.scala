@@ -2,8 +2,9 @@ import sbt._
 
 object Dependencies {
   private val akkaV = "2.6.20"
+  private val jacksonV = "2.14.3"
 
-  private val dynamoDB2           = "software.amazon.awssdk"      % "dynamodb"         % "2.17.77"
+  private val dynamoDB2           = "software.amazon.awssdk"      % "dynamodb"         % "2.20.60"
   private val shapeless           = "com.chuusai"                %% "shapeless"        % "2.3.10"
   private val scanamoAws2         = "org.scanamo"                %% "scanamo"          % "1.0.0-M23"
   private val scalaTest           = "org.scalatest"              %% "scalatest"        % "3.2.14"
@@ -18,9 +19,15 @@ object Dependencies {
   private val akkaStream          = "com.typesafe.akka"          %% "akka-stream"      % akkaV
   private val scalaCheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.16" % "1.3.1"
   private val alpakkaDynamoDB     = "com.lightbend.akka"         %% "akka-stream-alpakka-dynamodb" % "3.0.4"
-  private val collectionsCompat   = "org.scala-lang.modules"     %% "scala-collection-compat" % "2.9.0"
+  private val collectionsCompat   = "org.scala-lang.modules"     %% "scala-collection-compat" % "2.10.0"
   private val scalaJava8Compat    = "org.scala-lang.modules"     %% "scala-java8-compat"     % "1.0.2"
   private val logback             = "ch.qos.logback" % "logback-classic" % "1.4.5"
+
+  private val jacksonOverride = Seq(
+    "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonV,
+    "com.fasterxml.jackson.core" % "jackson-core" % jacksonV,
+    "com.fasterxml.jackson.core" % ":jackson-databind" % jacksonV
+  )
 
   object Tests {
     val ScanamoBase = Seq(
@@ -62,7 +69,7 @@ object Dependencies {
     scalaCheck          % Test,
     scalaCheckShapeless % Test,
     logback             % Test
-  )
+  ) ++ jacksonOverride
 
   val Cats = Seq(
     catsEffect,
