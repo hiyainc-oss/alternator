@@ -17,4 +17,6 @@ class WithTable(client: DynamoDbAsyncClient, tableName: String, magnet: SchemaMa
   def apply[U](thunk: => U)(implicit timeout: Timeout, ex: ExecutionContext): U = {
     Await.result(future(thunk), timeout.value)
   }
+
+
 }
