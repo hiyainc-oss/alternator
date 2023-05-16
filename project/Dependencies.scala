@@ -2,7 +2,7 @@ import sbt._
 
 object Dependencies {
   private val akkaV = "2.6.20"
-  private val jacksonV = "2.14.3"
+  private val jacksonV = "2.14.2"
 
   private val dynamoDB2           = "software.amazon.awssdk"      % "dynamodb"         % "2.20.60"
   private val shapeless           = "com.chuusai"                %% "shapeless"        % "2.3.10"
