@@ -9,23 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-      with:
-        path: workspace
-    - uses: actions/checkout@v3
-      with:
-        repository: hiyainc/gh-actions
-        token: ${{ secrets.GH_HIYABOT_TOKEN }}
-        ref: v1
-        path: gh-actions
-    - name: Set up temurin 11
-      uses: actions/setup-java@v3
-      with:
-        java-version: "11"
-        distribution: temurin
-    - uses: ./gh-actions/setup-sbt
-      with:
-        jfroguser: ${{ secrets.JFROG_GENERAL_USER }}
-        jfrogtoken: ${{ secrets.JFROG_GENERAL_TOKEN }}
     - uses: scalacenter/sbt-dependency-submission@v2
       with:
         working-directory: workspace
