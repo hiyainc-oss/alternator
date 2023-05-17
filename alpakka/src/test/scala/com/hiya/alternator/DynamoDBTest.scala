@@ -218,8 +218,8 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
       DataPK.config.withTable(client) { table =>
         import com.hiya.alternator.syntax.cond._
         Await.result(table.putWhen(DataPK("new", 1000), attr("key").notExists), TEST_TIMEOUT) shouldBe true
-        Await.result(table.putWhen(DataPK("new", 1001), attr("value") === lit(1000)), TEST_TIMEOUT) shouldBe true
-        Await.result(table.putWhen(DataPK("new", 1001), attr("value") === lit(1000)), TEST_TIMEOUT) shouldBe false
+        Await.result(table.putWhen(DataPK("new", 1001), attr("value") === 1000), TEST_TIMEOUT) shouldBe true
+        Await.result(table.putWhen(DataPK("new", 1001), attr("value") === 1000), TEST_TIMEOUT) shouldBe false
       }
     }
   }

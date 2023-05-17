@@ -33,7 +33,7 @@ class ConditionExpressionTest extends AnyFunSpec with Matchers {
 
     it("should render '='") {
       render(
-        attr("Price") === lit(100)
+        attr("Price") === 100
       ) shouldBe Rendered(
         "(#a0) = (:v0)",
         Map("#a0" -> "Price"),
@@ -41,9 +41,19 @@ class ConditionExpressionTest extends AnyFunSpec with Matchers {
       )
     }
 
+    it("should render '=' when comparing to another attribute") {
+      render(
+        attr("Price") === attr("PrevPrice")
+      ) shouldBe Rendered(
+        "(#a0) = (#a1)",
+        Map("#a0" -> "Price", "#a1" -> "PrevPrice"),
+        Map.empty
+      )
+    }
+
     it("should render '<'") {
       render(
-        attr("Price") < lit(100)
+        attr("Price") < 100
       ) shouldBe Rendered(
         "(#a0) < (:v0)",
         Map("#a0" -> "Price"),
@@ -53,7 +63,7 @@ class ConditionExpressionTest extends AnyFunSpec with Matchers {
 
     it("should render '&&'") {
       render(
-        attr("Price") < lit(100) && attr("Category") === lit("food")
+        attr("Price") < 100 && attr("Category") === "food"
       ) shouldBe Rendered(
         "((#a0) < (:v0)) AND ((#a1) = (:v1))",
         Map("#a0" -> "Price", "#a1" -> "Category"),
@@ -66,7 +76,7 @@ class ConditionExpressionTest extends AnyFunSpec with Matchers {
 
     it("should render 'not'") {
       render(
-        (attr("Price") < lit(100) && attr("Category") === lit("food")).not
+        (attr("Price") < 100 && attr("Category") === "food").not
       ) shouldBe Rendered(
         "NOT(((#a0) < (:v0)) AND ((#a1) = (:v1)))",
         Map("#a0" -> "Price", "#a1" -> "Category"),
@@ -79,7 +89,7 @@ class ConditionExpressionTest extends AnyFunSpec with Matchers {
 
     it("should render multiple occurrences of an attribute name") {
       render(
-        attr("Price") >= lit(50) && attr("Price") <= lit(100)
+        attr("Price") >= 50 && attr("Price") <= 100
       ) shouldBe Rendered(
         "((#a0) >= (:v0)) AND ((#a0) <= (:v1))",
         Map("#a0" -> "Price"),
@@ -92,7 +102,7 @@ class ConditionExpressionTest extends AnyFunSpec with Matchers {
 
     it("should render indexing into an attribute") {
       render(
-        attr("Product").get("Pictures").get(0).get("Filename") === lit("image.png")
+        attr("Product").get("Pictures").get(0).get("Filename") === "image.png"
       ) shouldBe Rendered(
         "(#a0.#a1[0].#a2) = (:v0)",
         Map("#a0" -> "Product", "#a1" -> "Pictures", "#a2" -> "Filename"),

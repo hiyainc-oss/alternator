@@ -27,12 +27,24 @@ object ConditionExpression {
     def exists: FunCall[Boolean]    = FunCall("attribute_exists", List(this))
     def notExists: FunCall[Boolean] = FunCall("attribute_not_exists", List(this))
 
-    def ===(rhs: ConditionExpression[T]): BinOp[Boolean] = BinOp("=", this, rhs)
-    def =!=(rhs: ConditionExpression[T]): BinOp[Boolean] = BinOp("<>", this, rhs)
-    def <(rhs: ConditionExpression[T]): BinOp[Boolean]   = BinOp("<", this, rhs)
-    def >(rhs: ConditionExpression[T]): BinOp[Boolean]   = BinOp(">", this, rhs)
-    def <=(rhs: ConditionExpression[T]): BinOp[Boolean]  = BinOp("<=", this, rhs)
-    def >=(rhs: ConditionExpression[T]): BinOp[Boolean]  = BinOp(">=", this, rhs)
+    def ===[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean] = BinOp("=", this, ev.expr(rhs))
+    def =!=[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean] = BinOp("<>", this, ev.expr(rhs))
+    def <[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean]   = BinOp("<", this, ev.expr(rhs))
+    def >[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean]   = BinOp(">", this, ev.expr(rhs))
+    def <=[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean]  = BinOp("<=", this, ev.expr(rhs))
+    def >=[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean]  = BinOp(">=", this, ev.expr(rhs))
+  }
+
+  trait ExprLike[-From, +To] {
+    def expr(from: From): ConditionExpression[To]
+  }
+
+  object ExprLike {
+    implicit def conditionExpressionIsExprLike[T]: ExprLike[ConditionExpression[T], T] =
+      (from: ConditionExpression[T]) => from
+
+    implicit def dynamoFormatIsExprLike[T: DynamoFormat]: ExprLike[T, T] =
+      (from: T) => Literal(from)
   }
 
   private[syntax] final case class Attr[T](
