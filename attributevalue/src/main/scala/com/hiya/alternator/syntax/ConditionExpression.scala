@@ -1,7 +1,7 @@
 package com.hiya.alternator.syntax
 
-import com.hiya.alternator.DynamoFormat
-import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, PutItemRequest}
+import com.hiya.alternator.ScalarDynamoFormat
+import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, DeleteItemRequest, PutItemRequest}
 
 sealed trait ConditionExpression[+T]
 
@@ -15,7 +15,7 @@ object ConditionExpression {
     def ||(rhs: ConditionExpression[Boolean]): ConditionExpression[Boolean] =
       ConditionExpression.BinOp("OR", expr, rhs)
 
-    def not: ConditionExpression[Boolean] =
+    def unary_! : ConditionExpression[Boolean] =
       ConditionExpression.FunCall("NOT", List(expr))
   }
 
@@ -43,7 +43,7 @@ object ConditionExpression {
     implicit def conditionExpressionIsExprLike[T]: ExprLike[ConditionExpression[T], T] =
       (from: ConditionExpression[T]) => from
 
-    implicit def dynamoFormatIsExprLike[T: DynamoFormat]: ExprLike[T, T] =
+    implicit def scalarDynamoFormatIsExprLike[T: ScalarDynamoFormat]: ExprLike[T, T] =
       (from: T) => Literal(from)
   }
 
@@ -66,7 +66,7 @@ object ConditionExpression {
   ) extends ConditionExpression[T]
 
   private[syntax] object Literal {
-    def apply[T: DynamoFormat](t: T): Literal[T] = Literal(implicitly[DynamoFormat[T]].write(t))
+    def apply[T: ScalarDynamoFormat](t: T): Literal[T] = Literal(implicitly[ScalarDynamoFormat[T]].write(t))
   }
 
   private[syntax] final case class FunCall[T](
@@ -87,6 +87,19 @@ object ConditionExpression {
   ) {
 
     def apply(builder: PutItemRequest.Builder): PutItemRequest.Builder = {
+      import com.hiya.alternator.CollectionConvertersCompat.mapAsJava
+
+      var result = builder.conditionExpression(this.conditionExpression)
+      if (this.attributeNames.nonEmpty) {
+        result = builder.expressionAttributeNames(mapAsJava(this.attributeNames))
+      }
+      if (this.attributeValues.nonEmpty) {
+        result = builder.expressionAttributeValues(mapAsJava(this.attributeValues))
+      }
+      result
+    }
+
+    def apply(builder: DeleteItemRequest.Builder): DeleteItemRequest.Builder = {
       import com.hiya.alternator.CollectionConvertersCompat.mapAsJava
 
       var result = builder.conditionExpression(this.conditionExpression)

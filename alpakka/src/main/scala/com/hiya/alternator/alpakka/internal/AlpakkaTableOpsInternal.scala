@@ -60,10 +60,10 @@ class AlpakkaTableOpsInternal[V, PK](override val table: Table[V, PK], override 
     DynamoDb.single(table.put(value).build()).map(_ => ())
   }
 
-  final def putWhen(value: V, condition: ConditionExpression[Boolean]): Future[Boolean] = {
+  final def put(value: V, condition: ConditionExpression[Boolean]): Future[Boolean] = {
     import Alpakka.parasitic
     DynamoDb
-      .single(table.putWhen(value, condition).build())
+      .single(table.put(value, condition).build())
       .map(_ => true)
       .recover {
         case ex: CompletionException
@@ -83,6 +83,18 @@ class AlpakkaTableOpsInternal[V, PK](override val table: Table[V, PK], override 
   final def delete(key: PK): Future[Unit] = {
     import Alpakka.parasitic
     DynamoDb.single(table.delete(key).build()).map(_ => ())
+  }
+
+  final def delete(key: PK, condition: ConditionExpression[Boolean]): Future[Boolean] = {
+    import Alpakka.parasitic
+    DynamoDb
+      .single(table.delete(key, condition).build())
+      .map(_ => true)
+      .recover {
+        case ex: CompletionException
+          if ex.getCause != null && ex.getCause.isInstanceOf[ConditionalCheckFailedException] =>
+          false
+      }
   }
 
   final def batchedDelete[T](value: T)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler, T : ItemMagnet[T, V, PK]): Future[Done] = {

@@ -208,18 +208,27 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
   describe("putWhen") {
     it("should work for insert-if-not-exists") {
       DataPK.config.withTable(client) { table =>
-        import com.hiya.alternator.syntax.cond._
-        Await.result(table.putWhen(DataPK("new", 1000), attr("key").notExists), TEST_TIMEOUT) shouldBe true
-        Await.result(table.putWhen(DataPK("new", 1000), attr("key").notExists), TEST_TIMEOUT) shouldBe false
+        Await.result(table.put(DataPK("new", 1000), attr("key").notExists), TEST_TIMEOUT) shouldBe true
+        Await.result(table.put(DataPK("new", 1000), attr("key").notExists), TEST_TIMEOUT) shouldBe false
       }
     }
 
     it("should work for optimistic locking") {
       DataPK.config.withTable(client) { table =>
-        import com.hiya.alternator.syntax.cond._
-        Await.result(table.putWhen(DataPK("new", 1000), attr("key").notExists), TEST_TIMEOUT) shouldBe true
-        Await.result(table.putWhen(DataPK("new", 1001), attr("value") === 1000), TEST_TIMEOUT) shouldBe true
-        Await.result(table.putWhen(DataPK("new", 1001), attr("value") === 1000), TEST_TIMEOUT) shouldBe false
+        Await.result(table.put(DataPK("new", 1000), attr("key").notExists), TEST_TIMEOUT) shouldBe true
+        Await.result(table.put(DataPK("new", 1001), attr("value") === 1000), TEST_TIMEOUT) shouldBe true
+        Await.result(table.put(DataPK("new", 1001), attr("value") === 1000), TEST_TIMEOUT) shouldBe false
+      }
+    }
+  }
+
+  describe("delete with condition") {
+    it("should work with checked delete") {
+      DataPK.config.withTable(client) { table =>
+        Await.result(table.put(DataPK("new", 1)), TEST_TIMEOUT)
+        Await.result(table.delete("new", attr("value") === 2), TEST_TIMEOUT) shouldBe false
+        Await.result(table.delete("new", attr("value") === 1), TEST_TIMEOUT) shouldBe true
+        Await.result(table.delete("new", attr("value") === 1), TEST_TIMEOUT) shouldBe false
       }
     }
   }

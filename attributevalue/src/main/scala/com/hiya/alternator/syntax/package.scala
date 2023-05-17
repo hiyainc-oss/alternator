@@ -19,9 +19,6 @@ package object syntax {
     def between[T : ScalarDynamoFormat](lower: T, upper: T): RKCondition.BETWEEN[T] = RKCondition.BETWEEN(lower, upper)
   }
 
-  object cond {
-    def attr[T](name: String): ConditionExpression.Path[T] = ConditionExpression.Attr(name)
-    def lit[T: DynamoFormat](literal: T): ConditionExpression[T] = ConditionExpression.Literal(literal)
-    def not(expr: ConditionExpression[Boolean]): ConditionExpression[Boolean] = expr.not
-  }
+  def attr[T](name: String): ConditionExpression.Path[T] = ConditionExpression.Attr(name)
+  def lit[T: ScalarDynamoFormat](literal: T): ConditionExpression[T] = ConditionExpression.Literal(literal)
 }

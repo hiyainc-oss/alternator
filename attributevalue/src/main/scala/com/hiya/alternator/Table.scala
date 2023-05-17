@@ -63,7 +63,7 @@ class Table[V, PK](val tableName: String)(implicit val schema: TableSchema.Aux[V
   final def put(item: V): PutItemRequest.Builder =
     PutItemRequest.builder().item(schema.serializeValue.writeFields(item)).tableName(tableName)
 
-  final def putWhen(item: V, condition: ConditionExpression[Boolean]): PutItemRequest.Builder = {
+  final def put(item: V, condition: ConditionExpression[Boolean]): PutItemRequest.Builder = {
     val renderedCondition = ConditionExpression.render(condition)
     renderedCondition(put(item))
   }
@@ -74,6 +74,11 @@ class Table[V, PK](val tableName: String)(implicit val schema: TableSchema.Aux[V
 
   final def delete(key: PK): DeleteItemRequest.Builder =
     DeleteItemRequest.builder().key(schema.serializePK(key)).tableName(tableName)
+
+  final def delete(key: PK, condition: ConditionExpression[Boolean]): DeleteItemRequest.Builder = {
+    val renderedCondition = ConditionExpression.render(condition)
+    renderedCondition(delete(key))
+  }
 
   final def batchDelete[T](items: Seq[T])(implicit T : ItemMagnet[T, V, PK]): BatchWriteItemRequest.Builder =
     batchWrite(items.map(x => Left(T.key(x))))

@@ -23,18 +23,24 @@ class CatsTableOpsInternal[F[_] : Async, V, PK](override val table: Table[V, PK]
       .void
 
 
-  override def putWhen(value: V, condition: ConditionExpression[Boolean]): F[Boolean] = {
+  override def put(value: V, condition: ConditionExpression[Boolean]): F[Boolean] =
     Async[F]
-      .fromCompletableFuture(Sync[F].delay { client.client.putItem(table.putWhen(value, condition).build()) })
+      .fromCompletableFuture(Sync[F].delay { client.client.putItem(table.put(value, condition).build()) })
       .map(_ => true)
       .recover { case _: ConditionalCheckFailedException => false }
-  }
 
 
   override def delete(key: PK): F[Unit] =
     Async[F]
       .fromCompletableFuture(Sync[F].delay {client.client.deleteItem(table.delete(key).build())})
       .void
+
+
+  override def delete(key: PK, condition: ConditionExpression[Boolean]): F[Boolean] =
+    Async[F]
+      .fromCompletableFuture(Sync[F].delay { client.client.deleteItem(table.delete(key, condition).build()) })
+      .map(_ => true)
+      .recover { case _: ConditionalCheckFailedException => false }
 
 
   override def scan(segment: Option[Segment]): Stream[F, DynamoFormat.Result[V]] = {

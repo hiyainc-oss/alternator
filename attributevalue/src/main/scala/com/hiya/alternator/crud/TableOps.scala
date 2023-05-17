@@ -10,10 +10,10 @@ trait TableOps[V, PK, Future[_], Source[_]] {
 
   def get(pk: PK): Future[Option[DynamoFormat.Result[V]]]
   def put(value: V): Future[Unit]
+  def put(value: V, condition: ConditionExpression[Boolean]): Future[Boolean]
   def delete(key: PK): Future[Unit]
+  def delete(key: PK, condition: ConditionExpression[Boolean]): Future[Boolean]
   def scan(segment: Option[Segment] = None): Source[DynamoFormat.Result[V]]
-
-  def putWhen(value: V, condition: ConditionExpression[Boolean]): Future[Boolean]
 
   def batchGet(values: Seq[PK]): Future[BatchGetItemResponse]
   def batchPut(values: Seq[V]): Future[BatchWriteItemResponse]

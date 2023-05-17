@@ -7,7 +7,6 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 class ConditionExpressionTest extends AnyFunSpec with Matchers {
   import com.hiya.alternator.syntax.ConditionExpression.render
-  import com.hiya.alternator.syntax.cond._
 
   describe("render") {
 
@@ -76,7 +75,7 @@ class ConditionExpressionTest extends AnyFunSpec with Matchers {
 
     it("should render 'not'") {
       render(
-        (attr("Price") < 100 && attr("Category") === "food").not
+        !(attr("Price") < 100 && attr("Category") === "food")
       ) shouldBe Rendered(
         "NOT(((#a0) < (:v0)) AND ((#a1) = (:v1)))",
         Map("#a0" -> "Price", "#a1" -> "Category"),
