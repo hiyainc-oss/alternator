@@ -1,6 +1,6 @@
 package com.hiya.alternator.crud
 
-import com.hiya.alternator.syntax.RKCondition
+import com.hiya.alternator.syntax.{ConditionExpression, RKCondition}
 import com.hiya.alternator._
 import software.amazon.awssdk.services.dynamodb.model.{BatchGetItemResponse, BatchWriteItemResponse}
 
@@ -12,6 +12,8 @@ trait TableOps[V, PK, Future[_], Source[_]] {
   def put(value: V): Future[Unit]
   def delete(key: PK): Future[Unit]
   def scan(segment: Option[Segment] = None): Source[DynamoFormat.Result[V]]
+
+  def putWhen(value: V, condition: ConditionExpression[Boolean]): Future[Boolean]
 
   def batchGet(values: Seq[PK]): Future[BatchGetItemResponse]
   def batchPut(values: Seq[V]): Future[BatchWriteItemResponse]

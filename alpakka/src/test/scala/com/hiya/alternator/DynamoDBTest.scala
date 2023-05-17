@@ -204,4 +204,23 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
       }
     }
   }
+
+  describe("putWhen") {
+    it("should work for insert-if-not-exists") {
+      DataPK.config.withTable(client) { table =>
+        import com.hiya.alternator.syntax.cond._
+        Await.result(table.putWhen(DataPK("new", 1000), attr("key").notExists), TEST_TIMEOUT) shouldBe true
+        Await.result(table.putWhen(DataPK("new", 1000), attr("key").notExists), TEST_TIMEOUT) shouldBe false
+      }
+    }
+
+    it("should work for optimistic locking") {
+      DataPK.config.withTable(client) { table =>
+        import com.hiya.alternator.syntax.cond._
+        Await.result(table.putWhen(DataPK("new", 1000), attr("key").notExists), TEST_TIMEOUT) shouldBe true
+        Await.result(table.putWhen(DataPK("new", 1001), attr("value") === lit(1000)), TEST_TIMEOUT) shouldBe true
+        Await.result(table.putWhen(DataPK("new", 1001), attr("value") === lit(1000)), TEST_TIMEOUT) shouldBe false
+      }
+    }
+  }
 }

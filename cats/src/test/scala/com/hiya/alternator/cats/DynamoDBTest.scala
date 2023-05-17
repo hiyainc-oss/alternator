@@ -13,7 +13,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import java.util.UUID
 import scala.concurrent.duration._
 import cats.effect.unsafe.implicits.global
-import com.hiya.alternator.cats.util.DataRK
+import com.hiya.alternator.cats.util.{DataPK, DataRK}
 import com.hiya.alternator.syntax._
 
 import scala.concurrent.Await
@@ -180,6 +180,25 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
       }
 
       result should have size(1000)
+    }
+  }
+
+  describe("putWhen") {
+    it("should work for insert-if-not-exists") {
+      DataPK.config.withTable(client) { table =>
+        import com.hiya.alternator.syntax.cond._
+        Await.result(table.putWhen(DataPK("new", 1000), attr("key").notExists).unsafeToFuture(), TEST_TIMEOUT) shouldBe true
+        Await.result(table.putWhen(DataPK("new", 1000), attr("key").notExists).unsafeToFuture(), TEST_TIMEOUT) shouldBe false
+      }
+    }
+
+    it("should work for optimistic locking") {
+      DataPK.config.withTable(client) { table =>
+        import com.hiya.alternator.syntax.cond._
+        Await.result(table.putWhen(DataPK("new", 1000), attr("key").notExists).unsafeToFuture(), TEST_TIMEOUT) shouldBe true
+        Await.result(table.putWhen(DataPK("new", 1001), attr("value") === lit(1000)).unsafeToFuture(), TEST_TIMEOUT) shouldBe true
+        Await.result(table.putWhen(DataPK("new", 1001), attr("value") === lit(1000)).unsafeToFuture(), TEST_TIMEOUT) shouldBe false
+      }
     }
   }
 

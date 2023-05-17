@@ -4,10 +4,11 @@ import cats.effect._
 import cats.implicits._
 import com.hiya.alternator.DynamoFormat.Result
 import com.hiya.alternator.cats.{Cats, CatsTableOps}
+import com.hiya.alternator.syntax.ConditionExpression
 import com.hiya.alternator.{DynamoFormat, ItemMagnet, Segment, Table}
 import fs2._
 import fs2.interop.reactivestreams._
-import software.amazon.awssdk.services.dynamodb.model.{BatchGetItemResponse, BatchWriteItemResponse}
+import software.amazon.awssdk.services.dynamodb.model.{BatchGetItemResponse, BatchWriteItemResponse, ConditionalCheckFailedException}
 
 class CatsTableOpsInternal[F[_] : Async, V, PK](override val table: Table[V, PK], override val client: Cats[F]) extends CatsTableOps[F, V, PK] {
   override def get(pk: PK): F[Option[Result[V]]] = {
@@ -20,6 +21,14 @@ class CatsTableOpsInternal[F[_] : Async, V, PK](override val table: Table[V, PK]
     Async[F]
       .fromCompletableFuture(Sync[F].delay {client.client.putItem(table.put(value).build())})
       .void
+
+
+  override def putWhen(value: V, condition: ConditionExpression[Boolean]): F[Boolean] = {
+    Async[F]
+      .fromCompletableFuture(Sync[F].delay { client.client.putItem(table.putWhen(value, condition).build()) })
+      .map(_ => true)
+      .recover { case _: ConditionalCheckFailedException => false }
+  }
 
 
   override def delete(key: PK): F[Unit] =

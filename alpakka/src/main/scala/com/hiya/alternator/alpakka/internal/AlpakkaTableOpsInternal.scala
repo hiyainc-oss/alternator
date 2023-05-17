@@ -9,8 +9,10 @@ import akka.{Done, NotUsed}
 import com.hiya.alternator._
 import com.hiya.alternator.alpakka.stream._
 import com.hiya.alternator.alpakka.{Alpakka, AlpakkaTableOps, BatchedReadBehavior, BatchedWriteBehavior}
+import com.hiya.alternator.syntax.ConditionExpression
 import software.amazon.awssdk.services.dynamodb.model._
 
+import java.util.concurrent.CompletionException
 import scala.concurrent.Future
 
 
@@ -56,6 +58,18 @@ class AlpakkaTableOpsInternal[V, PK](override val table: Table[V, PK], override 
   final def put(value: V): Future[Unit] = {
     import Alpakka.parasitic
     DynamoDb.single(table.put(value).build()).map(_ => ())
+  }
+
+  final def putWhen(value: V, condition: ConditionExpression[Boolean]): Future[Boolean] = {
+    import Alpakka.parasitic
+    DynamoDb
+      .single(table.putWhen(value, condition).build())
+      .map(_ => true)
+      .recover {
+        case ex: CompletionException
+          if ex.getCause != null && ex.getCause.isInstanceOf[ConditionalCheckFailedException] =>
+            false
+      }
   }
 
   final def batchPut(values: Seq[V]): Future[BatchWriteItemResponse] = {
