@@ -3,6 +3,8 @@ package com.hiya.alternator.syntax
 import com.hiya.alternator.ScalarDynamoFormat
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, DeleteItemRequest, PutItemRequest}
 
+import scala.jdk.CollectionConverters._
+
 sealed trait ConditionExpression[+T]
 
 object ConditionExpression {
@@ -87,27 +89,23 @@ object ConditionExpression {
   ) {
 
     def apply(builder: PutItemRequest.Builder): PutItemRequest.Builder = {
-      import com.hiya.alternator.CollectionConvertersCompat.mapAsJava
-
       var result = builder.conditionExpression(this.conditionExpression)
       if (this.attributeNames.nonEmpty) {
-        result = builder.expressionAttributeNames(mapAsJava(this.attributeNames))
+        result = builder.expressionAttributeNames(this.attributeNames.asJava)
       }
       if (this.attributeValues.nonEmpty) {
-        result = builder.expressionAttributeValues(mapAsJava(this.attributeValues))
+        result = builder.expressionAttributeValues(this.attributeValues.asJava)
       }
       result
     }
 
     def apply(builder: DeleteItemRequest.Builder): DeleteItemRequest.Builder = {
-      import com.hiya.alternator.CollectionConvertersCompat.mapAsJava
-
       var result = builder.conditionExpression(this.conditionExpression)
       if (this.attributeNames.nonEmpty) {
-        result = builder.expressionAttributeNames(mapAsJava(this.attributeNames))
+        result = builder.expressionAttributeNames(this.attributeNames.asJava)
       }
       if (this.attributeValues.nonEmpty) {
-        result = builder.expressionAttributeValues(mapAsJava(this.attributeValues))
+        result = builder.expressionAttributeValues(this.attributeValues.asJava)
       }
       result
     }
