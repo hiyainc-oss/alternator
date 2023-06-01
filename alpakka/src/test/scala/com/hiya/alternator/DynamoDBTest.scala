@@ -205,7 +205,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
     }
   }
 
-  describe("putWhen") {
+  describe("put with condition") {
     it("should work for insert-if-not-exists") {
       DataPK.config.withTable(client) { table =>
         Await.result(table.put(DataPK("new", 1000), attr("key").notExists), TEST_TIMEOUT) shouldBe true
