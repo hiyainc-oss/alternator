@@ -1,6 +1,7 @@
 package com.hiya.alternator
 
 import com.hiya.alternator.Table.AV
+import com.hiya.alternator.syntax.ConditionExpression
 import com.hiya.alternator.util._
 import software.amazon.awssdk.services.dynamodb.model._
 
@@ -62,12 +63,22 @@ class Table[V, PK](val tableName: String)(implicit val schema: TableSchema.Aux[V
   final def put(item: V): PutItemRequest.Builder =
     PutItemRequest.builder().item(schema.serializeValue.writeFields(item)).tableName(tableName)
 
+  final def put(item: V, condition: ConditionExpression[Boolean]): PutItemRequest.Builder = {
+    val renderedCondition = ConditionExpression.render(condition)
+    renderedCondition(put(item))
+  }
+
   final def batchPut(items: Seq[V]): BatchWriteItemRequest.Builder = {
     batchWrite(items.map(x => Right(x)))
   }
 
   final def delete(key: PK): DeleteItemRequest.Builder =
     DeleteItemRequest.builder().key(schema.serializePK(key)).tableName(tableName)
+
+  final def delete(key: PK, condition: ConditionExpression[Boolean]): DeleteItemRequest.Builder = {
+    val renderedCondition = ConditionExpression.render(condition)
+    renderedCondition(delete(key))
+  }
 
   final def batchDelete[T](items: Seq[T])(implicit T : ItemMagnet[T, V, PK]): BatchWriteItemRequest.Builder =
     batchWrite(items.map(x => Left(T.key(x))))

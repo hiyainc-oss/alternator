@@ -13,7 +13,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import java.util.UUID
 import scala.concurrent.duration._
 import cats.effect.unsafe.implicits.global
-import com.hiya.alternator.cats.util.DataRK
+import com.hiya.alternator.cats.util.{DataPK, DataRK}
 import com.hiya.alternator.syntax._
 
 import scala.concurrent.Await
@@ -180,6 +180,34 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
       }
 
       result should have size(1000)
+    }
+  }
+
+  describe("put with condition") {
+    it("should work for insert-if-not-exists") {
+      DataPK.config.withTable(client) { table =>
+        Await.result(table.put(DataPK("new", 1000), attr("key").notExists).unsafeToFuture(), TEST_TIMEOUT) shouldBe true
+        Await.result(table.put(DataPK("new", 1000), attr("key").notExists).unsafeToFuture(), TEST_TIMEOUT) shouldBe false
+      }
+    }
+
+    it("should work for optimistic locking") {
+      DataPK.config.withTable(client) { table =>
+        Await.result(table.put(DataPK("new", 1000), attr("key").notExists).unsafeToFuture(), TEST_TIMEOUT) shouldBe true
+        Await.result(table.put(DataPK("new", 1001), attr("value") === 1000).unsafeToFuture(), TEST_TIMEOUT) shouldBe true
+        Await.result(table.put(DataPK("new", 1001), attr("value") === 1000).unsafeToFuture(), TEST_TIMEOUT) shouldBe false
+      }
+    }
+  }
+
+  describe("delete with condition") {
+    it("should work with checked delete") {
+      DataPK.config.withTable(client) { table =>
+        Await.result(table.put(DataPK("new", 1)).unsafeToFuture(), TEST_TIMEOUT)
+        Await.result(table.delete("new", attr("value") === 2).unsafeToFuture(), TEST_TIMEOUT) shouldBe false
+        Await.result(table.delete("new", attr("value") === 1).unsafeToFuture(), TEST_TIMEOUT) shouldBe true
+        Await.result(table.delete("new", attr("value") === 1).unsafeToFuture(), TEST_TIMEOUT) shouldBe false
+      }
     }
   }
 
