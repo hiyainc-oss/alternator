@@ -1,10 +1,12 @@
-import _root_.io.github.davidgregory084._
+import org.typelevel.sbt.tpolecat._
+import org.typelevel.scalacoptions.ScalacOptions
 
-ThisBuild / crossScalaVersions := Seq("2.13.10", "2.12.17")
-ThisBuild / scalaVersion := "2.13.10"
+ThisBuild / crossScalaVersions := Seq("2.13.12", "2.12.18")
+ThisBuild / scalaVersion := "2.13.12"
 ThisBuild / organization := "com.hiya"
 ThisBuild / versionScheme := Some("early-semver")
 
+ThisBuild / tpolecatDefaultOptionsMode := DevMode
 
 ThisBuild / githubOwner := "hiyainc-oss"
 ThisBuild / githubRepository := "alternator"
@@ -12,11 +14,8 @@ ThisBuild / githubRepository := "alternator"
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches := Seq(RefPredicate.StartsWith(Ref.Tag("v")))
 
-ThisBuild / tpolecatDefaultOptionsMode := {
-  if (insideCI.value) CiMode else DevMode
-}
-
 lazy val commonSettings = Seq(
+  Test / tpolecatExcludeOptions += ScalacOptions.warnNonUnitStatement,
   scalacOptions ++= (CrossVersion.partialVersion(scalaVersion.value) match {
     case Some((2, p)) if p < 13 => Seq.empty
     case _ => Seq("-Wconf:cat=unused-imports&origin=scala.collection.compat._:s")
