@@ -8,7 +8,6 @@ ThisBuild / versionScheme := Some("early-semver")
 
 ThisBuild / tpolecatDefaultOptionsMode := DevMode
 
-
 lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(Dependencies.MonadicFor, Dependencies.KindProjector),
   Test / tpolecatExcludeOptions += ScalacOptions.warnNonUnitStatement,
@@ -36,17 +35,24 @@ lazy val commonSettings = Seq(
   } else Seq.empty,
 )
 
-
-lazy val `alternator-attributevalue` = (project in file("attributevalue"))
+lazy val `alternator-core` = (project in file("core"))
   .settings(
     commonSettings,
     libraryDependencies ++= Dependencies.AttributeValue,
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
   )
 
-lazy val `alternator-alpakka` = (project in file("alpakka"))
+lazy val `alternator-aws2` = (project in file("alternator-aws2"))
+  .dependsOn(`alternator-core`)
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Dependencies.AttributeValue,
+    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+  )
+
+lazy val `alternator-alpakka-aws2` = (project in file("alpakka-aws2"))
   .dependsOn(
-    `alternator-attributevalue` % "compile->compile;test->test",
+    `alternator-aws2` % "compile->compile;test->test",
     `alternator-testkit` % Test
   )
   .settings(
@@ -64,9 +70,9 @@ lazy val `alternator-alpakka` = (project in file("alpakka"))
     Test / fork := true
   )
 
-lazy val `alternator-cats` = (project in file("cats"))
+lazy val `alternator-cats-aws2` = (project in file("cats-aws2"))
   .dependsOn(
-    `alternator-attributevalue` % "compile->compile;test->test",
+    `alternator-aws2` % "compile->compile;test->test",
     `alternator-testkit` % Test
   )
   .settings(
@@ -85,7 +91,7 @@ lazy val `alternator-cats` = (project in file("cats"))
   )
 
 lazy val `alternator-testkit` = (project in file("testkit"))
-  .dependsOn(`alternator-attributevalue`)
+  .dependsOn(`alternator-aws2`)
   .settings(
       commonSettings,
       libraryDependencies ++= Dependencies.Testkit,
