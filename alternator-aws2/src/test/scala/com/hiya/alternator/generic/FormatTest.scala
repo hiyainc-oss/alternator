@@ -1,7 +1,8 @@
 package com.hiya.alternator.generic
 
-import com.hiya.alternator.DynamoAttributeError.AttributeIsNull
-import com.hiya.alternator.{CompoundDynamoFormat, DynamoFormat}
+import com.hiya.alternator.aws2._
+import com.hiya.alternator.schema.DynamoAttributeError.AttributeIsNull
+import com.hiya.alternator.schema.{CompoundDynamoFormat, DynamoFormat}
 import org.scalatest.Assertion
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -13,7 +14,7 @@ import scala.reflect.runtime.universe._
 
 class FormatTest extends AnyFunSpec with Matchers {
   private def iso[T](orig: T)(implicit T: DynamoFormat[T]): Assertion = {
-    T.read(T.write(orig)) shouldBe Right(orig)
+    T.read(T.write[AttributeValue](orig)) shouldBe Right(orig)
   }
 
   describe("semiauto") {

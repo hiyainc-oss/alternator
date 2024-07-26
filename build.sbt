@@ -38,7 +38,7 @@ lazy val commonSettings = Seq(
 lazy val `alternator-core` = (project in file("core"))
   .settings(
     commonSettings,
-    libraryDependencies ++= Dependencies.AttributeValue,
+    libraryDependencies ++= Dependencies.Core,
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
   )
 

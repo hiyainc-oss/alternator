@@ -1,4 +1,6 @@
-package com.hiya.alternator.alpakka
+package aws2.alpakka
+
+import com.hiya.alternator.aws2
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration

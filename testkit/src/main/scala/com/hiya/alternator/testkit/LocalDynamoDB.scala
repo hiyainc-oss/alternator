@@ -1,6 +1,7 @@
 package com.hiya.alternator.testkit
 
-import com.hiya.alternator.TableSchema
+import com.hiya.alternator.aws2._
+import com.hiya.alternator.schema._
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient
@@ -10,11 +11,11 @@ import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbBa
 
 import java.net.URI
 import java.util.UUID
+import scala.compat.java8.DurationConverters._
+import scala.compat.java8.FutureConverters._
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
-import scala.compat.java8.FutureConverters._
-import scala.compat.java8.DurationConverters._
 
 object LocalDynamoDB {
   val DEFAULT_PORT = 8000

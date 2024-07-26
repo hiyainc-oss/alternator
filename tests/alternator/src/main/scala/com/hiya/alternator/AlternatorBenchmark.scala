@@ -1,6 +1,8 @@
 package com.hiya.alternator
 
-import com.hiya.alternator.DynamoFormat.Result
+import com.hiya.alternator.aws2._
+import com.hiya.alternator.schema.DynamoFormat
+import com.hiya.alternator.schema.DynamoFormat.Result
 import org.openjdk.jmh.annotations._
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 

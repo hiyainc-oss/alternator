@@ -11,6 +11,7 @@ object Dependencies {
   private val scalaCheck          = "org.scalatestplus"          %% "scalacheck-1-16"  % "3.2.14.0"
   private val cats                = "org.typelevel"              %% "cats-core"        % "2.12.0"
   private val catsEffect          = "org.typelevel"              %% "cats-effect"      % "3.4.2"
+  private val catsFree            = "org.typelevel"              %% "cats-free"        % "2.12.0"
   private val fs2Core             = "co.fs2"                     %% "fs2-core"         % "3.10.2"
   private val fs2Reactive         = "co.fs2"                     %% "fs2-reactive-streams" % "3.10.2"
   private val akkaActor           = "com.typesafe.akka"          %% "akka-actor"       % akkaV
@@ -50,6 +51,16 @@ object Dependencies {
     dynamoDB2,
     shapeless,
     cats,
+    collectionsCompat,
+    scalaTest           % Test,
+    scalaCheck          % Test,
+    scalaCheckShapeless % Test
+  )
+
+  val Core = Seq(
+    shapeless,
+    cats,
+    catsFree,
     collectionsCompat,
     scalaTest           % Test,
     scalaCheck          % Test,

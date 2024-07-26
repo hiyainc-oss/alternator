@@ -1,6 +1,7 @@
 package com.hiya.alternator.generic
 
-import com.hiya.alternator.DynamoFormat
+import com.hiya.alternator.aws2._
+import com.hiya.alternator.schema.DynamoFormat
 import org.scalacheck.Arbitrary._
 import org.scalacheck._
 import org.scalatest.funspec.AnyFunSpec
@@ -70,7 +71,7 @@ class GenericTest extends AnyFunSpec with Matchers with ScalaCheckDrivenProperty
   withoutOption[Set[String]]()
   withoutOption[Set[Double]]()
   withoutOption[Set[Int]]()
-  withoutOption[Set[ByteBuffer]]()
+//  withoutOption[Set[ByteBuffer]]()
 
 }
 

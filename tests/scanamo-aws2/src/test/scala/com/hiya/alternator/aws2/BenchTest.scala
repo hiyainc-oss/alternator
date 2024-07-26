@@ -1,6 +1,6 @@
 package com.hiya.alternator.aws2
 
-import org.scalatest.funspec.AnyFunSpec
+ import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
 class BenchTest extends AnyFunSpec with Matchers {

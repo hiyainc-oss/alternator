@@ -1,12 +1,12 @@
 package com.hiya.alternator.syntax
 
-import com.hiya.alternator.syntax.ConditionExpression.Rendered
+import com.hiya.alternator.syntax.aws2.Rendered
+import com.hiya.alternator.syntax.aws2.Rendered.render
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 class ConditionExpressionTest extends AnyFunSpec with Matchers {
-  import com.hiya.alternator.syntax.ConditionExpression.render
 
   describe("render") {
 

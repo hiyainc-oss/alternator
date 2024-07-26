@@ -1,6 +1,5 @@
 package com.hiya.alternator.aws2
 
-import com.hiya.alternator.FormatBenchmarkData
 import org.openjdk.jmh.annotations._
 import org.scanamo._
 import org.scanamo.generic.semiauto._
@@ -11,7 +10,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 @Warmup(iterations = 5, batchSize = 1000, time = 1)
 @Measurement(iterations = 3, batchSize = 1000, time = 1)
 class Aws2Benchmark {
-  import FormatBenchmarkData._
+  import com.hiya.alternator.FormatBenchmarkData._
 
   implicit val pFormat: DynamoFormat[P] = {
     deriveDynamoFormat[P]
