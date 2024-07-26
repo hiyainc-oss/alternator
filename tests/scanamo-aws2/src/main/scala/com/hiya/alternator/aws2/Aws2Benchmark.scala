@@ -25,20 +25,13 @@ class Aws2Benchmark {
     deriveDynamoFormat[PS]
   }
 
-  val data1: PS = PS((0 until 1).map(genData).toList)
   val data10: PS = PS((0 until 10).map(genData).toList)
   val data100: PS = PS((0 until 100).map(genData).toList)
   val data1000: PS = PS((0 until 1000).map(genData).toList)
-  val data10000: PS = PS((0 until 10000).map(genData).toList)
 
-  val av1: AttributeValue = DynamoFormat[PS].write(data1).toAttributeValue
   val av10: AttributeValue = DynamoFormat[PS].write(data10).toAttributeValue
   val av100: AttributeValue = DynamoFormat[PS].write(data100).toAttributeValue
   val av1000: AttributeValue = DynamoFormat[PS].write(data1000).toAttributeValue
-  val av10000: AttributeValue = DynamoFormat[PS].write(data10000).toAttributeValue
-
-  @Benchmark
-  def write_1: AttributeValue = DynamoFormat[PS].write(data1).toAttributeValue
 
   @Benchmark
   def write_10: AttributeValue = DynamoFormat[PS].write(data10).toAttributeValue
@@ -50,12 +43,6 @@ class Aws2Benchmark {
   def write_1000: AttributeValue = DynamoFormat[PS].write(data1000).toAttributeValue
 
   @Benchmark
-  def write_10000: AttributeValue = DynamoFormat[PS].write(data10000).toAttributeValue
-
-//  @Benchmark
-  def read_1: Either[DynamoReadError, PS] = DynamoFormat[PS].read(av1)
-
-  @Benchmark
   def read_10: Either[DynamoReadError, PS] = DynamoFormat[PS].read(av10)
 
   @Benchmark
@@ -63,7 +50,4 @@ class Aws2Benchmark {
 
   @Benchmark
   def read_1000: Either[DynamoReadError, PS] = DynamoFormat[PS].read(av1000)
-
-  @Benchmark
-  def read_10000: Either[DynamoReadError, PS] = DynamoFormat[PS].read(av10000)
 }
