@@ -7,7 +7,6 @@ import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, ScalarAtt
 import java.util.{Map => JMap}
 import scala.jdk.CollectionConverters._
 
-
 abstract class TableSchema[V](val serializeValue: CompoundDynamoFormat[V]) {
   type IndexType
 
@@ -22,8 +21,8 @@ abstract class TableSchema[V](val serializeValue: CompoundDynamoFormat[V]) {
 object TableSchema {
   type Aux[V, PK] = TableSchema[V] { type IndexType = PK }
 
-  def schemaWithPK[V, PK](pkField: String, extractPK: V => PK)(
-    implicit PK: ScalarDynamoFormat[PK],
+  def schemaWithPK[V, PK](pkField: String, extractPK: V => PK)(implicit
+    PK: ScalarDynamoFormat[PK],
     V: CompoundDynamoFormat[V]
   ): TableSchema.Aux[V, PK] = new TableSchema[V](V) {
     override type IndexType = PK
@@ -40,8 +39,7 @@ object TableSchema {
     override def schema: List[(String, ScalarAttributeType)] = pkField -> PK.attributeType :: Nil
   }
 
-  def schemaWithRK[V, PKType, RKType](pkField: String, rkField: String, extractPK: V => (PKType, RKType))(
-    implicit
+  def schemaWithRK[V, PKType, RKType](pkField: String, rkField: String, extractPK: V => (PKType, RKType))(implicit
     V: CompoundDynamoFormat[V],
     PKType: ScalarDynamoFormat[PKType],
     RKType: ScalarDynamoFormat[RKType]
@@ -55,8 +53,10 @@ object TableSchema {
       Map(this.pkField -> PK.write(pk._1), this.rkField -> RK.write(pk._2)).asJava
 
     override def extract(av: JMap[String, AttributeValue]): DynamoFormat.Result[IndexType] = {
-      val pk = Option(av.get(this.pkField)).fold[DynamoFormat.Result[PK]](Left(DynamoAttributeError.AttributeIsNull))(PK.read)
-      val rk = Option(av.get(this.rkField)).fold[DynamoFormat.Result[RK]](Left(DynamoAttributeError.AttributeIsNull))(RK.read)
+      val pk =
+        Option(av.get(this.pkField)).fold[DynamoFormat.Result[PK]](Left(DynamoAttributeError.AttributeIsNull))(PK.read)
+      val rk =
+        Option(av.get(this.rkField)).fold[DynamoFormat.Result[RK]](Left(DynamoAttributeError.AttributeIsNull))(RK.read)
       pk -> rk mapN { _ -> _ }
     }
 

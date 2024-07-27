@@ -18,7 +18,7 @@ import scala.compat.java8.DurationConverters._
 
 object LocalDynamoDB {
   val DEFAULT_PORT = 8000
-  val configuredPort: Int = 
+  val configuredPort: Int =
     Option(System.getProperty("dynamoDBLocalPort")).map(_.toInt).getOrElse(DEFAULT_PORT)
 
   def clientConfig[B <: DynamoDbBaseClientBuilder[B, _]](builder: B, port: Int = configuredPort): B =
@@ -49,7 +49,8 @@ object LocalDynamoDB {
           .keySchema(magnet.keys.asJava)
           .provisionedThroughput(arbitraryThroughputThatIsIgnoredByDynamoDBLocal)
           .build
-      ).toScala
+      )
+      .toScala
 
   def deleteTable(client: DynamoDbAsyncClient)(tableName: String): Future[DeleteTableResponse] =
     client.deleteTable(DeleteTableRequest.builder().tableName(tableName).build()).toScala
@@ -62,7 +63,7 @@ object LocalDynamoDB {
     new WithRandomTable(client, tableName, magnet)
   }
 
-  def schema[T](implicit T : TableSchema[T]): SchemaMagnet = new SchemaMagnet {
+  def schema[T](implicit T: TableSchema[T]): SchemaMagnet = new SchemaMagnet {
     override def keys: List[KeySchemaElement] = {
       val first :: rest = T.schema
       KeySchemaElement.builder.attributeName(first._1).keyType(KeyType.HASH).build :: rest.map { case (name, _) =>
@@ -77,8 +78,6 @@ object LocalDynamoDB {
     }
 
   }
-
-
 
   private val arbitraryThroughputThatIsIgnoredByDynamoDBLocal =
     ProvisionedThroughput.builder.readCapacityUnits(1L).writeCapacityUnits(1L).build

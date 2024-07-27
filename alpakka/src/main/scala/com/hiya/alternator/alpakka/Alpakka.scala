@@ -47,11 +47,11 @@ class Alpakka(val client: DynamoDbAsyncClient)(implicit system: ClassicActorSyst
   }
 
   def createBatchedWriter(
-     name: String,
-     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
-     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
-     monitoring: BatchMonitoring = BatchedWriteBehavior.DEFAULT_MONITORING,
-     props: Props = Props.empty
+    name: String,
+    maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
+    retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
+    monitoring: BatchMonitoring = BatchedWriteBehavior.DEFAULT_MONITORING,
+    props: Props = Props.empty
   ): ActorRef[BatchedWriteBehavior.BatchedRequest] = {
     system.classicSystem.spawn(
       createWriterBehaviour(maxWait, retryPolicy, monitoring),
@@ -72,14 +72,21 @@ class Alpakka(val client: DynamoDbAsyncClient)(implicit system: ClassicActorSyst
 object Alpakka {
   def apply(client: DynamoDbAsyncClient)(implicit system: ClassicActorSystemProvider): Alpakka = new Alpakka(client)
 
-  def orderedWriter[V](parallelism: Int)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[WriteRequest[V], V, NotUsed] =
+  def orderedWriter[V](parallelism: Int)(implicit
+    actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest],
+    timeout: Timeout,
+    scheduler: Scheduler
+  ): Flow[WriteRequest[V], V, NotUsed] =
     Flow[WriteRequest[V]].mapAsync(parallelism)(_.send())
 
-  def unorderedWriter[V](parallelism: Int)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[WriteRequest[V], V, NotUsed] =
+  def unorderedWriter[V](parallelism: Int)(implicit
+    actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest],
+    timeout: Timeout,
+    scheduler: Scheduler
+  ): Flow[WriteRequest[V], V, NotUsed] =
     Flow[WriteRequest[V]].mapAsyncUnordered(parallelism)(_.send())
 
-
-  private [alternator] implicit lazy val parasitic: ExecutionContext = {
+  private[alternator] implicit lazy val parasitic: ExecutionContext = {
     // The backport is present in akka, so we will just use it by reflection
     // It probably will not change, as it is a stable internal api
     val q = akka.dispatch.ExecutionContexts
@@ -91,11 +98,18 @@ object Alpakka {
     ret
   }
 
-
-  def orderedReader[V](parallelism: Int)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[ReadRequest[V], V, NotUsed] =
+  def orderedReader[V](parallelism: Int)(implicit
+    actorRef: ActorRef[BatchedReadBehavior.BatchedRequest],
+    timeout: Timeout,
+    scheduler: Scheduler
+  ): Flow[ReadRequest[V], V, NotUsed] =
     Flow[ReadRequest[V]].mapAsync(parallelism)(_.send())
 
-  def unorderedReader[V](parallelism: Int)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[ReadRequest[V], V, NotUsed] =
+  def unorderedReader[V](parallelism: Int)(implicit
+    actorRef: ActorRef[BatchedReadBehavior.BatchedRequest],
+    timeout: Timeout,
+    scheduler: Scheduler
+  ): Flow[ReadRequest[V], V, NotUsed] =
     Flow[ReadRequest[V]].mapAsyncUnordered(parallelism)(_.send())
 
 }

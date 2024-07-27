@@ -5,7 +5,6 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-
 class WithTable(client: DynamoDbAsyncClient, tableName: String, magnet: SchemaMagnet) {
   def future[U](thunk: => U)(implicit ex: ExecutionContext): Future[U] = {
     LocalDynamoDB
@@ -17,6 +16,5 @@ class WithTable(client: DynamoDbAsyncClient, tableName: String, magnet: SchemaMa
   def apply[U](thunk: => U)(implicit timeout: Timeout, ex: ExecutionContext): U = {
     Await.result(future(thunk), timeout.value)
   }
-
 
 }

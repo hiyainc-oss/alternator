@@ -2,7 +2,6 @@ package com.hiya.alternator
 
 import scala.util.Try
 
-
 trait NumericCompat {
 
   trait Numeric[T] {
@@ -10,7 +9,7 @@ trait NumericCompat {
   }
 
   object Numeric {
-    def apply[T : Numeric]: Numeric[T] = implicitly[Numeric[T]]
+    def apply[T: Numeric]: Numeric[T] = implicitly[Numeric[T]]
 
     implicit object LongIsNumeric extends Numeric[Long] {
       override def parseString(str: String): Option[Long] = Try(str.toLong).toOption

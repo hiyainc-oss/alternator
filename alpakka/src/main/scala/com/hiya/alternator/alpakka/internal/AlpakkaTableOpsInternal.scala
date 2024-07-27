@@ -16,10 +16,9 @@ import software.amazon.awssdk.services.dynamodb.model._
 import java.util.concurrent.CompletionException
 import scala.concurrent.Future
 
-
-class AlpakkaTableOpsInternal[V, PK](override val table: Table[V, PK], override val client: Alpakka)(implicit system: ClassicActorSystemProvider)
-  extends AlpakkaTableOps[V, PK]
-{
+class AlpakkaTableOpsInternal[V, PK](override val table: Table[V, PK], override val client: Alpakka)(implicit
+  system: ClassicActorSystemProvider
+) extends AlpakkaTableOps[V, PK] {
   protected implicit val dynamo: DynamoDbAsyncClient = client.client
 
   final def get(pk: PK): Future[Option[DynamoFormat.Result[V]]] = {
@@ -38,15 +37,26 @@ class AlpakkaTableOpsInternal[V, PK](override val table: Table[V, PK], override 
     )
   }
 
-
-  final def batchedGet(key: PK)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Option[DynamoFormat.Result[V]]] = {
+  final def batchedGet(key: PK)(implicit
+    actorRef: ActorRef[BatchedReadBehavior.BatchedRequest],
+    timeout: Timeout,
+    scheduler: Scheduler
+  ): Future[Option[DynamoFormat.Result[V]]] = {
     table.readRequest(key).send()
   }
 
-  final def batchedGetFlow(parallelism: Int)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[PK, Option[DynamoFormat.Result[V]], NotUsed] =
+  final def batchedGetFlow(parallelism: Int)(implicit
+    actorRef: ActorRef[BatchedReadBehavior.BatchedRequest],
+    timeout: Timeout,
+    scheduler: Scheduler
+  ): Flow[PK, Option[DynamoFormat.Result[V]], NotUsed] =
     Flow[PK].mapAsync(parallelism)(batchedGet)
 
-  final def batchedGetFlowUnordered[PT](parallelism: Int)(implicit actorRef: ActorRef[BatchedReadBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Flow[(PK, PT), (Option[DynamoFormat.Result[V]], PT), NotUsed] =
+  final def batchedGetFlowUnordered[PT](parallelism: Int)(implicit
+    actorRef: ActorRef[BatchedReadBehavior.BatchedRequest],
+    timeout: Timeout,
+    scheduler: Scheduler
+  ): Flow[(PK, PT), (Option[DynamoFormat.Result[V]], PT), NotUsed] =
     Flow[(PK, PT)].mapAsyncUnordered(parallelism) { case (key, pt) =>
       batchedGet(key).map(_ -> pt)(Alpakka.parasitic)
     }
@@ -54,7 +64,6 @@ class AlpakkaTableOpsInternal[V, PK](override val table: Table[V, PK], override 
   final def batchGet(values: Seq[PK]): Future[BatchGetItemResponse] = {
     DynamoDb.single(table.batchGet(values).build())
   }
-
 
   final def put(value: V): Future[Unit] = {
     import Alpakka.parasitic
@@ -68,8 +77,8 @@ class AlpakkaTableOpsInternal[V, PK](override val table: Table[V, PK], override 
       .map(_ => true)
       .recover {
         case ex: CompletionException
-          if ex.getCause != null && ex.getCause.isInstanceOf[ConditionalCheckFailedException] =>
-            false
+            if ex.getCause != null && ex.getCause.isInstanceOf[ConditionalCheckFailedException] =>
+          false
       }
   }
 
@@ -77,9 +86,12 @@ class AlpakkaTableOpsInternal[V, PK](override val table: Table[V, PK], override 
     DynamoDb.single(table.batchPut(values).build())
   }
 
-  final def batchedPut(value: V)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler): Future[Done] =
+  final def batchedPut(value: V)(implicit
+    actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest],
+    timeout: Timeout,
+    scheduler: Scheduler
+  ): Future[Done] =
     table.putRequest(value).send()
-
 
   final def delete(key: PK): Future[Unit] = {
     import Alpakka.parasitic
@@ -93,12 +105,17 @@ class AlpakkaTableOpsInternal[V, PK](override val table: Table[V, PK], override 
       .map(_ => true)
       .recover {
         case ex: CompletionException
-          if ex.getCause != null && ex.getCause.isInstanceOf[ConditionalCheckFailedException] =>
+            if ex.getCause != null && ex.getCause.isInstanceOf[ConditionalCheckFailedException] =>
           false
       }
   }
 
-  final def batchedDelete[T](value: T)(implicit actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest], timeout: Timeout, scheduler: Scheduler, T : ItemMagnet[T, V, PK]): Future[Done] = {
+  final def batchedDelete[T](value: T)(implicit
+    actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest],
+    timeout: Timeout,
+    scheduler: Scheduler,
+    T: ItemMagnet[T, V, PK]
+  ): Future[Done] = {
     table.deleteRequest(value).send()
   }
 

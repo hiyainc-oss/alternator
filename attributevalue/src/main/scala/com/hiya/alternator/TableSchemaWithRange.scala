@@ -1,7 +1,10 @@
 package com.hiya.alternator
 
-abstract class TableSchemaWithRange[V](serializeValue: CompoundDynamoFormat[V], val pkField: String, val rkField: String)
-  extends TableSchema[V](serializeValue) {
+abstract class TableSchemaWithRange[V](
+  serializeValue: CompoundDynamoFormat[V],
+  val pkField: String,
+  val rkField: String
+) extends TableSchema[V](serializeValue) {
 
   type PK
   def PK: ScalarDynamoFormat[PK]
@@ -10,7 +13,6 @@ abstract class TableSchemaWithRange[V](serializeValue: CompoundDynamoFormat[V], 
   def RK: ScalarDynamoFormat[RK]
 
   override type IndexType = (PK, RK)
-
 
   override def withName(tableName: String) = new TableWithRangeKey[V, PK, RK](tableName, this)
 }

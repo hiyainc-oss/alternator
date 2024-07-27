@@ -11,13 +11,12 @@ import java.nio.ByteBuffer
 import scala.jdk.CollectionConverters._
 import scala.collection.compat._
 
-
 trait DynamoFormatInstances {
-
 
   implicit val booleanDynamoFormat: DynamoFormat[Boolean] = new DynamoFormat[Boolean] {
     override def read(av: AttributeValue): DynamoFormat.Result[Boolean] = Right(Boolean.unbox(av.bool()))
-    override def write(value: Boolean): AttributeValue = if (value) DynamoFormat.TrueAttributeValue else DynamoFormat.FalseAttributeValue
+    override def write(value: Boolean): AttributeValue =
+      if (value) DynamoFormat.TrueAttributeValue else DynamoFormat.FalseAttributeValue
     override def isEmpty(value: Boolean): Boolean = false
   }
 
@@ -47,7 +46,8 @@ trait DynamoFormatInstances {
 
   implicit val byteStringSetDynamoFormat: DynamoFormat[Set[ByteBuffer]] = {
     byteArraySetDynamoFormat.emap[Set[ByteBuffer]](
-      {x => Right(x.map(ByteBuffer.wrap))}, {x => x.map(_.array())}
+      { x => Right(x.map(ByteBuffer.wrap)) },
+      { x => x.map(_.array()) }
     )
   }
 }

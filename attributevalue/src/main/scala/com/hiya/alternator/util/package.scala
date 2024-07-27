@@ -4,7 +4,6 @@ import cats.MonadError
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 
-
 package object util {
   type MonadErrorThrowable[F[_]] = MonadError[F, Throwable]
 
@@ -16,7 +15,7 @@ package object util {
     }
   }
 
-  implicit class OptAppF[F[_] : MonadErrorThrowable, T](underlying: F[T]) {
+  implicit class OptAppF[F[_]: MonadErrorThrowable, T](underlying: F[T]) {
 
     def optApp[A](f: T => A => T): Option[A] => F[T] = {
       case Some(a) => underlying.map(f(_)(a))

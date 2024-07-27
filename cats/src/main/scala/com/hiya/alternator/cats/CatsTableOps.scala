@@ -6,4 +6,6 @@ import com.hiya.alternator.crud.TableWithRangeOps
 
 trait CatsTableOps[S[_], V, PK] extends crud.TableOps[V, PK, S, Stream[S, *]]
 
-trait CatsTableOpsWithRange[S[_], V, PK, RK] extends TableWithRangeOps[V, PK, RK, S, Stream[S, *]] with CatsTableOps[S, V, (PK, RK)]
+trait CatsTableOpsWithRange[S[_], V, PK, RK]
+  extends TableWithRangeOps[V, PK, RK, S, Stream[S, *]]
+  with CatsTableOps[S, V, (PK, RK)]

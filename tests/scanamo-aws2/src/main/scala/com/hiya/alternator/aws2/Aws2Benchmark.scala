@@ -1,13 +1,10 @@
 package com.hiya.alternator.aws2
 
-
 import com.hiya.alternator.FormatBenchmarkData
 import org.openjdk.jmh.annotations._
 import org.scanamo._
 import org.scanamo.generic.semiauto._
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
-
-
 
 @State(Scope.Thread)
 @Fork(3)

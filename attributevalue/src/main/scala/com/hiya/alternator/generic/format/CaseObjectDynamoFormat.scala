@@ -11,11 +11,14 @@ trait CaseObjectDynamoFormat[T] {
 object CaseObjectDynamoFormat {
   final class Instance[A](gen: LabelledGeneric.Aux[A, HNil]) extends CaseObjectDynamoFormat[A] {
     override def format(name: String): DynamoFormat[A] = {
-      DynamoFormat.stringDynamoValue.emap[A](x => {
-        if (name == x) Right(gen.from(HNil)) else Left(IllegalDistriminator)
-      }, { _ =>
-        name
-      })
+      DynamoFormat.stringDynamoValue.emap[A](
+        x => {
+          if (name == x) Right(gen.from(HNil)) else Left(IllegalDistriminator)
+        },
+        { _ =>
+          name
+        }
+      )
     }
   }
 

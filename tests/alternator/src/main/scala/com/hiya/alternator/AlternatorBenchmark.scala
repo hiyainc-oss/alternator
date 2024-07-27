@@ -4,7 +4,6 @@ import com.hiya.alternator.DynamoFormat.Result
 import org.openjdk.jmh.annotations._
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
-
 @State(Scope.Thread)
 @Fork(3)
 @Warmup(iterations = 5, batchSize = 1000, time = 1)

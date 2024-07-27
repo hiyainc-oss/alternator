@@ -19,22 +19,19 @@ import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
-
-/**
-  * States:
-  * - queued: key is in the queue and in the buffer
-  * - pending: key is only in the buffer
-  *   - retry: there is a scheduled event to Reschedule for that key
-  *   - in-progress: there is a pending aws request for that key and ClientResult or ClientFailure will be called
+/** States:
+  *   - queued: key is in the queue and in the buffer
+  *   - pending: key is only in the buffer
+  *     - retry: there is a scheduled event to Reschedule for that key
+  *     - in-progress: there is a pending aws request for that key and ClientResult or ClientFailure will be called
   */
-private [alternator] trait BatchedBehavior {
+private[alternator] trait BatchedBehavior {
   type Result
   type Ref = ActorRef[Try[Result]]
 
   protected type Request
   protected type BufferItem <: BatchedBehavior.BufferItemBase[BufferItem]
   protected type FutureResult
-
 
   sealed trait BatchedRequest
   case class Req(req: Request, ref: Ref) extends BatchedRequest
@@ -50,22 +47,22 @@ private [alternator] trait BatchedBehavior {
 
   @tailrec
   private def deque[T](q: Queue[T], n: Int, buffer: List[T] = List.empty): (List[T], Queue[T]) = {
-    if(n == 0) buffer -> q
+    if (n == 0) buffer -> q
     else {
       q.dequeueOption match {
-        case Some((elem, q)) => deque(q, n-1, elem::buffer)
-        case None            => buffer -> q
+        case Some((elem, q)) => deque(q, n - 1, elem :: buffer)
+        case None => buffer -> q
       }
     }
   }
 
   abstract class BaseBehavior(
-                               ctx: ActorContext[BatchedRequest],
-                               timer: TimerScheduler[BatchedRequest],
-                               maxWait: FiniteDuration,
-                               retryPolicy: BatchRetryPolicy,
-                               monitoring: BatchMonitoring,
-                               maxQueued: Int
+    ctx: ActorContext[BatchedRequest],
+    timer: TimerScheduler[BatchedRequest],
+    maxWait: FiniteDuration,
+    retryPolicy: BatchRetryPolicy,
+    monitoring: BatchMonitoring,
+    maxQueued: Int
   ) extends alpakka.BatchedBehavior {
     private val name = ctx.self.path.name
     private val atomicQueueSize = new AtomicInteger()
@@ -142,20 +139,27 @@ private [alternator] trait BatchedBehavior {
     }
 
     @tailrec
-    private final def jobFailure(queue: Queue[PK], ex: Throwable, keys: List[PK], buffer: Buffer, durationNano: Long, shutdown: Option[ActorRef[Done]]): Behavior[BatchedRequest] = {
+    private final def jobFailure(
+      queue: Queue[PK],
+      ex: Throwable,
+      keys: List[PK],
+      buffer: Buffer,
+      durationNano: Long,
+      shutdown: Option[ActorRef[Done]]
+    ): Behavior[BatchedRequest] = {
       ex match {
-        case ex : CompletionException =>
+        case ex: CompletionException =>
           jobFailure(queue, ex.getCause, keys, buffer, durationNano, shutdown)
 
-        case ex : ProvisionedThroughputExceededException =>
+        case ex: ProvisionedThroughputExceededException =>
           monitoring.requestComplete(name, Some(ex), keys, durationNano)
           handleRetries(queue, retryPolicy.delayForThrottle, keys, buffer, ex, shutdown)
 
-        case ex : SdkServiceException if ex.isThrottlingException =>
+        case ex: SdkServiceException if ex.isThrottlingException =>
           monitoring.requestComplete(name, Some(ex), keys, durationNano)
           handleRetries(queue, retryPolicy.delayForThrottle, keys, buffer, ex, shutdown)
 
-        case ex : SdkServiceException if ex.retryable() || ex.statusCode >= 500 =>
+        case ex: SdkServiceException if ex.retryable() || ex.statusCode >= 500 =>
           monitoring.requestComplete(name, Some(ex), keys, durationNano)
           handleRetries(queue, retryPolicy.delayForError, keys, buffer, ex, shutdown)
 
@@ -166,7 +170,14 @@ private [alternator] trait BatchedBehavior {
       }
     }
 
-    private final def jobSuccess(queue: Queue[PK], futureResult: FutureResult, keys: List[PK], buffer: Buffer, durationNano: Long, shutdown: Option[ActorRef[Done]]): Behavior[BatchedRequest] = {
+    private final def jobSuccess(
+      queue: Queue[PK],
+      futureResult: FutureResult,
+      keys: List[PK],
+      buffer: Buffer,
+      durationNano: Long,
+      shutdown: Option[ActorRef[Done]]
+    ): Behavior[BatchedRequest] = {
       monitoring.requestComplete(name, None, keys, durationNano)
 
       val (failed, reschedule, buffer2) = sendSuccess(futureResult, keys, buffer)

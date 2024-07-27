@@ -23,18 +23,18 @@ object ConditionExpression {
 
   sealed trait Path[T] extends ConditionExpression[T] {
 
-    def get[U](index: Long): Path[U]       = ArrayIndex[U](this, index)
+    def get[U](index: Long): Path[U] = ArrayIndex[U](this, index)
     def get[U](fieldName: String): Path[U] = MapIndex[U](this, fieldName)
 
-    def exists: FunCall[Boolean]    = FunCall("attribute_exists", List(this))
+    def exists: FunCall[Boolean] = FunCall("attribute_exists", List(this))
     def notExists: FunCall[Boolean] = FunCall("attribute_not_exists", List(this))
 
     def ===[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean] = BinOp("=", this, ev.expr(rhs))
     def =!=[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean] = BinOp("<>", this, ev.expr(rhs))
-    def <[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean]   = BinOp("<", this, ev.expr(rhs))
-    def >[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean]   = BinOp(">", this, ev.expr(rhs))
-    def <=[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean]  = BinOp("<=", this, ev.expr(rhs))
-    def >=[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean]  = BinOp(">=", this, ev.expr(rhs))
+    def <[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean] = BinOp("<", this, ev.expr(rhs))
+    def >[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean] = BinOp(">", this, ev.expr(rhs))
+    def <=[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean] = BinOp("<=", this, ev.expr(rhs))
+    def >=[Rhs](rhs: Rhs)(implicit ev: ExprLike[Rhs, T]): BinOp[Boolean] = BinOp(">=", this, ev.expr(rhs))
   }
 
   trait ExprLike[-From, +To] {
@@ -113,39 +113,39 @@ object ConditionExpression {
 
   private def attributeNamesOf(expr: ConditionExpression[_]): Set[String] =
     expr match {
-      case e: Attr[_]       => Set(e.name)
+      case e: Attr[_] => Set(e.name)
       case e: ArrayIndex[_] => attributeNamesOf(e.base)
-      case e: MapIndex[_]   => attributeNamesOf(e.base) + e.fieldName
-      case _: Literal[_]    => Set.empty
-      case e: FunCall[_]    => e.args.flatMap(attributeNamesOf).toSet
-      case e: BinOp[_]      => attributeNamesOf(e.lhs) ++ attributeNamesOf(e.rhs)
+      case e: MapIndex[_] => attributeNamesOf(e.base) + e.fieldName
+      case _: Literal[_] => Set.empty
+      case e: FunCall[_] => e.args.flatMap(attributeNamesOf).toSet
+      case e: BinOp[_] => attributeNamesOf(e.lhs) ++ attributeNamesOf(e.rhs)
     }
 
   private def attributeValuesOf(expr: ConditionExpression[_]): List[AttributeValue] =
     expr match {
-      case _: Path[_]    => Nil
+      case _: Path[_] => Nil
       case e: Literal[_] => List(e.attributeValue)
       case e: FunCall[_] => e.args.flatMap(attributeValuesOf)
-      case e: BinOp[_]   => attributeValuesOf(e.lhs) ++ attributeValuesOf(e.rhs)
+      case e: BinOp[_] => attributeValuesOf(e.lhs) ++ attributeValuesOf(e.rhs)
     }
 
   private[alternator] def render(expression: ConditionExpression[_]): Rendered = {
-    val attributeNames = attributeNamesOf(expression).zipWithIndex.map {
-      case (attributeName, i) => (attributeName, "#a" + i.toString)
+    val attributeNames = attributeNamesOf(expression).zipWithIndex.map { case (attributeName, i) =>
+      (attributeName, "#a" + i.toString)
     }.toMap
 
-    val attributeValues = attributeValuesOf(expression).zipWithIndex.map {
-      case (attributeValue, i) => (attributeValue, ":v" + i.toString)
+    val attributeValues = attributeValuesOf(expression).zipWithIndex.map { case (attributeValue, i) =>
+      (attributeValue, ":v" + i.toString)
     }.toMap
 
     def renderExpr(expression: ConditionExpression[_]): String =
       expression match {
-        case Attr(name)                => attributeNames(name)
-        case ArrayIndex(base, index)   => s"${renderExpr(base)}[$index]"
+        case Attr(name) => attributeNames(name)
+        case ArrayIndex(base, index) => s"${renderExpr(base)}[$index]"
         case MapIndex(base, fieldName) => s"${renderExpr(base)}.${attributeNames(fieldName)}"
-        case Literal(value)            => attributeValues(value)
-        case FunCall(name, args)       => s"$name(${args.map(renderExpr).mkString(",")})"
-        case BinOp(op, lhs, rhs)       => s"(${renderExpr(lhs)}) $op (${renderExpr(rhs)})"
+        case Literal(value) => attributeValues(value)
+        case FunCall(name, args) => s"$name(${args.map(renderExpr).mkString(",")})"
+        case BinOp(op, lhs, rhs) => s"(${renderExpr(lhs)}) $op (${renderExpr(rhs)})"
       }
 
     Rendered(

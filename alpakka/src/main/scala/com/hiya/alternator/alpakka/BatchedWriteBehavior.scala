@@ -18,7 +18,6 @@ import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
-
 object BatchedWriteBehavior extends internal.BatchedBehavior {
 
   private[alternator] final case class WriteBuffer(queue: Queue[(Option[AV], List[Ref])], retries: Int)
@@ -59,17 +58,20 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
     }
 
     def createQuery(key: List[(PK, Option[AV])]): Future[BatchWriteItemResponse] = {
-      val request = BatchWriteItemRequest.builder()
+      val request = BatchWriteItemRequest
+        .builder()
         .requestItems(
           key
             .groupMap(_._1._1)(x => x._1._2 -> x._2)
-            .view.mapValues(_.map({
-            case (_, Some(value)) =>
-              model.WriteRequest.builder().putRequest(model.PutRequest.builder().item(value).build()).build()
-            case (key, None) =>
-              model.WriteRequest.builder().deleteRequest(model.DeleteRequest.builder().key(key).build()).build()
-          }).asJavaCollection)
-            .toMap.asJava
+            .view
+            .mapValues(_.map({
+              case (_, Some(value)) =>
+                model.WriteRequest.builder().putRequest(model.PutRequest.builder().item(value).build()).build()
+              case (key, None) =>
+                model.WriteRequest.builder().deleteRequest(model.DeleteRequest.builder().key(key).build()).build()
+            }).asJavaCollection)
+            .toMap
+            .asJava
         )
         .build()
 
@@ -78,16 +80,20 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
   }
 
   private class WriteBehavior(
-                               client: AwsClientAdapter,
-                               maxWait: FiniteDuration,
-                               retryPolicy: BatchRetryPolicy,
-                               monitoring: BatchMonitoring
-                             )(
-                               ctx: ActorContext[BatchedRequest],
-                               scheduler: TimerScheduler[BatchedRequest]
-                             ) extends BaseBehavior(ctx, scheduler, maxWait, retryPolicy, monitoring, 25) {
+    client: AwsClientAdapter,
+    maxWait: FiniteDuration,
+    retryPolicy: BatchRetryPolicy,
+    monitoring: BatchMonitoring
+  )(
+    ctx: ActorContext[BatchedRequest],
+    scheduler: TimerScheduler[BatchedRequest]
+  ) extends BaseBehavior(ctx, scheduler, maxWait, retryPolicy, monitoring, 25) {
 
-    protected override def sendSuccess(futureResult: BatchWriteItemResponse, keys: List[PK], buffer: Buffer): (List[PK], List[PK], Buffer) = {
+    protected override def sendSuccess(
+      futureResult: BatchWriteItemResponse,
+      keys: List[PK],
+      buffer: Buffer
+    ): (List[PK], List[PK], Buffer) = {
       val (success, failed) = client.processResult(keys, futureResult)
 
       val (buffer2, reschedule) = success.foldLeft(buffer -> List.empty[PK]) { case ((buffer, reschedule), key) =>
@@ -100,7 +106,6 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
 
       (failed, reschedule, buffer2)
     }
-
 
     protected override def sendRetriesExhausted(cause: Exception, buffer: Buffer, pk: PK, item: WriteBuffer): Buffer = {
       val (refs, bufferItem) = item.queue.dequeue
@@ -120,7 +125,10 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
       }
     }
 
-    override protected def startJob(keys: List[PK], buffer: Buffer): (Future[BatchWriteItemResponse], List[PK], Buffer) = {
+    override protected def startJob(
+      keys: List[PK],
+      buffer: Buffer
+    ): (Future[BatchWriteItemResponse], List[PK], Buffer) = {
       // Collapse buffer: keep only the last value to write and all actorRefs
       val (buffer2, writes) = keys.foldLeft(buffer -> List.empty[(PK, Option[AV])]) { case ((buffer, writes), key) =>
         val values = buffer(key)
@@ -150,24 +158,24 @@ object BatchedWriteBehavior extends internal.BatchedBehavior {
   val DEFAULT_RETRY_POLICY: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy()
   val DEFAULT_MONITORING: BatchMonitoring = BatchMonitoring.Disabled
 
-  /**
-   * DynamoDB batched writer
-   *
-   * The actor waits for the maximum size of write requests (25) or maxWait time before created a batched write
-   * request. If the requests fails with a retryable error the elements will be rescheduled later (using the given
-   * retryPolicy). Unprocessed items are rescheduled similarly.
-   *
-   * The received requests are deduplicated, only the last write to the key is executed.
-   */
+  /** DynamoDB batched writer
+    *
+    * The actor waits for the maximum size of write requests (25) or maxWait time before created a batched write
+    * request. If the requests fails with a retryable error the elements will be rescheduled later (using the given
+    * retryPolicy). Unprocessed items are rescheduled similarly.
+    *
+    * The received requests are deduplicated, only the last write to the key is executed.
+    */
   def apply(
-             client: DynamoDbAsyncClient,
-             maxWait: FiniteDuration = DEFAULT_MAX_WAIT,
-             retryPolicy: BatchRetryPolicy = DEFAULT_RETRY_POLICY,
-             monitoring: BatchMonitoring = DEFAULT_MONITORING
-           ): Behavior[BatchedRequest] =
+    client: DynamoDbAsyncClient,
+    maxWait: FiniteDuration = DEFAULT_MAX_WAIT,
+    retryPolicy: BatchRetryPolicy = DEFAULT_RETRY_POLICY,
+    monitoring: BatchMonitoring = DEFAULT_MONITORING
+  ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>
-        new WriteBehavior(new AwsClientAdapter(client), maxWait, retryPolicy, monitoring)(ctx, scheduler).behavior(Queue.empty, Map.empty, None)
+        new WriteBehavior(new AwsClientAdapter(client), maxWait, retryPolicy, monitoring)(ctx, scheduler)
+          .behavior(Queue.empty, Map.empty, None)
       }
     }
 }

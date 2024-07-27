@@ -16,7 +16,7 @@ class ExportMacros(val c: blackbox.Context) {
 
     c.typecheck(q"_root_.shapeless.lazily[$target]", silent = true) match {
       case EmptyTree => c.abort(c.enclosingPosition, s"Unable to infer value of type $target")
-      case t         =>
+      case t =>
         c.Expr[Exported[CompoundDynamoFormat[A]]](
           q"new _root_.com.hiya.alternator.generic.util.Exported($t: _root_.com.hiya.alternator.CompoundDynamoFormat[$A])"
         )

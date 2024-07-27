@@ -8,7 +8,6 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 import scala.jdk.CollectionConverters._
 
-
 trait DynamoFormat[T] extends Serializable {
   def read(av: AttributeValue): DynamoFormat.Result[T]
   def write(value: T): AttributeValue
@@ -29,7 +28,11 @@ trait DynamoFormat[T] extends Serializable {
   }
 }
 
-object DynamoFormat extends DynamoFormatInstances with ScalarDynamoFormat.Instances with CompoundDynamoFormat.Instances with LowPriorityDynamoFormats {
+object DynamoFormat
+  extends DynamoFormatInstances
+  with ScalarDynamoFormat.Instances
+  with CompoundDynamoFormat.Instances
+  with LowPriorityDynamoFormats {
   final def apply[T](implicit T: DynamoFormat[T]): DynamoFormat[T] = T
 
   final type Result[T] = Either[DynamoAttributeError, T]
@@ -38,7 +41,8 @@ object DynamoFormat extends DynamoFormatInstances with ScalarDynamoFormat.Instan
   val TrueAttributeValue: AttributeValue = AttributeValue.builder().bool(true).build()
   val FalseAttributeValue: AttributeValue = AttributeValue.builder().bool(false).build()
   val EmptyListAttributeValue: AttributeValue = AttributeValue.builder().l(List.empty[AttributeValue].asJava).build()
-  val EmptyMapAttributeValue: AttributeValue = AttributeValue.builder().m(Map.empty[String, AttributeValue].asJava).build()
+  val EmptyMapAttributeValue: AttributeValue =
+    AttributeValue.builder().m(Map.empty[String, AttributeValue].asJava).build()
 
   implicit def optionDynamoFormat[T: DynamoFormat]: DynamoFormat[Option[T]] = new DynamoFormat[Option[T]] {
 
@@ -54,7 +58,7 @@ object DynamoFormat extends DynamoFormatInstances with ScalarDynamoFormat.Instan
 
   implicit def listDynamoFormat[T: DynamoFormat]: DynamoFormat[List[T]] = new DynamoFormat[List[T]] {
     override def read(av: AttributeValue): DynamoFormat.Result[List[T]] = {
-      if(av.hasL) av.l().asScala.toList.traverse(DynamoFormat[T].read)
+      if (av.hasL) av.l().asScala.toList.traverse(DynamoFormat[T].read)
       else Left(DynamoAttributeError.AttributeIsNull)
     }
 
@@ -65,10 +69,11 @@ object DynamoFormat extends DynamoFormatInstances with ScalarDynamoFormat.Instan
     override def isEmpty(value: List[T]): Boolean = false
   }
 
-
 }
 
-private [alternator] trait LowPriorityDynamoFormats {
+private[alternator] trait LowPriorityDynamoFormats {
 
-  final implicit def importedDynamoFormat[A](implicit exported: Exported[CompoundDynamoFormat[A]]): CompoundDynamoFormat[A] = exported.instance
+  final implicit def importedDynamoFormat[A](implicit
+    exported: Exported[CompoundDynamoFormat[A]]
+  ): CompoundDynamoFormat[A] = exported.instance
 }

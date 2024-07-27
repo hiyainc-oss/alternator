@@ -1,6 +1,11 @@
 package com.hiya.alternator.testkit
 
-import software.amazon.awssdk.services.dynamodb.model.{AttributeDefinition, KeySchemaElement, KeyType, ScalarAttributeType}
+import software.amazon.awssdk.services.dynamodb.model.{
+  AttributeDefinition,
+  KeySchemaElement,
+  KeyType,
+  ScalarAttributeType
+}
 
 abstract class SchemaMagnet {
   def keys: List[KeySchemaElement]

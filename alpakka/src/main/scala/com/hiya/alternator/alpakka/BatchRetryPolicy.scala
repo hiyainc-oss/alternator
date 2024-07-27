@@ -2,7 +2,6 @@ package com.hiya.alternator.alpakka
 
 import scala.concurrent.duration._
 
-
 trait BatchRetryPolicy {
   def delayForError(retryCount: Int): Option[FiniteDuration]
   def delayForThrottle(retryCount: Int): Option[FiniteDuration]
