@@ -16,3 +16,10 @@ abstract class TableConfig[Data] {
                   (implicit ec: ExecutionContext, system: ClassicActorSystemProvider, timeout: Timeout): T
   def table(name: String, client: DynamoDbAsyncClient)(implicit system: ClassicActorSystemProvider): TableType
 }
+
+object TableConfig {
+  type Aux[DataT, KeyT, TableTypeT <: AlpakkaTableOps[DataT, KeyT]] = TableConfig[DataT] {
+    type Key = KeyT
+    type TableType = TableTypeT
+  }
+}

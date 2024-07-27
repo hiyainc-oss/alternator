@@ -19,26 +19,24 @@ object DataPK {
     TableSchema.schemaWithPK[DataPK, String]("key", _.key)
 
 
-  implicit val config = new TableConfig[DataPK] {
-    override type Key = String
-    override type TableType = CatsTableOps[IO, DataPK, String]
+  implicit val config: TableConfig[DataPK, String, CatsTableOps[IO, DataPK, String]] =
+    new TableConfig[DataPK, String, CatsTableOps[IO, DataPK, String]] {
+
+      override def table(tableName: String, client: DynamoDbAsyncClient)(implicit system: ClassicActorSystemProvider): CatsTableOps[IO, DataPK, String] =
+        Table.tableWithPK[DataPK](tableName).withClient(Cats[IO](client))
 
 
-    override def table(tableName: String, client: DynamoDbAsyncClient)(implicit system: ClassicActorSystemProvider): CatsTableOps[IO, DataPK, String] =
-      Table.tableWithPK[DataPK](tableName).withClient(Cats[IO](client))
+      override def createData(i: Int, v: Option[Int]): (String, DataPK) = {
+        i.toString -> DataPK(i.toString, v.getOrElse(i))
+      }
 
+      override def withTable[T](client: DynamoDbAsyncClient)(f: CatsTableOps[IO, DataPK, String] => T)
+                               (implicit ec: ExecutionContext, system: ClassicActorSystemProvider, timeout: Timeout): T = {
+        val tableName = s"test-table-${UUID.randomUUID()}"
+        LocalDynamoDB.withTable(client)(tableName)(LocalDynamoDB.schema[DataPK])(
+          f(table(tableName, client))
+        )
 
-    override def createData(i: Int, v: Option[Int]): (String, DataPK) = {
-      i.toString -> DataPK(i.toString, v.getOrElse(i))
+      }
     }
-
-    override def withTable[T](client: DynamoDbAsyncClient)(f: CatsTableOps[IO, DataPK, String] => T)
-                             (implicit ec: ExecutionContext, system: ClassicActorSystemProvider, timeout: Timeout): T = {
-      val tableName = s"test-table-${UUID.randomUUID()}"
-      LocalDynamoDB.withTable(client)(tableName)(LocalDynamoDB.schema[DataPK])(
-        f(table(tableName, client))
-      )
-
-    }
-  }
 }

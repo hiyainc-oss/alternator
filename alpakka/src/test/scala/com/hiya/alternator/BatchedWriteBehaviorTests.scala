@@ -15,15 +15,15 @@ import org.scalatest.{BeforeAndAfterAll, Inside, Inspectors}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, ExecutionContextExecutor}
 import scala.concurrent.duration._
 import scala.util.Random
 
 
 class BatchedWriteBehaviorTests extends AnyFunSpec with Matchers with Inside with BeforeAndAfterAll with Inspectors {
 
-  private implicit val system = ActorSystem()
-  private implicit val ec = system.dispatcher
+  private implicit val system: ActorSystem = ActorSystem()
+  private implicit val ec: ExecutionContextExecutor = system.dispatcher
 
   private val TEST_TIMEOUT = 20.seconds
 

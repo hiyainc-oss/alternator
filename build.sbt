@@ -1,25 +1,39 @@
 import org.typelevel.sbt.tpolecat._
 import org.typelevel.scalacoptions.ScalacOptions
 
-ThisBuild / crossScalaVersions := Seq("2.13.12", "2.12.18")
-ThisBuild / scalaVersion := "2.13.12"
+ThisBuild / crossScalaVersions := Seq("2.13.14", "2.12.19")
+ThisBuild / scalaVersion := "2.13.14"
 ThisBuild / organization := "com.hiya"
 ThisBuild / versionScheme := Some("early-semver")
 
 ThisBuild / tpolecatDefaultOptionsMode := DevMode
 
-ThisBuild / githubOwner := "hiyainc-oss"
-ThisBuild / githubRepository := "alternator"
-
-ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
-ThisBuild / githubWorkflowPublishTargetBranches := Seq(RefPredicate.StartsWith(Ref.Tag("v")))
 
 lazy val commonSettings = Seq(
+  libraryDependencies ++= Seq(Dependencies.MonadicFor, Dependencies.KindProjector),
   Test / tpolecatExcludeOptions += ScalacOptions.warnNonUnitStatement,
-  scalacOptions ++= (CrossVersion.partialVersion(scalaVersion.value) match {
-    case Some((2, p)) if p < 13 => Seq.empty
-    case _ => Seq("-Wconf:cat=unused-imports&origin=scala.collection.compat._:s")
-  })
+  tpolecatScalacOptions ++= (CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some((2, p)) if p < 13 => Set(
+      ScalacOptions.warnOption("conf:cat=unused-locals:s")
+    )
+    case _ => Set(
+      ScalacOptions.warnOption("conf:cat=unused-imports&origin=scala.collection.compat._:s"),
+    )
+  }),
+  tpolecatScalacOptions ++= Set(
+//   ScalacOptions.release(javaVersion),
+//   ScalacOptions.warnOption("conf:src=src_managed/.*:silent")
+  )
+) ++ (
+  if (CrossVersion.partialVersion(sys.props("java.version")).get._1 > 11) {
+    Seq(
+      Test / javaOptions ++= Seq(
+        // FIX java.lang.reflect.InaccessibleObjectException on JVM > 11
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        "--add-opens=java.base/java.util=ALL-UNNAMED"
+      )
+    )
+  } else Seq.empty,
 )
 
 
@@ -38,7 +52,6 @@ lazy val `alternator-alpakka` = (project in file("alpakka"))
   .settings(
     commonSettings,
     libraryDependencies ++= Dependencies.Alpakka,
-    addCompilerPlugin("org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full),
     dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
     dynamoDBLocalHeapSize := Some(256),
     dynamoDBLocalPort := 8484,
@@ -59,7 +72,6 @@ lazy val `alternator-cats` = (project in file("cats"))
   .settings(
     commonSettings,
     libraryDependencies ++= Dependencies.Cats,
-    addCompilerPlugin("org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full),
     dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
     dynamoDBLocalHeapSize := Some(256),
     dynamoDBLocalPort := 8486,

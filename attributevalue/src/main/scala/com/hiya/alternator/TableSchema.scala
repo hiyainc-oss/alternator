@@ -52,18 +52,18 @@ object TableSchema {
     override val RK = RKType
 
     override def serializePK(pk: IndexType): JMap[String, AttributeValue] =
-      Map(pkField -> PK.write(pk._1), rkField -> RK.write(pk._2)).asJava
+      Map(this.pkField -> PK.write(pk._1), this.rkField -> RK.write(pk._2)).asJava
 
     override def extract(av: JMap[String, AttributeValue]): DynamoFormat.Result[IndexType] = {
-      val pk = Option(av.get(pkField)).fold[DynamoFormat.Result[PK]](Left(DynamoAttributeError.AttributeIsNull))(PK.read)
-      val rk = Option(av.get(rkField)).fold[DynamoFormat.Result[RK]](Left(DynamoAttributeError.AttributeIsNull))(RK.read)
+      val pk = Option(av.get(this.pkField)).fold[DynamoFormat.Result[PK]](Left(DynamoAttributeError.AttributeIsNull))(PK.read)
+      val rk = Option(av.get(this.rkField)).fold[DynamoFormat.Result[RK]](Left(DynamoAttributeError.AttributeIsNull))(RK.read)
       pk -> rk mapN { _ -> _ }
     }
 
     override def extract(value: V): IndexType = extractPK(value)
 
     override def schema: List[(String, ScalarAttributeType)] =
-      pkField -> PK.attributeType :: rkField -> RK.attributeType :: Nil
+      this.pkField -> PK.attributeType :: this.rkField -> RK.attributeType :: Nil
   }
 
 }

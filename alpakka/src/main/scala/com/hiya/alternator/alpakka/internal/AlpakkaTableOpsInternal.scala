@@ -10,6 +10,7 @@ import com.hiya.alternator._
 import com.hiya.alternator.alpakka.stream._
 import com.hiya.alternator.alpakka.{Alpakka, AlpakkaTableOps, BatchedReadBehavior, BatchedWriteBehavior}
 import com.hiya.alternator.syntax.ConditionExpression
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model._
 
 import java.util.concurrent.CompletionException
@@ -19,7 +20,7 @@ import scala.concurrent.Future
 class AlpakkaTableOpsInternal[V, PK](override val table: Table[V, PK], override val client: Alpakka)(implicit system: ClassicActorSystemProvider)
   extends AlpakkaTableOps[V, PK]
 {
-  protected implicit val dynamo = client.client
+  protected implicit val dynamo: DynamoDbAsyncClient = client.client
 
   final def get(pk: PK): Future[Option[DynamoFormat.Result[V]]] = {
     import com.hiya.alternator.alpakka.Alpakka.parasitic

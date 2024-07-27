@@ -17,7 +17,6 @@ class Aws2Benchmark {
   import FormatBenchmarkData._
 
   implicit val pFormat: DynamoFormat[P] = {
-    import org.scanamo.generic.auto._
     deriveDynamoFormat[P]
   }
 

@@ -18,14 +18,14 @@ import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
 
 import scala.collection.immutable
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.Random
 
 
 class BatchedReadBehaviorTests extends AnyFunSpec with Matchers with Inside with BeforeAndAfterAll with Inspectors {
 
-  private implicit val system = ActorSystem()
-  private implicit val ec = system.dispatcher
+  private implicit val system: ActorSystem = ActorSystem()
+  private implicit val ec: ExecutionContextExecutor = system.dispatcher
   private val TEST_TIMEOUT = 20.seconds
 
   private val stableClient = LocalDynamoDB.client()

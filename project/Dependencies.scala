@@ -6,7 +6,7 @@ object Dependencies {
 
   private val dynamoDB2           = "software.amazon.awssdk"      % "dynamodb"         % "2.25.35"
   private val shapeless           = "com.chuusai"                %% "shapeless"        % "2.3.12"
-  private val scanamoAws2         = "org.scanamo"                %% "scanamo"          % "1.0.0"
+  private val scanamoAws2         = "org.scanamo"                %% "scanamo"          % "1.1.1"
   private val scalaTest           = "org.scalatest"              %% "scalatest"        % "3.2.19"
   private val scalaCheck          = "org.scalatestplus"          %% "scalacheck-1-16"  % "3.2.14.0"
   private val cats                = "org.typelevel"              %% "cats-core"        % "2.12.0"
@@ -28,6 +28,9 @@ object Dependencies {
     "com.fasterxml.jackson.core" % "jackson-core" % jacksonV,
     "com.fasterxml.jackson.core" % "jackson-databind" % jacksonV
   )
+  
+  val KindProjector = compilerPlugin("org.typelevel" % "kind-projector" % "0.13.3" cross CrossVersion.full)
+  val MonadicFor = compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
 
   object Tests {
     val ScanamoBase = Seq(

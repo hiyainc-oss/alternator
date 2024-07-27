@@ -72,7 +72,7 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
     }
   }
 
-  private implicit val system = ActorSystem()
+  private implicit val system: ActorSystem = ActorSystem()
   private val TEST_TIMEOUT: FiniteDuration = 20.seconds
 //  private implicit val writer: ActorRef[BatchedWriteBehavior.BatchedRequest] =
 //    system.spawn(alpakka.BatchedWriteBehavior(client, 10.millis), "writer")

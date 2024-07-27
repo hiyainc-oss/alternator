@@ -17,7 +17,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 import java.util.UUID
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 
 class DynamoDBTest extends AnyFunSpec with Matchers {
 
@@ -30,8 +30,6 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
 
   class ExampleDB(name: String)(implicit val client: DynamoDbAsyncClient, system: ClassicActorSystemProvider)
   {
-    import Alpakka.parasitic
-
     val table = Table.tableWithPK[ExampleData](name).withClient(Alpakka(client))
 
     def get(key: String): Future[Option[ExampleData]] = table.get(key).raiseError
@@ -40,9 +38,9 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
 
   }
 
-  private implicit val system = ActorSystem()
-  private implicit val materializer = Materializer.matFromSystem
-  private implicit val ec = system.dispatcher
+  private implicit val system: ActorSystem = ActorSystem()
+  private implicit val materializer: Materializer = Materializer.matFromSystem
+  private implicit val ec: ExecutionContextExecutor = system.dispatcher
   private implicit val client: DynamoDbAsyncClient = LocalDynamoDB.client()
   private val timeout = 3.seconds
   private implicit val testTimeout: TestTimeout = 60.seconds

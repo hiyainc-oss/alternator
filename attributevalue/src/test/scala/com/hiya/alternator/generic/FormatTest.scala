@@ -7,7 +7,6 @@ import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
-import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 import scala.reflect.runtime.universe._
 
@@ -37,7 +36,7 @@ class FormatTest extends AnyFunSpec with Matchers {
       final case class B(s: String) extends A
       final case object C extends A
 
-      @nowarn("cat=unused-locals") implicit val b: CompoundDynamoFormat[B] = semiauto.deriveCompound[B]
+      implicit val b: CompoundDynamoFormat[B] = semiauto.deriveCompound[B]
       implicit val a: CompoundDynamoFormat[A] = semiauto.deriveCompound[A]
 
       iso[A](B("asd"))
