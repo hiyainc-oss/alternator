@@ -1,3 +1,7 @@
+package com.hiya.alternator.alpakka
+
+import scala.concurrent.ExecutionContext
+
 //import scala.concurrent.ExecutionContext
 //import scala.concurrent.duration.FiniteDuration
 //
@@ -56,7 +60,7 @@
 //  }
 //}
 //
-//object Alpakka {
+object Alpakka {
 //  def apply(client: DynamoDbAsyncClient)(implicit system: ClassicActorSystemProvider): Alpakka = new Alpakka(client)
 //
 //  def orderedWriter[V](parallelism: Int)(implicit
@@ -73,17 +77,17 @@
 //  ): Flow[WriteRequest[V], V, NotUsed] =
 //    Flow[WriteRequest[V]].mapAsyncUnordered(parallelism)(_.send())
 //
-//  private[alternator] implicit lazy val parasitic: ExecutionContext = {
-//    // The backport is present in akka, so we will just use it by reflection
-//    // It probably will not change, as it is a stable internal api
-//    val q = akka.dispatch.ExecutionContexts
-//    val clazz = q.getClass
-//    val field = clazz.getDeclaredField("parasitic")
-//    field.setAccessible(true)
-//    val ret = field.get(q).asInstanceOf[ExecutionContext]
-//    field.setAccessible(false)
-//    ret
-//  }
+  private[alternator] implicit lazy val parasitic: ExecutionContext = {
+    // The backport is present in akka, so we will just use it by reflection
+    // It probably will not change, as it is a stable internal api
+    val q = akka.dispatch.ExecutionContexts
+    val clazz = q.getClass
+    val field = clazz.getDeclaredField("parasitic")
+    field.setAccessible(true)
+    val ret = field.get(q).asInstanceOf[ExecutionContext]
+    field.setAccessible(false)
+    ret
+  }
 //
 //  def orderedReader[V](parallelism: Int)(implicit
 //    actorRef: ActorRef[BatchedReadBehavior.BatchedRequest],
@@ -99,4 +103,4 @@
 //  ): Flow[ReadRequest[V], V, NotUsed] =
 //    Flow[ReadRequest[V]].mapAsyncUnordered(parallelism)(_.send())
 //
-//}
+}

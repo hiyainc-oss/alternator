@@ -1,9 +1,6 @@
-package aws2.alpakka
-
-import com.hiya.alternator.aws2
+package com.hiya.alternator.alpakka
 
 trait BatchedBehavior {
   def queueSize: Int
-
   def inflight: Int
 }

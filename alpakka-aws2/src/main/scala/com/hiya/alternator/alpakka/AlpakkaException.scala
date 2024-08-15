@@ -1,6 +1,4 @@
-package aws2.alpakka
-
-import com.hiya.alternator.aws2
+package com.hiya.alternator.alpakka
 
 sealed abstract class AlpakkaException(message: String, cause: Throwable) extends Exception(message, cause)
 

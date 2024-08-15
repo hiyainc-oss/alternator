@@ -1,4 +1,4 @@
-package aws2.alpakka
+package com.hiya.alternator.alpakka
 
 import com.hiya.alternator.aws2
 

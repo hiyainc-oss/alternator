@@ -8,11 +8,13 @@
 //    timeout: Timeout,
 //    scheduler: Scheduler
 //  ): Future[Option[DynamoFormat.Result[V]]]
+//
 //  def batchedPut(value: V)(implicit
 //    actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest],
 //    timeout: Timeout,
 //    scheduler: Scheduler
 //  ): Future[Done]
+//
 //  def batchedDelete[T](value: T)(implicit
 //    actorRef: ActorRef[BatchedWriteBehavior.BatchedRequest],
 //    timeout: Timeout,
@@ -33,8 +35,7 @@
 //}
 //
 //object AlpakkaTableOps {
-//  import Alpakka.parasitic
-//  import com.hiya.alternator.Table.PK
+//  import com.hiya.alternator.alpakka.Alpakka.parasitic
 //
 //  private def sendRead[V](pk: PK, deserializer: AV => DynamoFormat.Result[V])(implicit
 //    actorRef: ActorRef[BatchedReadBehavior.BatchedRequest],
