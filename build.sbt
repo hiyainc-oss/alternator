@@ -9,6 +9,13 @@ ThisBuild / versionScheme := Some("early-semver")
 ThisBuild / tpolecatDefaultOptionsMode := DevMode
 ThisBuild / Test / fork := true
 
+
+ThisBuild / githubOwner := "hiyainc-oss"
+ThisBuild / githubRepository := "alternator"
+
+ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
+ThisBuild / githubWorkflowPublishTargetBranches := Seq(RefPredicate.StartsWith(Ref.Tag("v")))
+
 lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(Dependencies.MonadicFor, Dependencies.KindProjector),
   Test / tpolecatExcludeOptions += ScalacOptions.warnNonUnitStatement,
