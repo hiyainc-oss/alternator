@@ -65,14 +65,22 @@ lazy val `alternator-aws1` = (project in file("alternator-aws1"))
     libraryDependencies ++= Dependencies.AlternatorAws1,
   )
 
-lazy val `alternator-alpakka-aws2` = (project in file("alpakka-aws2"))
+lazy val `alternator-akka-base` = (project in file("akka-base"))
+  .dependsOn(`alternator-core`)
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Dependencies.AkkaBase,
+  )
+
+lazy val `alternator-akka-aws2` = (project in file("akka-aws2"))
   .dependsOn(
     `alternator-aws2`,
+    `alternator-akka-base`,
     `test-base` % Test
   )
   .settings(
     commonSettings,
-    libraryDependencies ++= Dependencies.AlpakkaAws2,
+    libraryDependencies ++= Dependencies.AkkaAws2,
     dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
     dynamoDBLocalHeapSize := Some(256),
     dynamoDBLocalPort := 8484,
@@ -85,14 +93,15 @@ lazy val `alternator-alpakka-aws2` = (project in file("alpakka-aws2"))
     Test / fork := true
   )
 
-lazy val `alternator-alpakka-aws1` = (project in file("alpakka-aws1"))
+lazy val `alternator-akka-aws1` = (project in file("akka-aws1"))
   .dependsOn(
     `alternator-aws1`,
+    `alternator-akka-base`,
     `test-base` % Test
   )
   .settings(
     commonSettings,
-    libraryDependencies ++= Dependencies.AlpakkaAws1,
+    libraryDependencies ++= Dependencies.AkkaAws1,
     dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
     dynamoDBLocalHeapSize := Some(256),
     dynamoDBLocalPort := 8485,
@@ -105,9 +114,17 @@ lazy val `alternator-alpakka-aws1` = (project in file("alpakka-aws1"))
     Test / fork := true
   )
 
+lazy val `alternator-cats-base` = (project in file("cats-base"))
+  .dependsOn(`alternator-core`)
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Dependencies.CatsBase
+  )
+
 lazy val `alternator-cats-aws2` = (project in file("cats-aws2"))
   .dependsOn(
     `alternator-aws2`,
+    `alternator-cats-base`,
     `test-base` % Test
   )
   .settings(
@@ -128,6 +145,7 @@ lazy val `alternator-cats-aws2` = (project in file("cats-aws2"))
 lazy val `alternator-cats-aws1` = (project in file("cats-aws1"))
   .dependsOn(
     `alternator-aws1`,
+    `alternator-cats-base`,
     `test-base` % Test
   )
   .settings(

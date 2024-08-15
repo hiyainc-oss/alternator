@@ -20,7 +20,6 @@ object Dependencies {
   private val akkaTestkit         = "com.typesafe.akka"          %% "akka-testkit"     % akkaV
   private val akkaStream          = "com.typesafe.akka"          %% "akka-stream"      % akkaV
   private val scalaCheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.16" % "1.3.1"
-  private val alpakkaDynamoDB     = "com.lightbend.akka"         %% "akka-stream-alpakka-dynamodb" % "3.0.4"
   private val collectionsCompat   = "org.scala-lang.modules"     %% "scala-collection-compat" % "2.12.0"
   private val logback             = "ch.qos.logback" % "logback-classic" % "1.5.6"
 
@@ -80,11 +79,13 @@ object Dependencies {
     scalaCheckShapeless % Test
   )
 
-  val AlpakkaAws2 = Seq(
-    alpakkaDynamoDB,
+  val AkkaBase = Seq(
     akkaTyped,
     akkaStream,
     akkaActor,
+  )
+
+  val AkkaAws2 = Seq(
     akkaTestkit         % Test,
     scalaTest           % Test,
     scalaCheck          % Test,
@@ -92,10 +93,7 @@ object Dependencies {
     logback             % Test
   ) ++ jacksonOverride
 
-  val AlpakkaAws1 = Seq(
-    akkaTyped,
-    akkaStream,
-    akkaActor,
+  val AkkaAws1 = Seq(
     akkaTestkit         % Test,
     scalaTest           % Test,
     scalaCheck          % Test,
@@ -103,10 +101,13 @@ object Dependencies {
     logback             % Test
   ) ++ jacksonOverride
 
-  val CatsAws2 = Seq(
+  val CatsBase = Seq(
     catsEffect,
     fs2Core,
     fs2Reactive,
+  )
+
+  val CatsAws2 = Seq(
     akkaTestkit % Test,
     scalaTest % Test,
     scalaCheck % Test,
@@ -115,9 +116,6 @@ object Dependencies {
   )
 
   val CatsAws1 = Seq(
-    catsEffect,
-    fs2Core,
-    fs2Reactive,
     akkaTestkit % Test,
     scalaTest % Test,
     scalaCheck % Test,
