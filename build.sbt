@@ -1,12 +1,13 @@
 import org.typelevel.sbt.tpolecat._
 import org.typelevel.scalacoptions.ScalacOptions
 
-ThisBuild / crossScalaVersions := Seq("2.13.14")
+ThisBuild / crossScalaVersions := Seq("2.13.14", "2.12.19")
 ThisBuild / scalaVersion := "2.13.14"
 ThisBuild / organization := "com.hiya"
 ThisBuild / versionScheme := Some("early-semver")
 
 ThisBuild / tpolecatDefaultOptionsMode := DevMode
+ThisBuild / Test / fork := true
 
 lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(Dependencies.MonadicFor, Dependencies.KindProjector),

@@ -22,10 +22,10 @@ class CatsAws1[F[_]: Async] extends DynamoDB[F, Stream[F, *], AmazonDynamoDBAsyn
 
   private def async[Req <: AmazonWebServiceRequest, Resp](f: AsyncHandler[Req, Resp] => JFuture[Resp]): F[Resp] = {
     Async[F].async_[Resp] { cb =>
-      f(new AsyncHandler[Req, Resp] {
+      val _ = f(new AsyncHandler[Req, Resp] {
         override def onError(exception: Exception): Unit = cb(Left(exception))
         override def onSuccess(request: Req, result: Resp): Unit = cb(Right(result))
-      }): Unit
+      })
     }
   }
 

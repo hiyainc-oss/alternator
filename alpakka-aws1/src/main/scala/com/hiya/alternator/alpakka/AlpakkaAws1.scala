@@ -5,20 +5,20 @@ import akka.actor.ClassicActorSystemProvider
 import akka.stream.scaladsl.Source
 import com.amazonaws.AmazonWebServiceRequest
 import com.amazonaws.handlers.AsyncHandler
+import com.amazonaws.services.dynamodbv2.model._
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, model}
-import com.amazonaws.services.dynamodbv2.model.{BatchGetItemResult, BatchWriteItemResult, ConditionalCheckFailedException, CreateTableRequest, CreateTableResult, DeleteItemRequest, DeleteItemResult, DeleteTableRequest, DeleteTableResult, GetItemRequest, GetItemResult, PutItemRequest, PutItemResult, QueryRequest, QueryResult, ScanRequest, ScanResult}
 import com.hiya.alternator.aws1.{Aws1Table, Aws1TableWithRangeKey}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.ScalarType
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
 import com.hiya.alternator.{DynamoDB, TableLike, TableWithRangeLike}
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
 import java.util.concurrent.{Future => JFuture}
+import scala.concurrent.{Future, Promise}
 
 
 class AlpakkaAws1(implicit val system: ClassicActorSystemProvider) extends DynamoDB[Future, Source[*, NotUsed], AmazonDynamoDBAsync] {
-  import AlpakkaAws1.parasitic
+  import Aws1JdkCompat._
 
   override type BatchGetItemResponse = model.BatchGetItemResult
   override type BatchWriteItemResponse = model.BatchWriteItemResult
@@ -28,7 +28,7 @@ class AlpakkaAws1(implicit val system: ClassicActorSystemProvider) extends Dynam
   override def bracket[T, B](acquire: => Future[T])(release: T => Future[Unit])(s: T => Source[B, NotUsed]): Source[B, NotUsed] = {
     Source.lazyFuture(() => acquire).flatMapConcat { t =>
       s(t).watchTermination() { (_, done) =>
-        done.onComplete(_ => release(t))(ExecutionContext.parasitic)
+        done.onComplete(_ => release(t))
       }
     }
   }
@@ -36,10 +36,10 @@ class AlpakkaAws1(implicit val system: ClassicActorSystemProvider) extends Dynam
   private def async[Req <: AmazonWebServiceRequest, Resp](f: AsyncHandler[Req, Resp] => JFuture[Resp]): Future[Resp] = {
     val p = Promise[Resp]()
 
-    f(new AsyncHandler[Req, Resp] {
+    val _ = f(new AsyncHandler[Req, Resp] {
       override def onError(exception: Exception): Unit = p.failure(exception)
       override def onSuccess(request: Req, result: Resp): Unit = p.success(result)
-    }): Unit
+    })
 
     p.future
   }
@@ -131,21 +131,5 @@ class AlpakkaAws1(implicit val system: ClassicActorSystemProvider) extends Dynam
 
   override def batchWrite[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], values: Seq[Either[PK, V]]): Future[BatchWriteItemResult] =
     async(table.client.batchWriteItemAsync(Aws1Table(table).batchWrite(values), _: AsyncHandler[model.BatchWriteItemRequest, model.BatchWriteItemResult]))
-
-}
-
-
-object AlpakkaAws1 {
-  private implicit lazy val parasitic: ExecutionContext = {
-    // The backport is present in akka, so we will just use it by reflection
-    // It probably will not change, as it is a stable internal api
-    val q = akka.dispatch.ExecutionContexts
-    val clazz = q.getClass
-    val field = clazz.getDeclaredField("parasitic")
-    field.setAccessible(true)
-    val ret = field.get(q).asInstanceOf[ExecutionContext]
-    field.setAccessible(false)
-    ret
-  }
 
 }
