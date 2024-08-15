@@ -1,31 +1,27 @@
 package com.hiya.alternator
 
+import com.amazonaws.auth.{AWSStaticCredentialsProvider, BasicAWSCredentials}
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
+import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder, model}
 import com.hiya.alternator.schema.{AttributeValue, ScalarType}
 import com.hiya.alternator.testkit.LocalDynamoClient
-import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
-import software.amazon.awssdk.core.SdkBytes
-import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient
-import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbBaseClientBuilder, model}
 
-import java.net.URI
 import java.nio.ByteBuffer
 import java.util.{List => JList, Map => JMap, Set => JSet}
 
-
-package object aws2 {
-  implicit val aws2LocalDynamoClient: LocalDynamoClient[DynamoDbAsyncClient] = new LocalDynamoClient[DynamoDbAsyncClient] {
-    def clientConfig[B <: DynamoDbBaseClientBuilder[B, _]](builder: B, port: Int): B =
+package object aws1 {
+  implicit val aws1LocalDynamoClient: LocalDynamoClient[AmazonDynamoDBAsync] = new LocalDynamoClient[AmazonDynamoDBAsync] {
+    def clientConfig(builder: AmazonDynamoDBAsyncClientBuilder, port: Int): AmazonDynamoDBAsyncClientBuilder =
       builder
-        .credentialsProvider(
-          StaticCredentialsProvider.create(AwsBasicCredentials.create("dummy", "credentials"))
+        .withCredentials(
+          new AWSStaticCredentialsProvider(new BasicAWSCredentials("dummy", "credentials"))
         )
-        .endpointOverride(URI.create(s"http://localhost:$port"))
-        .region(Region.US_EAST_1)
+        .withEndpointConfiguration(
+          new EndpointConfiguration(s"http://localhost:$port", "us-east-1")
+        )
 
-    def client(port: Int): DynamoDbAsyncClient =
-      clientConfig(DynamoDbAsyncClient.builder, port)
-        .httpClient(NettyNioAsyncHttpClient.builder.build)
+    def client(port: Int): AmazonDynamoDBAsync =
+      clientConfig(AmazonDynamoDBAsyncClientBuilder.standard(), port)
         .build
   }
 
@@ -35,72 +31,71 @@ package object aws2 {
     case ScalarType.Binary => model.ScalarAttributeType.B
   }
 
-  implicit val aws2IsAttributeValues: AttributeValue[model.AttributeValue] = new AttributeValue[model.AttributeValue] {
+  implicit val aws1IsAttributeValues: AttributeValue[model.AttributeValue] = new AttributeValue[model.AttributeValue] {
     override def map(av: model.AttributeValue): Option[JMap[String, model.AttributeValue]] =
-      if (av.hasM) Option(av.m()) else None
+      Option(av.getM)
 
     override def createMap(map: JMap[String, model.AttributeValue]): model.AttributeValue =
-      model.AttributeValue.fromM(map)
+      new model.AttributeValue().withM(map)
 
     override val nullValue: model.AttributeValue =
-      model.AttributeValue.fromNul(true)
+      new model.AttributeValue().withNULL(true)
 
     override def isNull(av: model.AttributeValue): Boolean =
-      av.nul()
+      av.isNULL
 
     override def string(av: model.AttributeValue): Option[String] =
-      Option(av.s())
+      Option(av.getS)
 
     override def createString(s: String): model.AttributeValue =
-      model.AttributeValue.fromS(s)
+      new model.AttributeValue().withS(s)
 
     override def bool(av: model.AttributeValue): Option[Boolean] =
-      Option(av.bool()).map(Boolean.unbox)
+      Option(av.getBOOL).map(Boolean.unbox)
 
     override val trueValue: model.AttributeValue =
-      model.AttributeValue.fromBool(true)
+      new model.AttributeValue().withBOOL(true)
 
     override val falseValue: model.AttributeValue =
-      model.AttributeValue.fromBool(false)
+      new model.AttributeValue().withBOOL(false)
 
     override def list(av: model.AttributeValue): Option[JList[model.AttributeValue]] =
-      if (av.hasL) Option(av.l()) else None
+      Option(av.getL)
 
     override def createList(av: JList[model.AttributeValue]): model.AttributeValue =
-      model.AttributeValue.fromL(av)
+      new model.AttributeValue().withL(av)
 
     override val emptyList: model.AttributeValue =
-      model.AttributeValue.fromL(JList.of())
+      new model.AttributeValue().withL()
 
     override def stringSet(av: model.AttributeValue): Option[JList[String]] =
-      if (av.hasSs) Option(av.ss()) else None
+      Option(av.getSS)
 
     override def createStringSet(value: JSet[String]): model.AttributeValue =
-      model.AttributeValue.builder().ss(value).build()
+      new model.AttributeValue().withSS(value)
 
     override def createNumberSet(value: JSet[String]): model.AttributeValue =
-      model.AttributeValue.builder().ns(value).build()
+      new model.AttributeValue().withNS(value)
 
     override def numberSet(av: model.AttributeValue): Option[JList[String]] =
-      if (av.hasNs) Option(av.ns()) else None
+      Option(av.getNS)
 
     override def createBinary(value: Array[Byte]): model.AttributeValue =
-      model.AttributeValue.fromB(SdkBytes.fromByteArrayUnsafe(value))
+      new model.AttributeValue().withB(ByteBuffer.wrap(value))
 
     override def createBinary(value: ByteBuffer): model.AttributeValue =
-      model.AttributeValue.fromB(SdkBytes.fromByteBuffer(value))
+      new model.AttributeValue().withB(value)
 
     override def byteBuffer(av: model.AttributeValue): Option[ByteBuffer] =
-      Option(av.b()).map(_.asByteBuffer())
+      Option(av.getB)
 
     override def byteArray(av: model.AttributeValue): Option[Array[Byte]] =
-      Option(av.b()).map(_.asByteArrayUnsafe())
+      Option(av.getB).map(_.array())
 
     override def numeric(av: model.AttributeValue): Option[String] =
-      Option(av.n())
+      Option(av.getN)
 
     override def createNumeric(value: String): model.AttributeValue =
-      model.AttributeValue.fromN(value)
+      new model.AttributeValue().withN(value)
   }
-
 }

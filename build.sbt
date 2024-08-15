@@ -1,7 +1,7 @@
 import org.typelevel.sbt.tpolecat._
 import org.typelevel.scalacoptions.ScalacOptions
 
-ThisBuild / crossScalaVersions := Seq("2.13.14", "2.12.19")
+ThisBuild / crossScalaVersions := Seq("2.13.14")
 ThisBuild / scalaVersion := "2.13.14"
 ThisBuild / organization := "com.hiya"
 ThisBuild / versionScheme := Some("early-semver")
@@ -39,25 +39,39 @@ lazy val `alternator-core` = (project in file("core"))
   .settings(
     commonSettings,
     libraryDependencies ++= Dependencies.Core,
-    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided,
+  )
+
+lazy val `test-base` = (project in file("test-base"))
+  .dependsOn(`alternator-core`)
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Dependencies.TestBase,
+    publish := {},
   )
 
 lazy val `alternator-aws2` = (project in file("alternator-aws2"))
   .dependsOn(`alternator-core`)
   .settings(
     commonSettings,
-    libraryDependencies ++= Dependencies.AttributeValue,
-    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+    libraryDependencies ++= Dependencies.AlternatorAws2,
+  )
+
+lazy val `alternator-aws1` = (project in file("alternator-aws1"))
+  .dependsOn(`alternator-core`)
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Dependencies.AlternatorAws1,
   )
 
 lazy val `alternator-alpakka-aws2` = (project in file("alpakka-aws2"))
   .dependsOn(
-    `alternator-aws2` % "compile->compile;test->test",
-    `alternator-testkit` % Test
+    `alternator-aws2`,
+    `test-base` % Test
   )
   .settings(
     commonSettings,
-    libraryDependencies ++= Dependencies.Alpakka,
+    libraryDependencies ++= Dependencies.AlpakkaAws2,
     dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
     dynamoDBLocalHeapSize := Some(256),
     dynamoDBLocalPort := 8484,
@@ -70,14 +84,34 @@ lazy val `alternator-alpakka-aws2` = (project in file("alpakka-aws2"))
     Test / fork := true
   )
 
-lazy val `alternator-cats-aws2` = (project in file("cats-aws2"))
+lazy val `alternator-alpakka-aws1` = (project in file("alpakka-aws1"))
   .dependsOn(
-    `alternator-aws2` % "compile->compile;test->test",
-    `alternator-testkit` % Test
+    `alternator-aws1`,
+    `test-base` % Test
   )
   .settings(
     commonSettings,
-    libraryDependencies ++= Dependencies.Cats,
+    libraryDependencies ++= Dependencies.AlpakkaAws1,
+    dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
+    dynamoDBLocalHeapSize := Some(256),
+    dynamoDBLocalPort := 8485,
+    (Test / javaOptions) += s"-DdynamoDBLocalPort=8485",
+    startDynamoDBLocal := startDynamoDBLocal.dependsOn(Test / compile).value,
+    Test / test := (Test / test).dependsOn(startDynamoDBLocal).value,
+    Test / testOnly := (Test / testOnly).dependsOn(startDynamoDBLocal).evaluated,
+    Test / testQuick := (Test / testQuick).dependsOn(startDynamoDBLocal).evaluated,
+    Test / testOptions += dynamoDBLocalTestCleanup.value,
+    Test / fork := true
+  )
+
+lazy val `alternator-cats-aws2` = (project in file("cats-aws2"))
+  .dependsOn(
+    `alternator-aws2`,
+    `test-base` % Test
+  )
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Dependencies.CatsAws2,
     dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
     dynamoDBLocalHeapSize := Some(256),
     dynamoDBLocalPort := 8486,
@@ -90,23 +124,25 @@ lazy val `alternator-cats-aws2` = (project in file("cats-aws2"))
     Test / fork := true
   )
 
-lazy val `alternator-testkit` = (project in file("testkit"))
-  .dependsOn(`alternator-aws2`)
-  .settings(
-      commonSettings,
-      libraryDependencies ++= Dependencies.Testkit,
-      dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
-      dynamoDBLocalHeapSize := Some(256),
-      dynamoDBLocalPort := 8485,
-      (Test / javaOptions) += s"-DdynamoDBLocalPort=8485",
-      startDynamoDBLocal := startDynamoDBLocal.dependsOn(Test / compile).value,
-      Test / test := (Test / test).dependsOn(startDynamoDBLocal).value,
-      Test / testOnly := (Test / testOnly).dependsOn(startDynamoDBLocal).evaluated,
-      Test / testQuick := (Test / testQuick).dependsOn(startDynamoDBLocal).evaluated,
-      Test / testOptions += dynamoDBLocalTestCleanup.value,
-      Test / fork := true
+lazy val `alternator-cats-aws1` = (project in file("cats-aws1"))
+  .dependsOn(
+    `alternator-aws1`,
+    `test-base` % Test
   )
-
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Dependencies.CatsAws1,
+    dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
+    dynamoDBLocalHeapSize := Some(256),
+    dynamoDBLocalPort := 8487,
+    (Test / javaOptions) += s"-DdynamoDBLocalPort=8487",
+    startDynamoDBLocal := startDynamoDBLocal.dependsOn(Test / compile).value,
+    Test / test := (Test / test).dependsOn(startDynamoDBLocal).value,
+    Test / testOnly := (Test / testOnly).dependsOn(startDynamoDBLocal).evaluated,
+    Test / testQuick := (Test / testQuick).dependsOn(startDynamoDBLocal).evaluated,
+    Test / testOptions += dynamoDBLocalTestCleanup.value,
+    Test / fork := true
+  )
 
 lazy val `tests` = project in file("tests")
 

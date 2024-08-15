@@ -1,28 +1,27 @@
 package com.hiya.alternator
 
-import cats.free.Free.liftF
-import com.hiya.alternator.schema.{DynamoAttributeError, DynamoFormat, TableSchema, TableSchemaWithRange}
+import cats.Functor
+import cats.syntax.all._
+import com.hiya.alternator.schema._
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
 
 import scala.util.{Failure, Success, Try}
 
-package internal {
-  sealed trait DynamoDBA[A]
-  final case class Get[C, V, PK](table: TableLike[C, V, PK], key: PK) extends DynamoDBA[Option[DynamoFormat.Result[V]]]
-  final case class Put[C, V, PK](table: TableLike[C, V, PK], value: V, condition: Option[ConditionExpression[Boolean]])
-    extends DynamoDBA[Boolean]
-  final case class Delete[C, V, PK](
-    table: TableLike[C, V, PK],
-    key: PK,
-    condition: Option[ConditionExpression[Boolean]]
-  ) extends DynamoDBA[Boolean]
-
-  sealed trait DynamoDBSourceA[A]
-  final case class Scan[C, V, PK](value: TableLike[C, V, PK], segment: Option[Segment])
-    extends DynamoDBSourceA[DynamoFormat.Result[V]]
-  final case class Query[C, V, PK, RK](value: TableWithRangeLike[C, V, PK, RK], pk: PK, rk: RKCondition[RK])
-    extends DynamoDBSourceA[DynamoFormat.Result[V]]
+sealed trait ItemMagnet[T, V, PK] {
+  def key(t: T)(implicit schema: TableSchema.Aux[V, PK]): PK
 }
+
+object ItemMagnet {
+  implicit def whole[V, PK]: ItemMagnet[V, V, PK] = new ItemMagnet[V, V, PK] {
+    override def key(t: V)(implicit schema: TableSchema.Aux[V, PK]): PK = schema.extract(t)
+  }
+
+  implicit def itemKey[V, PK]: ItemMagnet[PK, V, PK] = new ItemMagnet[PK, V, PK] {
+    override def key(t: PK)(implicit schema: TableSchema.Aux[V, PK]): PK = t
+  }
+}
+
+
 
 trait Client[DB[_], C]
 
@@ -33,39 +32,52 @@ object Client {
 
 abstract class TableLike[C, V, PK](
   val client: C,
-  val name: String
+  val tableName: String
 ) {
+
+  def withClient[C1](client: C1): TableLike[C1, V, PK] = new TableLike[C1, V, PK](client, tableName) {
+    override def schema: TableSchema.Aux[V, PK] = TableLike.this.schema
+  }
+
   def schema: TableSchema.Aux[V, PK]
 
-  def get(pk: PK): DynamoDB[Option[DynamoFormat.Result[V]]] =
-    liftF[internal.DynamoDBA, Option[DynamoFormat.Result[V]]](internal.Get(this, pk))
+  def get[F[_]](pk: PK)(implicit DB: DynamoDBValue[F, C]): F[Option[DynamoFormat.Result[V]]] =
+    DB.get(this, pk)
 
-  def put(value: V): DynamoDB[Unit] =
-    liftF[internal.DynamoDBA, Boolean](internal.Put(this, value, None)).map(_ => ())
+  def put[F[_]: Functor](value: V)(implicit DB: DynamoDBValue[F, C]): F[Unit] =
+    DB.put(this, value, None).map(_ => ())
 
-  def put(value: V, condition: ConditionExpression[Boolean]): DynamoDB[Boolean] =
-    liftF[internal.DynamoDBA, Boolean](internal.Put(this, value, condition = Some(condition)))
+  def put[F[_]](value: V, condition: ConditionExpression[Boolean])(implicit DB: DynamoDBValue[F, C]): F[Boolean] =
+    DB.put(this, value, condition = Some(condition))
 
-  def delete(key: PK): DynamoDB[Unit] =
-    liftF[internal.DynamoDBA, Boolean](internal.Delete(this, key, None)).map(_ => ())
+  def delete[F[_]: Functor](key: PK)(implicit DB: DynamoDBValue[F, C]): F[Unit] =
+    DB.delete(this, key, None).map(_ => ())
 
-  def delete(key: PK, condition: ConditionExpression[Boolean]): DynamoDB[Boolean] =
-    liftF[internal.DynamoDBA, Boolean](internal.Delete(this, key, Some(condition)))
+  def delete[F[_]](key: PK, condition: ConditionExpression[Boolean])(implicit DB: DynamoDBValue[F, C]): F[Boolean] =
+    DB.delete(this, key, Some(condition))
 
-  def scan(segment: Option[Segment] = None): DynamoDBSource[DynamoFormat.Result[V]] =
-    liftF[internal.DynamoDBSourceA, DynamoFormat.Result[V]](internal.Scan(this, segment))
+  def scan[F[_]](segment: Option[Segment] = None)(implicit DB: DynamoDBSource[F, C]): F[DynamoFormat.Result[V]] =
+    DB.scan(this, segment)
 
-//  def batchGet[DB[_]: DynamoDB](values: Seq[PK]): DB[BatchGetItemResponse]
-//  def batchPut[DB[_]: DynamoDB](values: Seq[V]): DB[BatchWriteItemResponse]
-//  def batchDelete[DB[_]: DynamoDB, T](values: Seq[T])(implicit T: ItemMagnet[T, V, PK]): Future[BatchWriteItemResponse]
-//  def batchWrite[DB[_]: DynamoDB](values: Seq[Either[PK, V]]): Future[BatchWriteItemResponse]
+  def batchGet[F[_]](keys: Seq[PK])(implicit DB: DynamoDBValue[F, C]): F[DB.BatchGetItemResponse] =
+    DB.batchGet(this, keys)
+  def batchPut[F[_]](values: Seq[V])(implicit DB: DynamoDBValue[F, C]): F[DB.BatchWriteItemResponse] =
+    batchWrite(values.map(Right(_)))
+  def batchDelete[F[_], T](keys: Seq[T])(implicit T: ItemMagnet[T, V, PK], DB: DynamoDBValue[F, C]): F[DB.BatchWriteItemResponse] =
+    batchWrite(keys.map(x => Left(T.key(x)(schema))))
+  def batchWrite[F[_]](values: Seq[Either[PK, V]])(implicit DB: DynamoDBValue[F, C]): F[DB.BatchWriteItemResponse] =
+    DB.batchWrite(this, values)
 }
 
 abstract class TableWithRangeLike[C, V, PK, RK](c: C, name: String) extends TableLike[C, V, (PK, RK)](c, name) {
+  override def withClient[C1](client: C1): TableWithRangeLike[C1, V, PK, RK] = new TableWithRangeLike[C1, V, PK, RK](client, name) {
+    override def schema: TableSchemaWithRange.Aux[V, PK, RK] = TableWithRangeLike.this.schema
+  }
+
   override def schema: TableSchemaWithRange.Aux[V, PK, RK]
 
-  def query(pk: PK, rk: RKCondition[RK] = RKCondition.empty): DynamoDBSource[DynamoFormat.Result[V]] =
-    liftF[internal.DynamoDBSourceA, DynamoFormat.Result[V]](internal.Query(this, pk, rk))
+  def query[F[_]](pk: PK, rk: RKCondition[RK] = RKCondition.empty)(implicit DB: DynamoDBSource[F, C]): F[DynamoFormat.Result[V]] =
+    DB.query(this, pk, rk)
 
 }
 
@@ -79,9 +91,10 @@ class TableWithRangeKey[V, PK, RK](
   override val schema: TableSchemaWithRange.Aux[V, PK, RK]
 ) extends TableWithRangeLike[Client.Missing, V, PK, RK](Client.Missing, name)
 
-object Table {
-  final case class DynamoDBException(error: DynamoAttributeError) extends Exception(error.message)
 
+final case class DynamoDBException(error: DynamoAttributeError) extends Exception(error.message)
+
+object Table {
   final def orFail[T](x: DynamoFormat.Result[T]): Try[T] = x match {
     case Left(error) => Failure(DynamoDBException(error))
     case Right(value) => Success(value)
@@ -97,4 +110,26 @@ object Table {
   ): TableWithRangeKey[V, tableSchema.PK, tableSchema.RK] =
     new TableWithRangeKey[V, tableSchema.PK, tableSchema.RK](name, tableSchema)
 
+
+  def create[F[_], C](
+    tableName: String,
+    hashKey: String,
+    rangeKey: Option[String] = None,
+    readCapacity: Long = 1L,
+    writeCapacity: Long = 1L,
+    attributes: List[(String, ScalarType)] = Nil,
+    client: C = Client.Missing
+  )(implicit DB: DynamoDBValue[F, C]): F[Unit] =
+    DB.createTable(
+      client,
+      tableName,
+      hashKey,
+      rangeKey,
+      readCapacity,
+      writeCapacity,
+      attributes
+    )
+
+  def drop[F[_], C](tableName: String, client: C = Client.Missing)(implicit DB: DynamoDBValue[F, C]): F[Unit] =
+    DB.dropTable(client, tableName)
 }

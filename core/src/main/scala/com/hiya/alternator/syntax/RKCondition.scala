@@ -2,7 +2,7 @@ package com.hiya.alternator.syntax
 
 import com.hiya.alternator.schema.{AttributeValue, ScalarDynamoFormat, StringLikeDynamoFormat}
 
-import scala.collection.immutable.Queue
+import scala.collection.immutable.{List, Queue}
 
 sealed abstract class RKCondition[+T] {
   def render[AV: AttributeValue](pkField: String, q: RKCondition.QueryBuilder[AV]): RKCondition.QueryBuilder[AV]
@@ -10,9 +10,9 @@ sealed abstract class RKCondition[+T] {
 
 object RKCondition {
   case class QueryBuilder[AV: AttributeValue](
-    exp: List[String],
-    namesMap: Queue[String],
-    valueMap: Queue[AV]
+    exp: List[String] = List.empty,
+    namesMap: Queue[String] = Queue.empty,
+    valueMap: Queue[AV] = Queue.empty
   ) {
     def newName(name: String)(f: String => QueryBuilder[AV] => QueryBuilder[AV]): QueryBuilder[AV] = {
       val nameP = s"#P${namesMap.size}"
@@ -29,15 +29,8 @@ object RKCondition {
     }
 
     def add(exp: String): QueryBuilder[AV] = copy(exp = exp :: this.exp)
-
-//    def apply(implicit q: QueryRequest.Builder[AV]): QueryRequest.Builder[AV] = {
-//      q.keyConditionExpression(exp.mkString(" AND "))
-//        .expressionAttributeNames(namesMap.zipWithIndex.map { case (name, idx) => s"#P${idx}" -> name}.toMap.asJava)
-//        .expressionAttributeValues(valueMap.zipWithIndex.map { case (name, idx) => s":param${idx}" -> name}.toMap.asJava)
-//    }
   }
 
-//  object QueryBuilder extends QueryBuilder(List.empty, Queue.empty, Queue.empty)
 
   val empty: RKCondition[Nothing] = new RKCondition[Nothing] {
     override def render[AV: AttributeValue](pkField: String, q: QueryBuilder[AV]): QueryBuilder[AV] = q

@@ -17,6 +17,7 @@ abstract class TableSchema[V](val serializeValue: CompoundDynamoFormat[V]) {
 
   def withName(tableName: String): TableLike[Client.Missing, V, IndexType] =
     new Table[V, IndexType](tableName, this)
+
 }
 
 object TableSchema {

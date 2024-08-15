@@ -1,12 +1,10 @@
 package com.hiya.alternator
 
-import cats.MonadError
+import cats.MonadThrow
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 
 package object util {
-  type MonadErrorThrowable[F[_]] = MonadError[F, Throwable]
-
   implicit class OptApp[T](underlying: T) {
 
     def optApp[A](f: T => A => T): Option[A] => T = {
@@ -15,7 +13,7 @@ package object util {
     }
   }
 
-  implicit class OptAppF[F[_]: MonadErrorThrowable, T](underlying: F[T]) {
+  implicit class OptAppF[F[_]: MonadThrow, T](underlying: F[T]) {
 
     def optApp[A](f: T => A => T): Option[A] => F[T] = {
       case Some(a) => underlying.map(f(_)(a))

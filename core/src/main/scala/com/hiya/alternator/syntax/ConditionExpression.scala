@@ -46,37 +46,37 @@ object ConditionExpression {
       (from: T) => Literal(from)
   }
 
-  private[syntax] final case class Attr[T](
+  private[alternator] final case class Attr[T](
     name: String
   ) extends Path[T]
 
-  private[syntax] final case class ArrayIndex[T](
+  private[alternator] final case class ArrayIndex[T](
     base: Path[_],
     index: Long
   ) extends Path[T]
 
-  private[syntax] final case class MapIndex[T](
+  private[alternator] final case class MapIndex[T](
     base: Path[_],
     fieldName: String
   ) extends Path[T]
 
-  private[syntax] final case class Literal[T](
+  private[alternator] final case class Literal[T](
     value: T
   )(implicit format: ScalarDynamoFormat[T])
     extends ConditionExpression[T] {
     def write[AV: AttributeValue]: AV = format.write[AV](value)
   }
 
-  private[syntax] object Literal {
+  private[alternator] object Literal {
     def apply[T: ScalarDynamoFormat](t: T): Literal[T] = new Literal(t)
   }
 
-  private[syntax] final case class FunCall[T](
+  private[alternator] final case class FunCall[T](
     name: String,
     args: List[ConditionExpression[_]]
   ) extends ConditionExpression[T]
 
-  private[syntax] final case class BinOp[T](
+  private[alternator] final case class BinOp[T](
     op: String,
     lhs: ConditionExpression[_],
     rhs: ConditionExpression[_]
