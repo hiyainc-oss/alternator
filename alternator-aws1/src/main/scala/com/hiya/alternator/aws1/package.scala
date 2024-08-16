@@ -10,20 +10,20 @@ import java.nio.ByteBuffer
 import java.util.{List => JList, Map => JMap, Set => JSet}
 
 package object aws1 {
-  implicit val aws1LocalDynamoClient: LocalDynamoClient[AmazonDynamoDBAsync] = new LocalDynamoClient[AmazonDynamoDBAsync] {
-    def clientConfig(builder: AmazonDynamoDBAsyncClientBuilder, port: Int): AmazonDynamoDBAsyncClientBuilder =
-      builder
-        .withCredentials(
-          new AWSStaticCredentialsProvider(new BasicAWSCredentials("dummy", "credentials"))
-        )
-        .withEndpointConfiguration(
-          new EndpointConfiguration(s"http://localhost:$port", "us-east-1")
-        )
+  implicit val aws1LocalDynamoClient: LocalDynamoClient[AmazonDynamoDBAsync] =
+    new LocalDynamoClient[AmazonDynamoDBAsync] {
+      def clientConfig(builder: AmazonDynamoDBAsyncClientBuilder, port: Int): AmazonDynamoDBAsyncClientBuilder =
+        builder
+          .withCredentials(
+            new AWSStaticCredentialsProvider(new BasicAWSCredentials("dummy", "credentials"))
+          )
+          .withEndpointConfiguration(
+            new EndpointConfiguration(s"http://localhost:$port", "us-east-1")
+          )
 
-    def client(port: Int): AmazonDynamoDBAsync =
-      clientConfig(AmazonDynamoDBAsyncClientBuilder.standard(), port)
-        .build
-  }
+      def client(port: Int): AmazonDynamoDBAsync =
+        clientConfig(AmazonDynamoDBAsyncClientBuilder.standard(), port).build
+    }
 
   implicit def typeOf(t: ScalarType): model.ScalarAttributeType = t match {
     case ScalarType.String => model.ScalarAttributeType.S

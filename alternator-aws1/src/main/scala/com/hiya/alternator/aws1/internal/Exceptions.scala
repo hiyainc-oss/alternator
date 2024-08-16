@@ -1,7 +1,11 @@
 package com.hiya.alternator.aws1.internal
 
 import com.amazonaws.AmazonServiceException
-import com.amazonaws.services.dynamodbv2.model.{LimitExceededException, ProvisionedThroughputExceededException, RequestLimitExceededException}
+import com.amazonaws.services.dynamodbv2.model.{
+  LimitExceededException,
+  ProvisionedThroughputExceededException,
+  RequestLimitExceededException
+}
 
 class Exceptions {
   def isRetryable(ex: Throwable): Boolean = ex match {

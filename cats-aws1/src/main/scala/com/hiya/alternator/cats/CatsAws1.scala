@@ -5,7 +5,25 @@ import cats.syntax.all._
 import com.amazonaws.AmazonWebServiceRequest
 import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, model}
-import com.amazonaws.services.dynamodbv2.model.{BatchGetItemResult, BatchWriteItemResult, ConditionalCheckFailedException, CreateTableRequest, CreateTableResult, DeleteItemRequest, DeleteItemResult, DeleteTableRequest, DeleteTableResult, GetItemRequest, GetItemResult, PutItemRequest, PutItemResult, QueryRequest, QueryResult, ScanRequest, ScanResult}
+import com.amazonaws.services.dynamodbv2.model.{
+  BatchGetItemResult,
+  BatchWriteItemResult,
+  ConditionalCheckFailedException,
+  CreateTableRequest,
+  CreateTableResult,
+  DeleteItemRequest,
+  DeleteItemResult,
+  DeleteTableRequest,
+  DeleteTableResult,
+  GetItemRequest,
+  GetItemResult,
+  PutItemRequest,
+  PutItemResult,
+  QueryRequest,
+  QueryResult,
+  ScanRequest,
+  ScanResult
+}
 import com.hiya.alternator.aws1.{Aws1Table, Aws1TableWithRangeKey}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.ScalarType
@@ -14,7 +32,6 @@ import com.hiya.alternator.{DynamoDB, TableLike, TableWithRangeLike}
 import fs2.Stream
 
 import java.util.concurrent.{Future => JFuture}
-
 
 class CatsAws1[F[_]: Async] extends DynamoDB[F, Stream[F, *], AmazonDynamoDBAsync] {
   override type BatchGetItemResponse = model.BatchGetItemResult
@@ -33,10 +50,19 @@ class CatsAws1[F[_]: Async] extends DynamoDB[F, Stream[F, *], AmazonDynamoDBAsyn
     async(table.client.getItemAsync(Aws1Table(table).get(pk), _: AsyncHandler[GetItemRequest, GetItemResult]))
       .map(Aws1Table(table).deserialize)
 
-  override def put[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], item: V, condition: Option[ConditionExpression[Boolean]]): F[Boolean] =
+  override def put[V, PK](
+    table: TableLike[AmazonDynamoDBAsync, V, PK],
+    item: V,
+    condition: Option[ConditionExpression[Boolean]]
+  ): F[Boolean] =
     condition match {
       case Some(condition) =>
-        async(table.client.putItemAsync(Aws1Table(table).put(item, condition), _: AsyncHandler[PutItemRequest, PutItemResult]))
+        async(
+          table.client.putItemAsync(
+            Aws1Table(table).put(item, condition),
+            _: AsyncHandler[PutItemRequest, PutItemResult]
+          )
+        )
           .map(_ => true)
           .recover { case _: ConditionalCheckFailedException => false }
 
@@ -45,19 +71,39 @@ class CatsAws1[F[_]: Async] extends DynamoDB[F, Stream[F, *], AmazonDynamoDBAsyn
           .map(_ => true)
     }
 
-  override def delete[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], key: PK, condition: Option[ConditionExpression[Boolean]]): F[Boolean] =
+  override def delete[V, PK](
+    table: TableLike[AmazonDynamoDBAsync, V, PK],
+    key: PK,
+    condition: Option[ConditionExpression[Boolean]]
+  ): F[Boolean] =
     condition match {
       case Some(condition) =>
-        async(table.client.deleteItemAsync(Aws1Table(table).delete(key, condition), _: AsyncHandler[DeleteItemRequest, DeleteItemResult]))
+        async(
+          table.client.deleteItemAsync(
+            Aws1Table(table).delete(key, condition),
+            _: AsyncHandler[DeleteItemRequest, DeleteItemResult]
+          )
+        )
           .map(_ => true)
           .recover { case _: ConditionalCheckFailedException => false }
 
       case None =>
-        async(table.client.deleteItemAsync(Aws1Table(table).delete(key), _: AsyncHandler[DeleteItemRequest, DeleteItemResult]))
+        async(
+          table.client
+            .deleteItemAsync(Aws1Table(table).delete(key), _: AsyncHandler[DeleteItemRequest, DeleteItemResult])
+        )
           .map(_ => true)
     }
 
-  override def createTable(client: AmazonDynamoDBAsync, tableName: String, hashKey: String, rangeKey: Option[String], readCapacity: Long, writeCapacity: Long, attributes: List[(String, ScalarType)]): F[Unit] =
+  override def createTable(
+    client: AmazonDynamoDBAsync,
+    tableName: String,
+    hashKey: String,
+    rangeKey: Option[String],
+    readCapacity: Long,
+    writeCapacity: Long,
+    attributes: List[(String, ScalarType)]
+  ): F[Unit] =
     async(
       client.createTableAsync(
         Aws1Table.createTable(tableName, hashKey, rangeKey, readCapacity, writeCapacity, attributes),
@@ -74,8 +120,10 @@ class CatsAws1[F[_]: Async] extends DynamoDB[F, Stream[F, *], AmazonDynamoDBAsyn
     ).map(_ => ())
   }
 
-
-  private def scanPaginator(f: (ScanRequest, AsyncHandler[ScanRequest, ScanResult]) => JFuture[ScanResult], request: ScanRequest): Stream[F, ScanResult] = {
+  private def scanPaginator(
+    f: (ScanRequest, AsyncHandler[ScanRequest, ScanResult]) => JFuture[ScanResult],
+    request: ScanRequest
+  ): Stream[F, ScanResult] = {
     Stream.unfoldLoopEval(request) { req =>
       async(f(req, _))
         .map { result =>
@@ -86,12 +134,17 @@ class CatsAws1[F[_]: Async] extends DynamoDB[F, Stream[F, *], AmazonDynamoDBAsyn
     }
   }
 
-  override def scan[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], segment: Option[Segment]): Stream[F, Result[V]] =
+  override def scan[V, PK](
+    table: TableLike[AmazonDynamoDBAsync, V, PK],
+    segment: Option[Segment]
+  ): Stream[F, Result[V]] =
     scanPaginator(table.client.scanAsync, Aws1Table(table).scan(segment))
       .flatMap(data => Stream.emits(Aws1Table(table).deserialize(data)))
 
-
-  private def queryPaginator(f: (QueryRequest, AsyncHandler[QueryRequest, QueryResult]) => JFuture[QueryResult], request: QueryRequest): Stream[F, QueryResult] = {
+  private def queryPaginator(
+    f: (QueryRequest, AsyncHandler[QueryRequest, QueryResult]) => JFuture[QueryResult],
+    request: QueryRequest
+  ): Stream[F, QueryResult] = {
     Stream.unfoldLoopEval(request) { req =>
       async(f(req, _))
         .map { result =>
@@ -102,7 +155,11 @@ class CatsAws1[F[_]: Async] extends DynamoDB[F, Stream[F, *], AmazonDynamoDBAsyn
     }
   }
 
-  override def query[V, PK, RK](table: TableWithRangeLike[AmazonDynamoDBAsync, V, PK, RK], pk: PK, rk: RKCondition[RK]): Stream[F, Result[V]] =
+  override def query[V, PK, RK](
+    table: TableWithRangeLike[AmazonDynamoDBAsync, V, PK, RK],
+    pk: PK,
+    rk: RKCondition[RK]
+  ): Stream[F, Result[V]] =
     queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk))
       .flatMap { data => fs2.Stream.emits(Aws1TableWithRangeKey(table).deserialize(data)) }
 
@@ -115,10 +172,23 @@ class CatsAws1[F[_]: Async] extends DynamoDB[F, Stream[F, *], AmazonDynamoDBAsyn
     in.evalMap(f)
 
   override def batchGet[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], keys: Seq[PK]): F[BatchGetItemResult] =
-    async(table.client.batchGetItemAsync(Aws1Table(table).batchGet(keys), _: AsyncHandler[model.BatchGetItemRequest, model.BatchGetItemResult]))
+    async(
+      table.client.batchGetItemAsync(
+        Aws1Table(table).batchGet(keys),
+        _: AsyncHandler[model.BatchGetItemRequest, model.BatchGetItemResult]
+      )
+    )
 
-  override def batchWrite[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], values: Seq[Either[PK, V]]): F[BatchWriteItemResult] =
-    async(table.client.batchWriteItemAsync(Aws1Table(table).batchWrite(values), _: AsyncHandler[model.BatchWriteItemRequest, model.BatchWriteItemResult]))
+  override def batchWrite[V, PK](
+    table: TableLike[AmazonDynamoDBAsync, V, PK],
+    values: Seq[Either[PK, V]]
+  ): F[BatchWriteItemResult] =
+    async(
+      table.client.batchWriteItemAsync(
+        Aws1Table(table).batchWrite(values),
+        _: AsyncHandler[model.BatchWriteItemRequest, model.BatchWriteItemResult]
+      )
+    )
 }
 
 object CatsAws1 {

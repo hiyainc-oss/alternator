@@ -10,8 +10,8 @@ class Exceptions {
   }
 
   def isThrottle(ex: Throwable): Boolean = ex match {
-    case _ : ProvisionedThroughputExceededException => true
-    case ex : SdkServiceException if ex.isThrottlingException => true
+    case _: ProvisionedThroughputExceededException => true
+    case ex: SdkServiceException if ex.isThrottlingException => true
     case _ => false
   }
 }

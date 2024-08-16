@@ -31,7 +31,6 @@ object RKCondition {
     def add(exp: String): QueryBuilder[AV] = copy(exp = exp :: this.exp)
   }
 
-
   val empty: RKCondition[Nothing] = new RKCondition[Nothing] {
     override def render[AV: AttributeValue](pkField: String, q: QueryBuilder[AV]): QueryBuilder[AV] = q
   }

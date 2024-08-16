@@ -8,7 +8,14 @@ import akka.actor.{ActorSystem, CoordinatedShutdown}
 import akka.util.Timeout
 import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
-import com.amazonaws.services.dynamodbv2.model.{AttributeValue, BatchWriteItemRequest, BatchWriteItemResult, DeleteRequest, PutRequest, WriteRequest}
+import com.amazonaws.services.dynamodbv2.model.{
+  AttributeValue,
+  BatchWriteItemRequest,
+  BatchWriteItemResult,
+  DeleteRequest,
+  PutRequest,
+  WriteRequest
+}
 import com.hiya.alternator._
 import com.hiya.alternator.akka.AkkaAws1.async
 import com.hiya.alternator.akka.internal.BatchedWriteBehavior
@@ -22,20 +29,21 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 
-/**
- * DynamoDB batched writer
- *
- * The actor waits for the maximum size of write requests (25) or maxWait time before created a batched write
- * request. If the requests fails with a retryable error the elements will be rescheduled later (using the given
- * retryPolicy). Unprocessed items are rescheduled similarly.
- *
- * The received requests are deduplicated, only the last write to the key is executed.
- */
+/** DynamoDB batched writer
+  *
+  * The actor waits for the maximum size of write requests (25) or maxWait time before created a batched write request.
+  * If the requests fails with a retryable error the elements will be rescheduled later (using the given retryPolicy).
+  * Unprocessed items are rescheduled similarly.
+  *
+  * The received requests are deduplicated, only the last write to the key is executed.
+  */
 class AkkaAws1WriteScheduler(actorRef: ActorRef[AkkaAws1WriteScheduler.BatchedRequest])(implicit scheduler: Scheduler)
   extends WriteScheduler[AmazonDynamoDBAsync, Future] {
   import JdkCompat.parasitic
 
-  override def put[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], value: V)(implicit timeout: BatchTimeout): Future[Unit] = {
+  override def put[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], value: V)(implicit
+    timeout: BatchTimeout
+  ): Future[Unit] = {
     val key = table.schema.extract(value)
     val pk = table.schema.serializePK[AttributeValue](key)
     val av = table.schema.serializeValue.writeFields(value)
@@ -47,7 +55,9 @@ class AkkaAws1WriteScheduler(actorRef: ActorRef[AkkaAws1WriteScheduler.BatchedRe
       .flatMap(result => Future.fromTry { result })
   }
 
-  override def delete[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], key: PK)(implicit timeout: BatchTimeout): Future[Unit] = {
+  override def delete[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], key: PK)(implicit
+    timeout: BatchTimeout
+  ): Future[Unit] = {
     val pk = table.schema.serializePK[AttributeValue](key)
 
     actorRef
@@ -62,7 +72,9 @@ class AkkaAws1WriteScheduler(actorRef: ActorRef[AkkaAws1WriteScheduler.BatchedRe
 
 object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, AttributeValue], BatchWriteItemResult] {
 
-  private class AwsClientAdapter(client: AmazonDynamoDBAsync) extends Exceptions with BatchedWriteBehavior.AwsClientAdapter[JMap[String, AttributeValue], BatchWriteItemResult] {
+  private class AwsClientAdapter(client: AmazonDynamoDBAsync)
+    extends Exceptions
+    with BatchedWriteBehavior.AwsClientAdapter[JMap[String, AttributeValue], BatchWriteItemResult] {
 
     private def isSubMapOf(small: JMap[String, AttributeValue], in: JMap[String, AttributeValue]): Boolean =
       in.entrySet().containsAll(small.entrySet())
@@ -93,18 +105,19 @@ object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
       allKeys.toList -> unprocessedKeys
     }
 
-
     override def createQuery(key: List[(PK, Option[AV])]): Future[BatchWriteItemResult] = {
       val request = new BatchWriteItemRequest(
         key
           .groupMap(_._1._1)(x => x._1._2 -> x._2)
-          .view.mapValues(
+          .view
+          .mapValues(
             _.map({
               case (_, Some(value)) => new WriteRequest(new PutRequest(value))
               case (key, None) => new WriteRequest(new DeleteRequest(key))
             }).asJava
           )
-          .toMap.asJava
+          .toMap
+          .asJava
       )
 
       async(client.batchWriteItemAsync(request, _: AsyncHandler[BatchWriteItemRequest, BatchWriteItemResult]))
@@ -112,10 +125,10 @@ object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
   }
 
   def behavior(
-     client: AmazonDynamoDBAsync,
-     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
-     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
-     monitoring: BatchMonitoring[PK] = BatchedWriteBehavior.DEFAULT_MONITORING
+    client: AmazonDynamoDBAsync,
+    maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
+    retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
+    monitoring: BatchMonitoring[PK] = BatchedWriteBehavior.DEFAULT_MONITORING
   ): Behavior[BatchedRequest] = {
     apply(
       new AwsClientAdapter(client),

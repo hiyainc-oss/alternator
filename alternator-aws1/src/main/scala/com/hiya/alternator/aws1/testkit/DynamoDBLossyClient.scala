@@ -9,10 +9,12 @@ import java.util.concurrent.{CompletableFuture, Future}
 import scala.jdk.CollectionConverters._
 import scala.util.Random
 
-
 class DynamoDBLossyClient(stableClient: AmazonDynamoDBAsync) extends AbstractAmazonDynamoDBAsync {
 
-  override def batchWriteItemAsync(batchWriteItemRequest: BatchWriteItemRequest, asyncHandler: AsyncHandler[BatchWriteItemRequest, BatchWriteItemResult]): Future[BatchWriteItemResult] = {
+  override def batchWriteItemAsync(
+    batchWriteItemRequest: BatchWriteItemRequest,
+    asyncHandler: AsyncHandler[BatchWriteItemRequest, BatchWriteItemResult]
+  ): Future[BatchWriteItemResult] = {
     def failed(ex: Exception): Future[BatchWriteItemResult] = {
       if (asyncHandler != null) {
         asyncHandler.onError(ex)
@@ -65,19 +67,27 @@ class DynamoDBLossyClient(stableClient: AmazonDynamoDBAsync) extends AbstractAma
     }
   }
 
-  private def toKeyMap(in: List[(String, java.util.Map[String, AttributeValue])]): java.util.Map[String, KeysAndAttributes] = {
-    in.groupBy(_._1).map { case (table, keys) =>
-      table -> new KeysAndAttributes().withKeys(keys.map(_._2).asJava)
-    }.asJava
+  private def toKeyMap(
+    in: List[(String, java.util.Map[String, AttributeValue])]
+  ): java.util.Map[String, KeysAndAttributes] = {
+    in.groupBy(_._1)
+      .map { case (table, keys) =>
+        table -> new KeysAndAttributes().withKeys(keys.map(_._2).asJava)
+      }
+      .asJava
   }
 
   private def toItemMap(in: List[(String, WriteRequest)]): java.util.Map[String, java.util.List[WriteRequest]] = {
-    in.groupBy(_._1).map { case (table, keys) =>
-      table -> keys.map(_._2).asJava
-    }.asJava
+    in.groupBy(_._1)
+      .map { case (table, keys) =>
+        table -> keys.map(_._2).asJava
+      }
+      .asJava
   }
 
-  private def fromKeyMap(in: java.util.Map[String, KeysAndAttributes]): List[(String, util.Map[String, AttributeValue])] =
+  private def fromKeyMap(
+    in: java.util.Map[String, KeysAndAttributes]
+  ): List[(String, util.Map[String, AttributeValue])] =
     in.asScala.toList.flatMap { case (table, keys) =>
       keys.getKeys.asScala.map(table -> _)
     }
@@ -87,7 +97,10 @@ class DynamoDBLossyClient(stableClient: AmazonDynamoDBAsync) extends AbstractAma
       req.asScala.map(table -> _)
     }
 
-  override def batchGetItemAsync(batchGetItemRequest: BatchGetItemRequest, asyncHandler: AsyncHandler[BatchGetItemRequest, BatchGetItemResult]): Future[BatchGetItemResult] = {
+  override def batchGetItemAsync(
+    batchGetItemRequest: BatchGetItemRequest,
+    asyncHandler: AsyncHandler[BatchGetItemRequest, BatchGetItemResult]
+  ): Future[BatchGetItemResult] = {
     def failed(ex: Exception): Future[BatchGetItemResult] = {
       if (asyncHandler != null)
         asyncHandler.onError(ex)
@@ -124,13 +137,13 @@ class DynamoDBLossyClient(stableClient: AmazonDynamoDBAsync) extends AbstractAma
             new BatchGetItemRequest(toKeyMap(ok)),
             new AsyncHandler[BatchGetItemRequest, BatchGetItemResult] {
               override def onError(exception: Exception): Unit =
-                  failed(exception)
+                failed(exception)
               override def onSuccess(request: BatchGetItemRequest, result: BatchGetItemResult): Unit =
-                  complete(
+                complete(
                   new BatchGetItemResult()
-                      .withResponses(result.getResponses)
-                      .withUnprocessedKeys(toKeyMap(fromKeyMap(result.getUnprocessedKeys) ++ fail))
-                  )
+                    .withResponses(result.getResponses)
+                    .withUnprocessedKeys(toKeyMap(fromKeyMap(result.getUnprocessedKeys) ++ fail))
+                )
             }
           )
 

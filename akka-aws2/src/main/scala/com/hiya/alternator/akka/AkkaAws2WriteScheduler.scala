@@ -20,20 +20,21 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 
-/**
- * DynamoDB batched writer
- *
- * The actor waits for the maximum size of write requests (25) or maxWait time before created a batched write
- * request. If the requests fails with a retryable error the elements will be rescheduled later (using the given
- * retryPolicy). Unprocessed items are rescheduled similarly.
- *
- * The received requests are deduplicated, only the last write to the key is executed.
- */
+/** DynamoDB batched writer
+  *
+  * The actor waits for the maximum size of write requests (25) or maxWait time before created a batched write request.
+  * If the requests fails with a retryable error the elements will be rescheduled later (using the given retryPolicy).
+  * Unprocessed items are rescheduled similarly.
+  *
+  * The received requests are deduplicated, only the last write to the key is executed.
+  */
 class AkkaAws2WriteScheduler(actorRef: ActorRef[AkkaAws2WriteScheduler.BatchedRequest])(implicit scheduler: Scheduler)
   extends WriteScheduler[DynamoDbAsyncClient, Future] {
   import JdkCompat.parasitic
 
-  override def put[V, PK](table: TableLike[DynamoDbAsyncClient, V, PK], value: V)(implicit timeout: BatchTimeout): Future[Unit] = {
+  override def put[V, PK](table: TableLike[DynamoDbAsyncClient, V, PK], value: V)(implicit
+    timeout: BatchTimeout
+  ): Future[Unit] = {
     val key = table.schema.extract(value)
     val pk = table.schema.serializePK[AttributeValue](key)
     val av = table.schema.serializeValue.writeFields(value)
@@ -45,7 +46,9 @@ class AkkaAws2WriteScheduler(actorRef: ActorRef[AkkaAws2WriteScheduler.BatchedRe
       .flatMap(result => Future.fromTry { result })
   }
 
-  override def delete[V, PK](table: TableLike[DynamoDbAsyncClient, V, PK], key: PK)(implicit timeout: BatchTimeout): Future[Unit] = {
+  override def delete[V, PK](table: TableLike[DynamoDbAsyncClient, V, PK], key: PK)(implicit
+    timeout: BatchTimeout
+  ): Future[Unit] = {
     val pk = table.schema.serializePK[AttributeValue](key)
 
     actorRef
@@ -61,7 +64,9 @@ class AkkaAws2WriteScheduler(actorRef: ActorRef[AkkaAws2WriteScheduler.BatchedRe
 object AkkaAws2WriteScheduler extends BatchedWriteBehavior[JMap[String, AttributeValue], BatchWriteItemResponse] {
   import JdkCompat.CompletionStage
 
-  private class AwsClientAdapter(client: DynamoDbAsyncClient) extends Exceptions with BatchedWriteBehavior.AwsClientAdapter[JMap[String, AttributeValue], BatchWriteItemResponse] {
+  private class AwsClientAdapter(client: DynamoDbAsyncClient)
+    extends Exceptions
+    with BatchedWriteBehavior.AwsClientAdapter[JMap[String, AttributeValue], BatchWriteItemResponse] {
 
     private def isSubMapOf(small: JMap[String, AttributeValue], in: JMap[String, AttributeValue]): Boolean =
       in.entrySet().containsAll(small.entrySet())
@@ -87,19 +92,21 @@ object AkkaAws2WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
       allKeys.toList -> unprocessedKeys
     }
 
-
     override def createQuery(key: List[(PK, Option[AV])]): Future[BatchWriteItemResponse] = {
-      val request = BatchWriteItemRequest.builder()
+      val request = BatchWriteItemRequest
+        .builder()
         .requestItems(
           key
             .groupMap(_._1._1)(x => x._1._2 -> x._2)
-            .view.mapValues(_.map({
+            .view
+            .mapValues(_.map({
               case (_, Some(value)) =>
                 WriteRequest.builder().putRequest(PutRequest.builder().item(value).build()).build()
               case (key, None) =>
                 WriteRequest.builder().deleteRequest(DeleteRequest.builder().key(key).build()).build()
             }).asJavaCollection)
-            .toMap.asJava
+            .toMap
+            .asJava
         )
         .build()
 
@@ -108,10 +115,10 @@ object AkkaAws2WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
   }
 
   def behavior(
-     client: DynamoDbAsyncClient,
-     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
-     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
-     monitoring: BatchMonitoring[PK] = BatchedWriteBehavior.DEFAULT_MONITORING
+    client: DynamoDbAsyncClient,
+    maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
+    retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
+    monitoring: BatchMonitoring[PK] = BatchedWriteBehavior.DEFAULT_MONITORING
   ): Behavior[BatchedRequest] = {
     apply(
       new AwsClientAdapter(client),

@@ -16,7 +16,8 @@ object BatchMonitoring {
   object Disabled extends BatchMonitoring[Any] {
     override def register(actorName: String, behavior: SchedulerMetrics): Unit = ()
     override def retries(actorName: String, failed: List[Any]): Unit = ()
-    override def requestComplete(actorName: String, ex: Option[Throwable], keys: List[Any], durationNano: Long): Unit = ()
+    override def requestComplete(actorName: String, ex: Option[Throwable], keys: List[Any], durationNano: Long): Unit =
+      ()
     override def close(): Unit = {}
   }
 }

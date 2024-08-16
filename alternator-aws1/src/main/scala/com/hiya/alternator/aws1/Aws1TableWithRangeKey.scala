@@ -15,22 +15,28 @@ class Aws1TableWithRangeKey[V, PK, RK](val underlying: TableWithRangeLike[Amazon
   def query(pk: PK, rk: RKCondition[RK] = RKCondition.empty): model.QueryRequest = {
     val q = rk.render(
       schema.rkField,
-      RKCondition.EQ(pk)(schema.PK).render[model.AttributeValue](
-        schema.pkField,
-        RKCondition.QueryBuilder()
-      )
+      RKCondition
+        .EQ(pk)(schema.PK)
+        .render[model.AttributeValue](
+          schema.pkField,
+          RKCondition.QueryBuilder()
+        )
     )
 
-    new model.QueryRequest(tableName).withKeyConditionExpression(q.exp.mkString(" AND "))
-      .withExpressionAttributeNames(q.namesMap.zipWithIndex.map { case (name, idx) => s"#P${idx}" -> name}.toMap.asJava)
-      .withExpressionAttributeValues(q.valueMap.zipWithIndex.map { case (name, idx) => s":param${idx}" -> name}.toMap.asJava)
+    new model.QueryRequest(tableName)
+      .withKeyConditionExpression(q.exp.mkString(" AND "))
+      .withExpressionAttributeNames(
+        q.namesMap.zipWithIndex.map { case (name, idx) => s"#P${idx}" -> name }.toMap.asJava
+      )
+      .withExpressionAttributeValues(
+        q.valueMap.zipWithIndex.map { case (name, idx) => s":param${idx}" -> name }.toMap.asJava
+      )
   }
 
   final def deserialize(response: model.QueryResult): List[DynamoFormat.Result[V]] = {
     Option(response.getItems).toList.flatMap(_.asScala.toList.map(Aws1Table(underlying).deserialize))
   }
 }
-
 
 object Aws1TableWithRangeKey {
   @inline def apply[V, PK, RK](underlying: TableWithRangeLike[AmazonDynamoDBAsync, V, PK, RK]) =

@@ -11,7 +11,15 @@ trait DynamoDBValue[F[_], C] {
   def get[V, PK](table: TableLike[C, V, PK], pk: PK): F[Option[Result[V]]]
   def put[V, PK](table: TableLike[C, V, PK], item: V, condition: Option[ConditionExpression[Boolean]]): F[Boolean]
   def delete[V, PK](table: TableLike[C, V, PK], key: PK, condition: Option[ConditionExpression[Boolean]]): F[Boolean]
-  def createTable(client: C, tableName: String, hashKey: String, rangeKey: Option[String], readCapacity: Long, writeCapacity: Long, attributes: List[(String, ScalarType)]): F[Unit]
+  def createTable(
+    client: C,
+    tableName: String,
+    hashKey: String,
+    rangeKey: Option[String],
+    readCapacity: Long,
+    writeCapacity: Long,
+    attributes: List[(String, ScalarType)]
+  ): F[Unit]
   def dropTable(client: C, tableName: String): F[Unit]
   def batchGet[V, PK](table: TableLike[C, V, PK], keys: Seq[PK]): F[BatchGetItemResponse]
   def batchWrite[V, PK](table: TableLike[C, V, PK], values: Seq[Either[PK, V]]): F[BatchWriteItemResponse]
@@ -20,7 +28,6 @@ trait DynamoDBValue[F[_], C] {
 object DynamoDBValue {
   def apply[F[_], C](implicit D: DynamoDBValue[F, C]): DynamoDBValue[F, C] = D
 }
-
 
 trait DynamoDBSource[F[_], C] {
   def scan[V, PK](table: TableLike[C, V, PK], segment: Option[Segment]): F[Result[V]]

@@ -15,15 +15,22 @@ class Aws2TableWithRangeKey[V, PK, RK](val underlying: TableWithRangeLike[Dynamo
   def query(pk: PK, rk: RKCondition[RK] = RKCondition.empty): model.QueryRequest.Builder = {
     val q = rk.render(
       schema.rkField,
-      RKCondition.EQ(pk)(schema.PK).render[model.AttributeValue](
-        schema.pkField,
-        RKCondition.QueryBuilder()
-      )
+      RKCondition
+        .EQ(pk)(schema.PK)
+        .render[model.AttributeValue](
+          schema.pkField,
+          RKCondition.QueryBuilder()
+        )
     )
 
-    model.QueryRequest.builder().tableName(tableName).keyConditionExpression(q.exp.mkString(" AND "))
-      .expressionAttributeNames(q.namesMap.zipWithIndex.map { case (name, idx) => s"#P${idx}" -> name}.toMap.asJava)
-      .expressionAttributeValues(q.valueMap.zipWithIndex.map { case (name, idx) => s":param${idx}" -> name}.toMap.asJava)
+    model.QueryRequest
+      .builder()
+      .tableName(tableName)
+      .keyConditionExpression(q.exp.mkString(" AND "))
+      .expressionAttributeNames(q.namesMap.zipWithIndex.map { case (name, idx) => s"#P${idx}" -> name }.toMap.asJava)
+      .expressionAttributeValues(
+        q.valueMap.zipWithIndex.map { case (name, idx) => s":param${idx}" -> name }.toMap.asJava
+      )
   }
 
   final def deserialize(response: model.QueryResponse): List[DynamoFormat.Result[V]] = {
@@ -31,7 +38,6 @@ class Aws2TableWithRangeKey[V, PK, RK](val underlying: TableWithRangeLike[Dynamo
     else Nil
   }
 }
-
 
 object Aws2TableWithRangeKey {
   @inline def apply[V, PK, RK](underlying: TableWithRangeLike[DynamoDbAsyncClient, V, PK, RK]) =

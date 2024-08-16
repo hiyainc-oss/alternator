@@ -14,7 +14,7 @@ import scala.util.{Failure, Success}
 class BatchedWriteBehavior[AttributeValue, BatchWriteItemResponse] extends BatchedBehavior[AttributeValue] {
   override protected type Request = BatchedWriteBehavior.WriteRequest[AttributeValue]
   override type Result = Unit
-  override protected type BufferItem =  BatchedWriteBehavior.WriteBuffer[AttributeValue, Ref]
+  override protected type BufferItem = BatchedWriteBehavior.WriteBuffer[AttributeValue, Ref]
   override protected type FutureResult = BatchWriteItemResponse
 
   private class WriteBehavior(
@@ -25,12 +25,16 @@ class BatchedWriteBehavior[AttributeValue, BatchWriteItemResponse] extends Batch
   )(
     ctx: ActorContext[BatchedRequest],
     scheduler: TimerScheduler[BatchedRequest]
-  ) extends  BaseBehavior(ctx, scheduler, maxWait, retryPolicy, monitoring, 25) {
+  ) extends BaseBehavior(ctx, scheduler, maxWait, retryPolicy, monitoring, 25) {
 
     override protected def isRetryable(ex: Throwable): Boolean = client.isRetryable(ex)
     override protected def isThrottle(ex: Throwable): Boolean = client.isThrottle(ex)
 
-    protected override def sendSuccess(futureResult: BatchWriteItemResponse, keys: List[PK], buffer: Buffer): (List[PK], List[PK], Buffer) = {
+    protected override def sendSuccess(
+      futureResult: BatchWriteItemResponse,
+      keys: List[PK],
+      buffer: Buffer
+    ): (List[PK], List[PK], Buffer) = {
       val (success, failed) = client.processResult(keys, futureResult)
 
       val (buffer2, reschedule) = success.foldLeft(buffer -> List.empty[PK]) { case ((buffer, reschedule), key) =>
@@ -43,7 +47,6 @@ class BatchedWriteBehavior[AttributeValue, BatchWriteItemResponse] extends Batch
 
       (failed, reschedule, buffer2)
     }
-
 
     protected override def sendRetriesExhausted(cause: Throwable, buffer: Buffer, pk: PK, item: BufferItem): Buffer = {
       val (refs, bufferItem) = item.queue.dequeue
@@ -63,7 +66,10 @@ class BatchedWriteBehavior[AttributeValue, BatchWriteItemResponse] extends Batch
       }
     }
 
-    override protected def startJob(keys: List[PK], buffer: Buffer): (Future[BatchWriteItemResponse], List[PK], Buffer) = {
+    override protected def startJob(
+      keys: List[PK],
+      buffer: Buffer
+    ): (Future[BatchWriteItemResponse], List[PK], Buffer) = {
       // Collapse buffer: keep only the last value to write and all actorRefs
       val (buffer2, writes) = keys.foldLeft(buffer -> List.empty[(PK, Option[AV])]) { case ((buffer, writes), key) =>
         val values = buffer(key)
@@ -97,7 +103,11 @@ class BatchedWriteBehavior[AttributeValue, BatchWriteItemResponse] extends Batch
   ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>
-        new WriteBehavior(client, maxWait, retryPolicy, monitoring)(ctx, scheduler).behavior(Queue.empty, Map.empty, None)
+        new WriteBehavior(client, maxWait, retryPolicy, monitoring)(ctx, scheduler).behavior(
+          Queue.empty,
+          Map.empty,
+          None
+        )
       }
     }
 

@@ -13,9 +13,8 @@ object LocalDynamoDB {
   val configuredPort: Int =
     Option(System.getProperty("dynamoDBLocalPort")).map(_.toInt).getOrElse(DEFAULT_PORT)
 
-
-  def client[C](port: Int = configuredPort)(implicit localDynamoClient: LocalDynamoClient[C]): C = localDynamoClient.client(port)
-
+  def client[C](port: Int = configuredPort)(implicit localDynamoClient: LocalDynamoClient[C]): C =
+    localDynamoClient.client(port)
 
   def withTable[C](client: C)(tableName: String, magnet: SchemaMagnet): LocalDynamoPartial[C] =
     new LocalDynamoPartial[C](client, tableName, magnet)

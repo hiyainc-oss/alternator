@@ -29,19 +29,21 @@ class Aws1Table[V, PK](val underlying: TableLike[AmazonDynamoDBAsync, V, PK]) ex
 
   final def scan(segment: Option[Segment] = None): ScanRequest = {
     new ScanRequest(tableName)
-      .optApp(req => (segment: Segment) => {
-        req.withSegment(segment.segment).withTotalSegments(segment.totalSegments)
-      })(segment)
+      .optApp(req =>
+        (segment: Segment) => {
+          req.withSegment(segment.segment).withTotalSegments(segment.totalSegments)
+        }
+      )(segment)
   }
 
   final def batchGet(items: Seq[PK]): BatchGetItemRequest = {
     new BatchGetItemRequest(
-        Map(
-          tableName -> {
-            new KeysAndAttributes().withKeys(items.map(item => schema.serializePK(item)).asJava)
-          }
-        ).asJava
-      )
+      Map(
+        tableName -> {
+          new KeysAndAttributes().withKeys(items.map(item => schema.serializePK(item)).asJava)
+        }
+      ).asJava
+    )
   }
 
   final def put(item: V): PutItemRequest =
@@ -61,19 +63,18 @@ class Aws1Table[V, PK](val underlying: TableLike[AmazonDynamoDBAsync, V, PK]) ex
   }
 
   final def batchWrite(items: Seq[Either[PK, V]]): BatchWriteItemRequest = {
-    new BatchWriteItemRequest(
-      Map(tableName -> items.map {
-        case Left(pk) =>
-          new WriteRequest()
-            .withDeleteRequest(
-              new DeleteRequest(schema.serializePK(pk))
-            )
-        case Right(item) =>
-          new WriteRequest()
-            .withPutRequest(
-              new PutRequest(schema.serializeValue.writeFields(item))
-            )
-      }.asJava).asJava)
+    new BatchWriteItemRequest(Map(tableName -> items.map {
+      case Left(pk) =>
+        new WriteRequest()
+          .withDeleteRequest(
+            new DeleteRequest(schema.serializePK(pk))
+          )
+      case Right(item) =>
+        new WriteRequest()
+          .withPutRequest(
+            new PutRequest(schema.serializeValue.writeFields(item))
+          )
+    }.asJava).asJava)
   }
 }
 
@@ -84,10 +85,17 @@ object Aws1Table {
   def dropTable(tableName: String): DeleteTableRequest =
     new DeleteTableRequest(tableName)
 
-  def createTable(tableName: String, hashKey: String, rangeKey: Option[String], readCapacity: Long, writeCapacity: Long, attributes: List[(String, ScalarType)]): CreateTableRequest = {
+  def createTable(
+    tableName: String,
+    hashKey: String,
+    rangeKey: Option[String],
+    readCapacity: Long,
+    writeCapacity: Long,
+    attributes: List[(String, ScalarType)]
+  ): CreateTableRequest = {
     val keySchema: List[KeySchemaElement] = {
       new KeySchemaElement(hashKey, KeyType.HASH) ::
-      rangeKey.map(key => new KeySchemaElement(key, KeyType.RANGE)).toList
+        rangeKey.map(key => new KeySchemaElement(key, KeyType.RANGE)).toList
     }
 
     new CreateTableRequest(

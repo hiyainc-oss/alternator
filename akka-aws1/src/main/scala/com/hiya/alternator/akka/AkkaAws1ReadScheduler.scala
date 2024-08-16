@@ -22,21 +22,21 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 
-/**
- * DynamoDB batched reader
- *
- * The actor waits for the maximum size of read requests (100) or maxWait time before created a batched get
- * request. If the requests fails with a retryable error the elements will be rescheduled later (using the given
- * retryPolicy). Unprocessed items are rescheduled similarly.
- *
- * The received requests are deduplicated.
- *
- */
+/** DynamoDB batched reader
+  *
+  * The actor waits for the maximum size of read requests (100) or maxWait time before created a batched get request. If
+  * the requests fails with a retryable error the elements will be rescheduled later (using the given retryPolicy).
+  * Unprocessed items are rescheduled similarly.
+  *
+  * The received requests are deduplicated.
+  */
 class AkkaAws1ReadScheduler(actorRef: ActorRef[AkkaAws1ReadScheduler.BatchedRequest])(implicit scheduler: Scheduler)
   extends ReadScheduler[AmazonDynamoDBAsync, Future] {
   import JdkCompat.parasitic
 
-  override def get[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], key: PK)(implicit timeout: BatchTimeout): Future[Option[Result[V]]] = {
+  override def get[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], key: PK)(implicit
+    timeout: BatchTimeout
+  ): Future[Option[Result[V]]] = {
     actorRef
       .ask((ref: AkkaAws1ReadScheduler.Ref) =>
         AkkaAws1ReadScheduler.Req(table.tableName -> table.schema.serializePK[AttributeValue](key), ref)
@@ -50,15 +50,15 @@ class AkkaAws1ReadScheduler(actorRef: ActorRef[AkkaAws1ReadScheduler.BatchedRequ
 object AkkaAws1ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeValue], BatchGetItemResult] {
   import AkkaAws1.async
 
-  private class AwsClientAdapter(client: AmazonDynamoDBAsync) extends Exceptions with BatchedReadBehavior.AwsClientAdapter[JMap[String, AttributeValue], BatchGetItemResult] {
+  private class AwsClientAdapter(client: AmazonDynamoDBAsync)
+    extends Exceptions
+    with BatchedReadBehavior.AwsClientAdapter[JMap[String, AttributeValue], BatchGetItemResult] {
     private def isSubMapOf(small: JMap[String, AttributeValue], in: JMap[String, AttributeValue]): Boolean =
       in.entrySet().containsAll(small.entrySet())
 
     override def createQuery(key: List[PK]): Future[BatchGetItemResult] = {
       val request = new BatchGetItemRequest(
-        key.groupMap(_._1)(_._2).view.mapValues(x =>
-          new KeysAndAttributes().withKeys(x.asJava)
-        ).toMap.asJava
+        key.groupMap(_._1)(_._2).view.mapValues(x => new KeysAndAttributes().withKeys(x.asJava)).toMap.asJava
       )
 
       async(client.batchGetItemAsync(request, _: AsyncHandler[BatchGetItemRequest, BatchGetItemResult]))
@@ -89,10 +89,10 @@ object AkkaAws1ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
   }
 
   def behavior(
-     client: AmazonDynamoDBAsync,
-     maxWait: FiniteDuration = BatchedReadBehavior.DEFAULT_MAX_WAIT,
-     retryPolicy: BatchRetryPolicy = BatchedReadBehavior.DEFAULT_RETRY_POLICY,
-     monitoring: BatchMonitoring[PK] = BatchedReadBehavior.DEFAULT_MONITORING
+    client: AmazonDynamoDBAsync,
+    maxWait: FiniteDuration = BatchedReadBehavior.DEFAULT_MAX_WAIT,
+    retryPolicy: BatchRetryPolicy = BatchedReadBehavior.DEFAULT_RETRY_POLICY,
+    monitoring: BatchMonitoring[PK] = BatchedReadBehavior.DEFAULT_MONITORING
   ): Behavior[BatchedRequest] = {
     apply(
       client = new AwsClientAdapter(client),

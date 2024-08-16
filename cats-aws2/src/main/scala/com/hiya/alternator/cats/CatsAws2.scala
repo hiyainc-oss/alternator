@@ -22,7 +22,11 @@ class CatsAws2[F[_]: Async] extends DynamoDB[F, Stream[F, *], DynamoDbAsyncClien
       })
       .map(Aws2Table(table).deserialize)
 
-  override def put[V, PK](table: TableLike[DynamoDbAsyncClient, V, PK], item: V, condition: Option[ConditionExpression[Boolean]]): F[Boolean] =
+  override def put[V, PK](
+    table: TableLike[DynamoDbAsyncClient, V, PK],
+    item: V,
+    condition: Option[ConditionExpression[Boolean]]
+  ): F[Boolean] =
     condition match {
       case Some(condition) =>
         Async[F]
@@ -36,7 +40,11 @@ class CatsAws2[F[_]: Async] extends DynamoDB[F, Stream[F, *], DynamoDbAsyncClien
           .map(_ => true)
     }
 
-  override def delete[V, PK](table: TableLike[DynamoDbAsyncClient, V, PK], key: PK, condition: Option[ConditionExpression[Boolean]]): F[Boolean] =
+  override def delete[V, PK](
+    table: TableLike[DynamoDbAsyncClient, V, PK],
+    key: PK,
+    condition: Option[ConditionExpression[Boolean]]
+  ): F[Boolean] =
     condition match {
       case Some(condition) =>
         Async[F]
@@ -53,10 +61,20 @@ class CatsAws2[F[_]: Async] extends DynamoDB[F, Stream[F, *], DynamoDbAsyncClien
           .map(_ => true)
     }
 
-  override def createTable(client: DynamoDbAsyncClient, tableName: String, hashKey: String, rangeKey: Option[String], readCapacity: Long, writeCapacity: Long, attributes: List[(String, ScalarType)]): F[Unit] =
+  override def createTable(
+    client: DynamoDbAsyncClient,
+    tableName: String,
+    hashKey: String,
+    rangeKey: Option[String],
+    readCapacity: Long,
+    writeCapacity: Long,
+    attributes: List[(String, ScalarType)]
+  ): F[Unit] =
     Async[F]
       .fromCompletableFuture(Async[F].delay {
-        client.createTable(Aws2Table.createTable(tableName, hashKey, rangeKey, readCapacity, writeCapacity, attributes).build())
+        client.createTable(
+          Aws2Table.createTable(tableName, hashKey, rangeKey, readCapacity, writeCapacity, attributes).build()
+        )
       })
       .map(_ => ())
 
@@ -67,13 +85,20 @@ class CatsAws2[F[_]: Async] extends DynamoDB[F, Stream[F, *], DynamoDbAsyncClien
       })
       .map(_ => ())
 
-  override def scan[V, PK](table: TableLike[DynamoDbAsyncClient, V, PK], segment: Option[Segment]): Stream[F, Result[V]] =
+  override def scan[V, PK](
+    table: TableLike[DynamoDbAsyncClient, V, PK],
+    segment: Option[Segment]
+  ): Stream[F, Result[V]] =
     table.client
       .scanPaginator(Aws2Table(table).scan(segment).build())
       .toStreamBuffered(1)
       .flatMap(data => Stream.emits(Aws2Table(table).deserialize(data)))
 
-  override def query[V, PK, RK](table: TableWithRangeLike[DynamoDbAsyncClient, V, PK, RK], pk: PK, rk: RKCondition[RK]): Stream[F, Result[V]] =
+  override def query[V, PK, RK](
+    table: TableWithRangeLike[DynamoDbAsyncClient, V, PK, RK],
+    pk: PK,
+    rk: RKCondition[RK]
+  ): Stream[F, Result[V]] =
     table.client
       .queryPaginator(Aws2TableWithRangeKey(table).query(pk, rk).build())
       .toStreamBuffered(1)
@@ -93,7 +118,10 @@ class CatsAws2[F[_]: Async] extends DynamoDB[F, Stream[F, *], DynamoDbAsyncClien
         table.client.batchGetItem(Aws2Table(table).batchGet(keys).build())
       })
 
-  override def batchWrite[V, PK](table: TableLike[DynamoDbAsyncClient, V, PK], values: Seq[Either[PK, V]]): F[BatchWriteItemResponse] =
+  override def batchWrite[V, PK](
+    table: TableLike[DynamoDbAsyncClient, V, PK],
+    values: Seq[Either[PK, V]]
+  ): F[BatchWriteItemResponse] =
     Async[F]
       .fromCompletableFuture(Async[F].delay {
         table.client.batchWriteItem(Aws2Table(table).batchWrite(values).build())

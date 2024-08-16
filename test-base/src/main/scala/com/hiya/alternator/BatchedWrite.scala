@@ -83,7 +83,6 @@ trait BatchedWrite[ClientT, F[_], S[_]] {
       }
     }
 
-
     it("should write data") {
       val nums = 100
       val writes = 10
@@ -107,8 +106,8 @@ trait BatchedWrite[ClientT, F[_], S[_]] {
       data.size shouldBe nums
 
       forAll(data) { case (data, pt) =>
-        inside(data) {
-          case Some(Right(p)) => p shouldBe pt
+        inside(data) { case Some(Right(p)) =>
+          p shouldBe pt
         }
       }
     }

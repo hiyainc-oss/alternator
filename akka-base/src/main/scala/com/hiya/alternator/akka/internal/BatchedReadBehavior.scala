@@ -11,7 +11,6 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-
 class BatchedReadBehavior[AttributeValue, BatchGetItemResponse] extends BatchedBehavior[AttributeValue] {
   override protected type Request = PK
   override protected type BufferItem = BatchedReadBehavior.ReadBuffer[Ref]
@@ -28,7 +27,11 @@ class BatchedReadBehavior[AttributeValue, BatchGetItemResponse] extends BatchedB
     scheduler: TimerScheduler[BatchedRequest]
   ) extends BaseBehavior(ctx, scheduler, maxWait, retryPolicy, monitoring, 100) {
 
-    protected override def sendSuccess(futureResult: BatchGetItemResponse, keys: List[PK], buffer: Buffer): (List[PK], List[PK], Buffer) = {
+    protected override def sendSuccess(
+      futureResult: BatchGetItemResponse,
+      keys: List[PK],
+      buffer: Buffer
+    ): (List[PK], List[PK], Buffer) = {
       val (success, failed) = client.processResult(keys, futureResult)
 
       val buffer2 = success.foldLeft(buffer) { case (buffer, (key, result)) =>
@@ -56,7 +59,10 @@ class BatchedReadBehavior[AttributeValue, BatchGetItemResponse] extends BatchedB
       }
     }
 
-    override protected def startJob(keys: List[PK], buffer: Buffer): (Future[BatchGetItemResponse], List[PK], Buffer) = {
+    override protected def startJob(
+      keys: List[PK],
+      buffer: Buffer
+    ): (Future[BatchGetItemResponse], List[PK], Buffer) = {
       (client.createQuery(keys), keys, buffer)
     }
 
@@ -79,7 +85,11 @@ class BatchedReadBehavior[AttributeValue, BatchGetItemResponse] extends BatchedB
   ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>
-        new ReadBehavior(client, maxWait, retryPolicy, monitoring)(ctx, scheduler).behavior(Queue.empty, Map.empty, None)
+        new ReadBehavior(client, maxWait, retryPolicy, monitoring)(ctx, scheduler).behavior(
+          Queue.empty,
+          Map.empty,
+          None
+        )
       }
     }
 
@@ -98,8 +108,7 @@ object BatchedReadBehavior {
     def isThrottle(ex: Throwable): Boolean
   }
 
-  protected final case class ReadBuffer[Ref](refs: List[Ref], retries: Int)
-    extends BufferItemBase[ReadBuffer[Ref]] {
+  protected final case class ReadBuffer[Ref](refs: List[Ref], retries: Int) extends BufferItemBase[ReadBuffer[Ref]] {
     override def withRetries(retries: Int): ReadBuffer[Ref] = copy(retries = retries)
   }
 }

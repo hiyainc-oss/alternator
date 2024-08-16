@@ -98,13 +98,21 @@ object Aws2Table {
   def dropTable(tableName: String): DeleteTableRequest.Builder =
     DeleteTableRequest.builder().tableName(tableName)
 
-  def createTable(tableName: String, hashKey: String, rangeKey: Option[String], readCapacity: Long, writeCapacity: Long, attributes: List[(String, ScalarType)]): CreateTableRequest.Builder = {
+  def createTable(
+    tableName: String,
+    hashKey: String,
+    rangeKey: Option[String],
+    readCapacity: Long,
+    writeCapacity: Long,
+    attributes: List[(String, ScalarType)]
+  ): CreateTableRequest.Builder = {
     val keySchema: List[KeySchemaElement] = {
       KeySchemaElement.builder().attributeName(hashKey).keyType(KeyType.HASH).build() ::
-      rangeKey.map(key => KeySchemaElement.builder().attributeName(key).keyType(KeyType.RANGE).build()).toList
+        rangeKey.map(key => KeySchemaElement.builder().attributeName(key).keyType(KeyType.RANGE).build()).toList
     }
 
-    CreateTableRequest.builder()
+    CreateTableRequest
+      .builder()
       .tableName(tableName)
       .keySchema(keySchema.asJava)
       .attributeDefinitions(attributes.map { case (name, scalarType) =>

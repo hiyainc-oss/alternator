@@ -12,22 +12,22 @@ import java.net.URI
 import java.nio.ByteBuffer
 import java.util.{List => JList, Map => JMap, Set => JSet}
 
-
 package object aws2 {
-  implicit val aws2LocalDynamoClient: LocalDynamoClient[DynamoDbAsyncClient] = new LocalDynamoClient[DynamoDbAsyncClient] {
-    def clientConfig[B <: DynamoDbBaseClientBuilder[B, _]](builder: B, port: Int): B =
-      builder
-        .credentialsProvider(
-          StaticCredentialsProvider.create(AwsBasicCredentials.create("dummy", "credentials"))
-        )
-        .endpointOverride(URI.create(s"http://localhost:$port"))
-        .region(Region.US_EAST_1)
+  implicit val aws2LocalDynamoClient: LocalDynamoClient[DynamoDbAsyncClient] =
+    new LocalDynamoClient[DynamoDbAsyncClient] {
+      def clientConfig[B <: DynamoDbBaseClientBuilder[B, _]](builder: B, port: Int): B =
+        builder
+          .credentialsProvider(
+            StaticCredentialsProvider.create(AwsBasicCredentials.create("dummy", "credentials"))
+          )
+          .endpointOverride(URI.create(s"http://localhost:$port"))
+          .region(Region.US_EAST_1)
 
-    def client(port: Int): DynamoDbAsyncClient =
-      clientConfig(DynamoDbAsyncClient.builder, port)
-        .httpClient(NettyNioAsyncHttpClient.builder.build)
-        .build
-  }
+      def client(port: Int): DynamoDbAsyncClient =
+        clientConfig(DynamoDbAsyncClient.builder, port)
+          .httpClient(NettyNioAsyncHttpClient.builder.build)
+          .build
+    }
 
   implicit def typeOf(t: ScalarType): model.ScalarAttributeType = t match {
     case ScalarType.String => model.ScalarAttributeType.S

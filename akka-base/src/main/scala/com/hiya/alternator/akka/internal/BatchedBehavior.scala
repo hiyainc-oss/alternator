@@ -15,15 +15,13 @@ import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
-
-/**
- * States:
- * - queued: key is in the queue and in the buffer
- * - pending: key is only in the buffer
- *   - retry: there is a scheduled event to Reschedule for that key
- *   - in-progress: there is a pending aws request for that key and ClientResult or ClientFailure will be called
- */
-private [alternator] abstract class BatchedBehavior[AttributeValue] {
+/** States:
+  *   - queued: key is in the queue and in the buffer
+  *   - pending: key is only in the buffer
+  *     - retry: there is a scheduled event to Reschedule for that key
+  *     - in-progress: there is a pending aws request for that key and ClientResult or ClientFailure will be called
+  */
+private[alternator] abstract class BatchedBehavior[AttributeValue] {
   protected type Result
   protected type Request
   protected type BufferItem <: BatchedBehavior.BufferItemBase[BufferItem]
@@ -47,11 +45,11 @@ private [alternator] abstract class BatchedBehavior[AttributeValue] {
 
   @tailrec
   private def deque[T](q: Queue[T], n: Int, buffer: List[T] = List.empty): (List[T], Queue[T]) = {
-    if(n == 0) buffer -> q
+    if (n == 0) buffer -> q
     else {
       q.dequeueOption match {
-        case Some((elem, q)) => deque(q, n-1, elem::buffer)
-        case None            => buffer -> q
+        case Some((elem, q)) => deque(q, n - 1, elem :: buffer)
+        case None => buffer -> q
       }
     }
   }
@@ -139,9 +137,16 @@ private [alternator] abstract class BatchedBehavior[AttributeValue] {
     }
 
     @tailrec
-    private final def jobFailure(queue: Queue[PK], ex: Throwable, keys: List[PK], buffer: Buffer, durationNano: Long, shutdown: Option[ActorRef[Done]]): Behavior[BatchedRequest] = {
+    private final def jobFailure(
+      queue: Queue[PK],
+      ex: Throwable,
+      keys: List[PK],
+      buffer: Buffer,
+      durationNano: Long,
+      shutdown: Option[ActorRef[Done]]
+    ): Behavior[BatchedRequest] = {
       ex match {
-        case ex : CompletionException =>
+        case ex: CompletionException =>
           jobFailure(queue, ex.getCause, keys, buffer, durationNano, shutdown)
 
         case ex if isThrottle(ex) =>
@@ -161,7 +166,14 @@ private [alternator] abstract class BatchedBehavior[AttributeValue] {
     protected def isRetryable(ex: Throwable): Boolean
     protected def isThrottle(ex: Throwable): Boolean
 
-    private final def jobSuccess(queue: Queue[PK], futureResult: FutureResult, keys: List[PK], buffer: Buffer, durationNano: Long, shutdown: Option[ActorRef[Done]]): Behavior[BatchedRequest] = {
+    private final def jobSuccess(
+      queue: Queue[PK],
+      futureResult: FutureResult,
+      keys: List[PK],
+      buffer: Buffer,
+      durationNano: Long,
+      shutdown: Option[ActorRef[Done]]
+    ): Behavior[BatchedRequest] = {
       monitoring.requestComplete(name, None, keys, durationNano)
 
       val (failed, reschedule, buffer2) = sendSuccess(futureResult, keys, buffer)

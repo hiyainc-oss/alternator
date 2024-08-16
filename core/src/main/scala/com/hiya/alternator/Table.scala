@@ -22,8 +22,6 @@ object ItemMagnet {
   }
 }
 
-
-
 trait Client[DB[_], C]
 
 object Client {
@@ -75,13 +73,17 @@ abstract class TableLike[C, V, PK](
   def batchPut[F[_]](values: Seq[V])(implicit DB: DynamoDBValue[F, C]): F[DB.BatchWriteItemResponse] =
     batchWrite(values.map(Right(_)))
 
-  def batchDelete[F[_], T](keys: Seq[T])(implicit T: ItemMagnet[T, V, PK], DB: DynamoDBValue[F, C]): F[DB.BatchWriteItemResponse] =
+  def batchDelete[F[_], T](
+    keys: Seq[T]
+  )(implicit T: ItemMagnet[T, V, PK], DB: DynamoDBValue[F, C]): F[DB.BatchWriteItemResponse] =
     batchWrite(keys.map(x => Left(T.key(x)(schema))))
 
   def batchWrite[F[_]](values: Seq[Either[PK, V]])(implicit DB: DynamoDBValue[F, C]): F[DB.BatchWriteItemResponse] =
     DB.batchWrite(this, values)
 
-  def batchedGet[F[_]](key: PK)(implicit batchReader: ReadScheduler[C, F], timeout: BatchTimeout): F[Option[DynamoFormat.Result[V]]] =
+  def batchedGet[F[_]](
+    key: PK
+  )(implicit batchReader: ReadScheduler[C, F], timeout: BatchTimeout): F[Option[DynamoFormat.Result[V]]] =
     batchReader.get(this, key)
 
   def batchedPut[F[_]](value: V)(implicit batchReader: WriteScheduler[C, F], timeout: BatchTimeout): F[Unit] =
@@ -92,13 +94,16 @@ abstract class TableLike[C, V, PK](
 }
 
 abstract class TableWithRangeLike[C, V, PK, RK](c: C, name: String) extends TableLike[C, V, (PK, RK)](c, name) {
-  override def withClient[C1](client: C1): TableWithRangeLike[C1, V, PK, RK] = new TableWithRangeLike[C1, V, PK, RK](client, name) {
-    override def schema: TableSchemaWithRange.Aux[V, PK, RK] = TableWithRangeLike.this.schema
-  }
+  override def withClient[C1](client: C1): TableWithRangeLike[C1, V, PK, RK] =
+    new TableWithRangeLike[C1, V, PK, RK](client, name) {
+      override def schema: TableSchemaWithRange.Aux[V, PK, RK] = TableWithRangeLike.this.schema
+    }
 
   override def schema: TableSchemaWithRange.Aux[V, PK, RK]
 
-  def query[F[_]](pk: PK, rk: RKCondition[RK] = RKCondition.empty)(implicit DB: DynamoDBSource[F, C]): F[DynamoFormat.Result[V]] =
+  def query[F[_]](pk: PK, rk: RKCondition[RK] = RKCondition.empty)(implicit
+    DB: DynamoDBSource[F, C]
+  ): F[DynamoFormat.Result[V]] =
     DB.query(this, pk, rk)
 
 }
@@ -112,7 +117,6 @@ class TableWithRangeKey[V, PK, RK](
   name: String,
   override val schema: TableSchemaWithRange.Aux[V, PK, RK]
 ) extends TableWithRangeLike[Client.Missing, V, PK, RK](Client.Missing, name)
-
 
 final case class DynamoDBException(error: DynamoAttributeError) extends Exception(error.message)
 
@@ -131,7 +135,6 @@ object Table {
     tableSchema: TableSchemaWithRange[V]
   ): TableWithRangeKey[V, tableSchema.PK, tableSchema.RK] =
     new TableWithRangeKey[V, tableSchema.PK, tableSchema.RK](name, tableSchema)
-
 
   def create[F[_], C](
     tableName: String,
