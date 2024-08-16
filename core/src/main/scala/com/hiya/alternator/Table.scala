@@ -2,6 +2,7 @@ package com.hiya.alternator
 
 import cats.Functor
 import cats.syntax.all._
+import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema._
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
 
@@ -28,6 +29,15 @@ trait Client[DB[_], C]
 object Client {
   sealed trait Missing
   object Missing extends Missing
+}
+
+trait ReadScheduler[C, F[_]] {
+  def get[V, PK](value: TableLike[C, V, PK], key: PK)(implicit timeout: BatchTimeout): F[Option[Result[V]]]
+}
+
+trait WriteScheduler[C, F[_]] {
+  def put[V, PK](value: TableLike[C, V, PK], key: V)(implicit timeout: BatchTimeout): F[Unit]
+  def delete[V, PK](value: TableLike[C, V, PK], key: PK)(implicit timeout: BatchTimeout): F[Unit]
 }
 
 abstract class TableLike[C, V, PK](
@@ -61,12 +71,24 @@ abstract class TableLike[C, V, PK](
 
   def batchGet[F[_]](keys: Seq[PK])(implicit DB: DynamoDBValue[F, C]): F[DB.BatchGetItemResponse] =
     DB.batchGet(this, keys)
+
   def batchPut[F[_]](values: Seq[V])(implicit DB: DynamoDBValue[F, C]): F[DB.BatchWriteItemResponse] =
     batchWrite(values.map(Right(_)))
+
   def batchDelete[F[_], T](keys: Seq[T])(implicit T: ItemMagnet[T, V, PK], DB: DynamoDBValue[F, C]): F[DB.BatchWriteItemResponse] =
     batchWrite(keys.map(x => Left(T.key(x)(schema))))
+
   def batchWrite[F[_]](values: Seq[Either[PK, V]])(implicit DB: DynamoDBValue[F, C]): F[DB.BatchWriteItemResponse] =
     DB.batchWrite(this, values)
+
+  def batchedGet[F[_]](key: PK)(implicit batchReader: ReadScheduler[C, F], timeout: BatchTimeout): F[Option[DynamoFormat.Result[V]]] =
+    batchReader.get(this, key)
+
+  def batchedPut[F[_]](value: V)(implicit batchReader: WriteScheduler[C, F], timeout: BatchTimeout): F[Unit] =
+    batchReader.put(this, value)
+
+  def batchedDelete[F[_]](key: PK)(implicit batchReader: WriteScheduler[C, F], timeout: BatchTimeout): F[Unit] =
+    batchReader.delete(this, key)
 }
 
 abstract class TableWithRangeLike[C, V, PK, RK](c: C, name: String) extends TableLike[C, V, (PK, RK)](c, name) {

@@ -48,6 +48,7 @@ lazy val `test-base` = (project in file("test-base"))
   .settings(
     commonSettings,
     libraryDependencies ++= Dependencies.TestBase,
+    tpolecatExcludeOptions += ScalacOptions.warnNonUnitStatement,
     publish := {},
   )
 

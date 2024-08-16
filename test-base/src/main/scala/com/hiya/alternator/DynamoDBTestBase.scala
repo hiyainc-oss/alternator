@@ -1,14 +1,12 @@
-package com.hiya.alternator.cats
-
+package com.hiya.alternator
 
 import cats.MonadThrow
 import cats.syntax.all._
-import com.hiya.alternator.cats.util.{DataPK, DataRK}
 import com.hiya.alternator.generic.semiauto
 import com.hiya.alternator.schema.{CompoundDynamoFormat, TableSchema}
 import com.hiya.alternator.syntax._
 import com.hiya.alternator.testkit.LocalDynamoDB
-import com.hiya.alternator.{DynamoDB, Table, TableLike, TableWithRangeLike}
+import com.hiya.alternator.util.{DataPK, DataRK}
 import org.scalatest.funspec.AnyFunSpecLike
 import org.scalatest.matchers.should
 

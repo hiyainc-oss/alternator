@@ -1,4 +1,4 @@
-package com.hiya.alternator.cats.util
+package com.hiya.alternator.util
 
 import cats.Monad
 import com.hiya.alternator.schema.TableSchema

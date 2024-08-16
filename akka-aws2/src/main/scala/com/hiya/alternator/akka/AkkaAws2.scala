@@ -13,7 +13,7 @@ import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
 import scala.concurrent.Future
 
 
-class AlpakkaAws2(implicit val system: ClassicActorSystemProvider) extends DynamoDB[Future, Source[*, NotUsed], DynamoDbAsyncClient] {
+class AkkaAws2(implicit val system: ClassicActorSystemProvider) extends DynamoDB[Future, Source[*, NotUsed], DynamoDbAsyncClient] {
   import com.hiya.alternator.akka.JdkCompat._
 
   override def eval[T](f: => Future[T]): Source[T, NotUsed] = Source.lazyFuture(() => f)
@@ -81,4 +81,8 @@ class AlpakkaAws2(implicit val system: ClassicActorSystemProvider) extends Dynam
   override def batchWrite[V, PK](table: TableLike[DynamoDbAsyncClient, V, PK], values: Seq[Either[PK, V]]): Future[BatchWriteItemResponse] =
     table.client.batchWriteItem(Aws2Table(table).batchWrite(values).build()).asScala
 
+}
+
+object AkkaAws2 {
+  def apply()(implicit system: ClassicActorSystemProvider) = new AkkaAws2
 }

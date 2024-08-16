@@ -4,20 +4,19 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
 import cats.MonadThrow
-import com.hiya.alternator.DynamoDB
+import com.hiya.alternator.{DynamoDB, DynamoDBTestBase}
 import com.hiya.alternator.aws2._
-import com.hiya.alternator.cats.DynamoDBTestBase
 import com.hiya.alternator.testkit.LocalDynamoDB
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 import scala.concurrent.{Await, Future}
 
-class DynamoDBTest extends DynamoDBTestBase[Future, Source[*, NotUsed], DynamoDbAsyncClient] {
+class AkkaAws2DBTests extends DynamoDBTestBase[Future, Source[*, NotUsed], DynamoDbAsyncClient] {
   private implicit lazy val system: ActorSystem = ActorSystem()
   import system.dispatcher
 
   override protected lazy val client: DynamoDbAsyncClient = LocalDynamoDB.client()
-  override protected implicit lazy val dbr: DynamoDB[Future, Source[*, NotUsed], DynamoDbAsyncClient] = new AlpakkaAws2()
+  override protected implicit lazy val dbr: DynamoDB[Future, Source[*, NotUsed], DynamoDbAsyncClient] = new AkkaAws2()
   override protected implicit lazy val monadF: MonadThrow[Future] = cats.instances.future.catsStdInstancesForFuture
   override protected implicit lazy val monadS: MonadThrow[Source[*, NotUsed]] = new MonadThrow[Source[*, NotUsed]] {
     override def pure[A](x: A): Source[A, NotUsed] = Source.single(x)

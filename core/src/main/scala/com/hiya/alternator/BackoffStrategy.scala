@@ -1,4 +1,4 @@
-package com.hiya.alternator.akka
+package com.hiya.alternator
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration

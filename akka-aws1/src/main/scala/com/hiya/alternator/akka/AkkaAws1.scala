@@ -17,8 +17,10 @@ import java.util.concurrent.{Future => JFuture}
 import scala.concurrent.{Future, Promise}
 
 
-class AlpakkaAws1(implicit val system: ClassicActorSystemProvider) extends DynamoDB[Future, Source[*, NotUsed], AmazonDynamoDBAsync] {
+
+class AkkaAws1(implicit val system: ClassicActorSystemProvider) extends DynamoDB[Future, Source[*, NotUsed], AmazonDynamoDBAsync] {
   import com.hiya.alternator.akka.JdkCompat._
+  import AkkaAws1.async
 
   override type BatchGetItemResponse = model.BatchGetItemResult
   override type BatchWriteItemResponse = model.BatchWriteItemResult
@@ -32,18 +34,6 @@ class AlpakkaAws1(implicit val system: ClassicActorSystemProvider) extends Dynam
       }
     }
   }
-
-  private def async[Req <: AmazonWebServiceRequest, Resp](f: AsyncHandler[Req, Resp] => JFuture[Resp]): Future[Resp] = {
-    val p = Promise[Resp]()
-
-    val _ = f(new AsyncHandler[Req, Resp] {
-      override def onError(exception: Exception): Unit = p.failure(exception)
-      override def onSuccess(request: Req, result: Resp): Unit = p.success(result)
-    })
-
-    p.future
-  }
-
 
   override def get[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], pk: PK): Future[Option[Result[V]]] =
     async(table.client.getItemAsync(Aws1Table(table).get(pk), _: AsyncHandler[GetItemRequest, GetItemResult]))
@@ -132,4 +122,19 @@ class AlpakkaAws1(implicit val system: ClassicActorSystemProvider) extends Dynam
   override def batchWrite[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], values: Seq[Either[PK, V]]): Future[BatchWriteItemResult] =
     async(table.client.batchWriteItemAsync(Aws1Table(table).batchWrite(values), _: AsyncHandler[model.BatchWriteItemRequest, model.BatchWriteItemResult]))
 
+}
+
+object AkkaAws1 {
+  def apply()(implicit system: ClassicActorSystemProvider) = new AkkaAws1
+
+  private[akka] def async[Req <: AmazonWebServiceRequest, Resp](f: AsyncHandler[Req, Resp] => JFuture[Resp]): Future[Resp] = {
+    val p = Promise[Resp]()
+
+    val _ = f(new AsyncHandler[Req, Resp] {
+      override def onError(exception: Exception): Unit = p.failure(exception)
+      override def onSuccess(request: Req, result: Resp): Unit = p.success(result)
+    })
+
+    p.future
+  }
 }

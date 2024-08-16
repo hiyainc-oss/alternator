@@ -1,4 +1,4 @@
-package com.hiya.alternator.akka
+package com.hiya.alternator
 
 import scala.concurrent.duration._
 
