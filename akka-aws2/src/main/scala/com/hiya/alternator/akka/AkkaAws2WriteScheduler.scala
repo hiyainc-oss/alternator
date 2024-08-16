@@ -29,8 +29,9 @@ import scala.jdk.CollectionConverters._
   *
   * The received requests are deduplicated, only the last write to the key is executed.
   */
-class AkkaAws2WriteScheduler(actorRef: ActorRef[AkkaAws2WriteScheduler.BatchedRequest])(implicit scheduler: Scheduler)
-  extends WriteScheduler[DynamoDbAsyncClient, Future] {
+class AkkaAws2WriteScheduler(val actorRef: ActorRef[AkkaAws2WriteScheduler.BatchedRequest])(implicit
+  scheduler: Scheduler
+) extends WriteScheduler[DynamoDbAsyncClient, Future] {
   import JdkCompat.parasitic
 
   override def put[V, PK](table: TableLike[DynamoDbAsyncClient, V, PK], value: V)(implicit

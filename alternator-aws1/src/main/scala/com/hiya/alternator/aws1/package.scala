@@ -11,7 +11,7 @@ import java.util.{Collection => JCollection, List => JList, Map => JMap}
 import scala.jdk.CollectionConverters._
 
 package object aws1 {
-  implicit val aws1LocalDynamoClient: LocalDynamoClient[AmazonDynamoDBAsync] =
+  implicit val aws1LocalDynamoClient: LocalDynamoClient.Aux[AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder] =
     new LocalDynamoClient[AmazonDynamoDBAsync] {
       type Config = AmazonDynamoDBAsyncClientBuilder
 
@@ -24,7 +24,8 @@ package object aws1 {
             new EndpointConfiguration(s"http://localhost:$port", "us-east-1")
           )
 
-      override def config(port: Int): AmazonDynamoDBAsyncClientBuilder = config(AmazonDynamoDBAsyncClientBuilder.standard(), port)
+      override def config(port: Int): AmazonDynamoDBAsyncClientBuilder =
+        config(AmazonDynamoDBAsyncClientBuilder.standard(), port)
 
       override def client(port: Int): AmazonDynamoDBAsync =
         config(AmazonDynamoDBAsyncClientBuilder.standard(), port).build

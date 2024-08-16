@@ -1,15 +1,89 @@
 package com.hiya.alternator.aws1
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
+import cats.syntax.all._
 import com.amazonaws.services.dynamodbv2.model._
-import com.hiya.alternator.TableLike
+import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
 import com.hiya.alternator.syntax.{ConditionExpression, Segment}
 import com.hiya.alternator.util.OptApp
+import com.hiya.alternator.{BatchReadResult, BatchWriteResult, TableLike}
 
+import java.util
 import scala.jdk.CollectionConverters._
 
-class Aws1Table[V, PK](val underlying: TableLike[AmazonDynamoDBAsync, V, PK]) extends AnyVal {
+class Aws1BatchWrite(override val response: BatchWriteItemResult)
+  extends AnyVal
+  with BatchWriteResult[WriteRequest, BatchWriteItemResult, AttributeValue] {
+
+  override def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue] = aws1IsAttributeValues
+
+  override def unprocessed: util.Map[String, util.List[WriteRequest]] =
+    response.getUnprocessedItems
+
+  override def unprocessedAv
+    : Map[String, Vector[Either[util.Map[String, AttributeValue], util.Map[String, AttributeValue]]]] =
+    unprocessed.asScala.map { case (table, items) => table -> getAVs(items) }.toMap
+
+  private def getAVs(
+    unprocessed: java.util.List[WriteRequest]
+  ): Vector[Either[util.Map[String, AttributeValue], util.Map[String, AttributeValue]]] =
+    unprocessed.asScala.map { item =>
+      (Option(item.getPutRequest), Option(item.getDeleteRequest)) match {
+        case (None, None) => throw new IllegalStateException()
+        case (None, Some(delete)) => Left(delete.getKey)
+        case (Some(put), None) => Right(put.getItem)
+        case _ => throw new IllegalStateException()
+      }
+    }.toVector
+
+  override def unprocessedAvFor(
+    table: String
+  ): Vector[Either[util.Map[String, AttributeValue], util.Map[String, AttributeValue]]] =
+    getAVs(unprocessed.getOrDefault(table, java.util.List.of()))
+
+  override def unprocessedItems[V, PK](table: TableLike[_, V, PK]): Vector[Either[Result[PK], Result[V]]] =
+    unprocessedAvFor(table.tableName).map(_.bimap(table.schema.extract(_), Aws1Table(table).deserialize))
+}
+
+object Aws1BatchWrite {
+  def apply(response: BatchWriteItemResult): Aws1BatchWrite = new Aws1BatchWrite(response)
+}
+
+class Aws1BatchRead(
+  override val response: BatchGetItemResult
+) extends AnyVal
+  with BatchReadResult[KeysAndAttributes, BatchGetItemResult, AttributeValue] {
+  override def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue] = aws1IsAttributeValues
+
+  override def processed: util.Map[String, util.List[util.Map[String, AttributeValue]]] = response.getResponses
+
+  override def processedAv: Map[String, Vector[util.Map[String, AttributeValue]]] =
+    processed.asScala.map { case (table, items) => table -> items.asScala.toVector }.toMap
+
+  override def processedAvFor(table: String): Vector[util.Map[String, AttributeValue]] =
+    processed.getOrDefault(table, List.empty.asJava).asScala.toVector
+
+  override def processedItems[V, PK](table: TableLike[_, V, PK]): Vector[Result[V]] =
+    processedAvFor(table.tableName).map(Aws1Table(table).deserialize)
+
+  override def unprocessed: util.Map[String, KeysAndAttributes] =
+    response.getUnprocessedKeys
+
+  override def unprocessedAv: Map[String, Vector[util.Map[String, AttributeValue]]] =
+    unprocessed.asScala.map { case (table, keys) => table -> keys.getKeys.asScala.toVector }.toMap
+
+  override def unprocessedAvFor(table: String): Vector[util.Map[String, AttributeValue]] =
+    unprocessed.getOrDefault(table, new KeysAndAttributes()).getKeys.asScala.toVector
+
+  override def unprocessedKeys[V, PK](table: TableLike[_, V, PK]): Vector[Result[PK]] =
+    unprocessedAvFor(table.tableName).map(table.schema.extract(_))
+}
+
+object Aws1BatchRead {
+  def apply(response: BatchGetItemResult): Aws1BatchRead = new Aws1BatchRead(response)
+}
+
+class Aws1Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
   import underlying._
 
   final def deserialize(response: Aws1Table.AV): DynamoFormat.Result[V] = {
@@ -46,41 +120,53 @@ class Aws1Table[V, PK](val underlying: TableLike[AmazonDynamoDBAsync, V, PK]) ex
     )
   }
 
-  final def put(item: V): PutItemRequest =
-    new PutItemRequest(tableName, schema.serializeValue.writeFields(item))
+  final def put(item: V): PutItemRequest = put(item, returnOld = false)
 
-  final def put(item: V, condition: ConditionExpression[Boolean]): PutItemRequest = {
+  final def put(item: V, returnOld: Boolean): PutItemRequest = {
+    val ret = new PutItemRequest(tableName, schema.serializeValue.writeFields(item))
+    if (returnOld) ret.withReturnValues(ReturnValue.ALL_OLD) else ret.withReturnValues(ReturnValue.NONE)
+  }
+
+  final def put(item: V, condition: ConditionExpression[Boolean], returnOld: Boolean = false): PutItemRequest = {
     val renderedCondition = RenderedConditional.render(condition)
-    renderedCondition(put(item))
+    val ret = renderedCondition(put(item))
+    if (returnOld) ret.withReturnValues(ReturnValue.ALL_OLD) else ret.withReturnValues(ReturnValue.NONE)
   }
 
-  final def delete(key: PK): DeleteItemRequest =
-    new DeleteItemRequest(tableName, schema.serializePK(key))
+  final def delete(key: PK): DeleteItemRequest = delete(key, returnOld = false)
 
-  final def delete(key: PK, condition: ConditionExpression[Boolean]): DeleteItemRequest = {
+  final def delete(key: PK, returnOld: Boolean): DeleteItemRequest = {
+    val ret = new DeleteItemRequest(tableName, schema.serializePK(key))
+    if (returnOld) ret.withReturnValues(ReturnValue.ALL_OLD) else ret.withReturnValues(ReturnValue.NONE)
+  }
+
+  final def delete(key: PK, condition: ConditionExpression[Boolean], returnOld: Boolean = false): DeleteItemRequest = {
     val renderedCondition = RenderedConditional.render(condition)
-    renderedCondition(delete(key))
+    val ret = renderedCondition(delete(key))
+    if (returnOld) ret.withReturnValues(ReturnValue.ALL_OLD) else ret.withReturnValues(ReturnValue.NONE)
   }
 
-  final def batchWrite(items: Seq[Either[PK, V]]): BatchWriteItemRequest = {
-    new BatchWriteItemRequest(Map(tableName -> items.map {
-      case Left(pk) =>
-        new WriteRequest()
-          .withDeleteRequest(
-            new DeleteRequest(schema.serializePK(pk))
-          )
-      case Right(item) =>
-        new WriteRequest()
-          .withPutRequest(
-            new PutRequest(schema.serializeValue.writeFields(item))
-          )
-    }.asJava).asJava)
+  final def extractItem(item: DeleteItemResult): Option[Result[V]] = {
+    Option(item.getAttributes)
+      .filterNot(_.isEmpty)
+      .map(deserialize)
   }
+
+  final def extractItem(item: PutItemResult): Option[Result[V]] = {
+    Option(item.getAttributes)
+      .filterNot(_.isEmpty)
+      .map(deserialize)
+  }
+
+  def putRequest(value: V): PutRequest = new PutRequest().withItem(schema.serializeValue.writeFields(value))
+
+  def deleteRequest(key: PK): DeleteRequest = new DeleteRequest().withKey(schema.serializePK(key))
+
 }
 
 object Aws1Table {
   type AV = java.util.Map[String, AttributeValue]
-  @inline def apply[V, PK](underlying: TableLike[AmazonDynamoDBAsync, V, PK]) = new Aws1Table(underlying)
+  @inline def apply[V, PK](underlying: TableLike[_, V, PK]) = new Aws1Table(underlying)
 
   def dropTable(tableName: String): DeleteTableRequest =
     new DeleteTableRequest(tableName)

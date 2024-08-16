@@ -20,3 +20,5 @@ class Exceptions {
     case _ => false
   }
 }
+
+object Exceptions extends Exceptions

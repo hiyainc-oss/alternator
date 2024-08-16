@@ -20,7 +20,7 @@ object DataRK {
       ): TableConfig.Partial[F, S, C, TableWithRangeKeyLike[*, DataRK, String, String]] =
         new TableConfig.Partial[F, S, C, TableWithRangeKeyLike[*, DataRK, String, String]] {
           override def source[T](f: TableWithRangeKeyLike[C, DataRK, String, String] => S[T])(implicit
-                                                                                              dynamoDB: DynamoDB[F, S, C]
+            dynamoDB: DynamoDB[F, S, C]
           ): S[T] = {
             LocalDynamoDB.withRandomTable(client)(LocalDynamoDB.schema[DataRK]).source { tableName =>
               f(table(tableName, client))
@@ -28,8 +28,8 @@ object DataRK {
           }
 
           override def eval[T](f: TableWithRangeKeyLike[C, DataRK, String, String] => F[T])(implicit
-                                                                                            dynamoDB: DynamoDB[F, S, C],
-                                                                                            F: Monad[F]
+            dynamoDB: DynamoDB[F, S, C],
+            F: Monad[F]
           ): F[T] = {
             LocalDynamoDB.withRandomTable(client)(LocalDynamoDB.schema[DataRK]).eval { tableName =>
               f(table(tableName, client))

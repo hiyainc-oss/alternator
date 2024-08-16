@@ -15,7 +15,7 @@ import java.util.UUID
 object DynamoDBTestBase {
   case class ExampleData(pk: String, intValue: Int, stringValue: String)
   object ExampleData {
-    implicit val format: RootDynamoFormat[ExampleData] = semiauto.deriveCompound
+    implicit val format: RootDynamoFormat[ExampleData] = semiauto.derive
     implicit val schema: TableSchema.Aux[ExampleData, String] =
       TableSchema.schemaWithPK[ExampleData, String]("pk", _.pk)
   }
@@ -157,30 +157,86 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
     }
   }
 
+  describe("put") {
+    it("should work with return") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          table.putAndReturn[F](DataPK("new", 1000)).map(_ shouldBe None) >>
+            table.putAndReturn[F](DataPK("new", 1001)).map(_ shouldBe Some(Right(DataPK("new", 1000))))
+        }
+      }
+    }
+  }
+
   describe("put with condition") {
     it("should work for insert-if-not-exists") {
-      DataPK.config.withTable(client).eval { table =>
-        table.put(DataPK("new", 1000), attr("key").notExists).map(_ shouldBe true) >>
-          table.put(DataPK("new", 1000), attr("key").notExists).map(_ shouldBe false)
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          table.put(DataPK("new", 1000), attr("key").notExists).map(_ shouldBe true) >>
+            table.put(DataPK("new", 1000), attr("key").notExists).map(_ shouldBe false)
+        }
       }
     }
 
     it("should work for optimistic locking") {
-      DataPK.config.withTable(client).eval { table =>
-        table.put(DataPK("new", 1000), attr("key").notExists).map(_ shouldBe true) >>
-          table.put(DataPK("new", 1001), attr("value") === 1000).map(_ shouldBe true) >>
-          table.put(DataPK("new", 1001), attr("value") === 1000).map(_ shouldBe false)
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          table.put(DataPK("new", 1000), attr("key").notExists).map(_ shouldBe true) >>
+            table.put(DataPK("new", 1001), attr("value") === 1000).map(_ shouldBe true) >>
+            table.put(DataPK("new", 1001), attr("value") === 1000).map(_ shouldBe false)
+        }
+      }
+    }
+
+    it("should work for optimistic locking with return") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          table
+            .putAndReturn(DataPK("new", 1000), attr("key").notExists)
+            .map(_ shouldBe ConditionResult.Success(None)) >>
+            table
+              .putAndReturn(DataPK("new", 1001), attr("value") === 1000)
+              .map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("new", 1000))))) >>
+            table.putAndReturn(DataPK("new", 1001), attr("value") === 1000).map(_ shouldBe ConditionResult.Failed)
+        }
+      }
+    }
+  }
+
+  describe("delete") {
+    it("should work with return") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          table.delete[F]("new").map(_ shouldBe (())) >>
+            table.put[F](DataPK("new", 1)) >>
+            table.delete[F]("new").map(_ shouldBe (()))
+        }
       }
     }
   }
 
   describe("delete with condition") {
     it("should work with checked delete") {
-      DataPK.config.withTable(client).eval { table =>
-        table.put[F](DataPK("new", 1)) >>
-          table.delete("new", attr("value") === 2).map(_ shouldBe false) >>
-          table.delete("new", attr("value") === 1).map(_ shouldBe true) >>
-          table.delete("new", attr("value") === 1).map(_ shouldBe false)
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          table.put[F](DataPK("new", 1)) >>
+            table.delete("new", attr("value") === 2).map(_ shouldBe false) >>
+            table.delete("new", attr("value") === 1).map(_ shouldBe true) >>
+            table.delete("new", attr("value") === 1).map(_ shouldBe false)
+        }
+      }
+    }
+
+    it("should work with checked delete with return") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          table.put[F](DataPK("new", 1)) >>
+            table.deleteAndReturn("new", attr("value") === 2).map(_ shouldBe ConditionResult.Failed) >>
+            table
+              .deleteAndReturn("new", attr("value") === 1)
+              .map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("new", 1))))) >>
+            table.deleteAndReturn("new", attr("value") === 1).map(_ shouldBe ConditionResult.Failed)
+        }
       }
     }
   }
