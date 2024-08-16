@@ -1,10 +1,10 @@
 package com.hiya.alternator.generic.format
 
 import com.hiya.alternator.schema.DynamoFormat.Result
-import com.hiya.alternator.schema.{AttributeValue, CompoundDynamoFormat}
+import com.hiya.alternator.schema.{AttributeValue, RootDynamoFormat}
 import shapeless.{LabelledGeneric, Lazy}
 
-trait DerivedDynamoFormat[T] extends CompoundDynamoFormat[T]
+trait DerivedDynamoFormat[T] extends RootDynamoFormat[T]
 
 object DerivedDynamoFormat {
   implicit def deriveDecoder[A, R](implicit

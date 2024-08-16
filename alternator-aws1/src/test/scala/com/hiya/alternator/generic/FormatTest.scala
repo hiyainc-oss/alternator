@@ -3,7 +3,7 @@ package com.hiya.alternator.generic
 import com.amazonaws.services.dynamodbv2.model.AttributeValue
 import com.hiya.alternator.aws1._
 import com.hiya.alternator.schema.DynamoAttributeError.AttributeIsNull
-import com.hiya.alternator.schema.{CompoundDynamoFormat, DynamoFormat}
+import com.hiya.alternator.schema.{RootDynamoFormat, DynamoFormat}
 import org.scalatest.Assertion
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -37,8 +37,8 @@ class FormatTest extends AnyFunSpec with Matchers {
       final case class B(s: String) extends A
       final case object C extends A
 
-      implicit val b: CompoundDynamoFormat[B] = semiauto.deriveCompound[B]
-      implicit val a: CompoundDynamoFormat[A] = semiauto.deriveCompound[A]
+      implicit val b: RootDynamoFormat[B] = semiauto.deriveCompound[B]
+      implicit val a: RootDynamoFormat[A] = semiauto.deriveCompound[A]
 
       iso[A](B("asd"))
       iso[A](C)

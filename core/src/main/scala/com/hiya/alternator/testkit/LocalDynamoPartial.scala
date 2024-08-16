@@ -2,10 +2,10 @@ package com.hiya.alternator.testkit
 
 import cats.Monad
 import cats.syntax.all._
-import com.hiya.alternator.{DynamoDB, DynamoDBValue, Table}
+import com.hiya.alternator.{DynamoDB, DynamoDBItem, Table}
 
 class LocalDynamoPartial[C](client: C, tableName: String, magnet: SchemaMagnet) {
-  def eval[F[_]: Monad, T](f: String => F[T])(implicit F: DynamoDBValue[F, C]): F[T] = {
+  def eval[F[_]: Monad, T](f: String => F[T])(implicit F: DynamoDBItem[F, C]): F[T] = {
     for {
       _ <- Table.create(tableName, magnet.hashKey, magnet.rangeKey, attributes = magnet.attributes, client = client)
       ret <- f(tableName)

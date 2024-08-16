@@ -3,7 +3,7 @@ package com.hiya.alternator
 import cats.MonadThrow
 import cats.syntax.all._
 import com.hiya.alternator.generic.semiauto
-import com.hiya.alternator.schema.{CompoundDynamoFormat, TableSchema}
+import com.hiya.alternator.schema.{RootDynamoFormat, TableSchema}
 import com.hiya.alternator.syntax._
 import com.hiya.alternator.testkit.LocalDynamoDB
 import com.hiya.alternator.util.{DataPK, DataRK}
@@ -15,7 +15,7 @@ import java.util.UUID
 object DynamoDBTestBase {
   case class ExampleData(pk: String, intValue: Int, stringValue: String)
   object ExampleData {
-    implicit val format: CompoundDynamoFormat[ExampleData] = semiauto.deriveCompound
+    implicit val format: RootDynamoFormat[ExampleData] = semiauto.deriveCompound
     implicit val schema: TableSchema.Aux[ExampleData, String] =
       TableSchema.schemaWithPK[ExampleData, String]("pk", _.pk)
   }

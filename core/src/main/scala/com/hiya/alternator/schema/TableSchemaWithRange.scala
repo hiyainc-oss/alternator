@@ -3,7 +3,7 @@ package com.hiya.alternator.schema
 import com.hiya.alternator.TableWithRangeKey
 
 abstract class TableSchemaWithRange[V](
-  serializeValue: CompoundDynamoFormat[V],
+  serializeValue: RootDynamoFormat[V],
   val pkField: String,
   val rkField: String
 ) extends TableSchema[V](serializeValue) {

@@ -30,21 +30,11 @@ trait DynamoFormat[T] extends Serializable {
 object DynamoFormat
   extends DynamoFormatInstances
   with ScalarDynamoFormat.Instances
-  with CompoundDynamoFormat.Instances
+  with RootDynamoFormat.Instances
   with LowPriorityDynamoFormats {
   final def apply[T](implicit T: DynamoFormat[T]): DynamoFormat[T] = T
 
   final type Result[T] = Either[DynamoAttributeError, T]
-
-//  val NullAttributeValue: AttributeValue      = AttributeValue.builder().nul(true).build()
-//  val TrueAttributeValue: AttributeValue      = AttributeValue.builder().bool(true).build()
-//  val FalseAttributeValue: AttributeValue     = AttributeValue.builder().bool(false).build()
-//
-//  val EmptyListAttributeValue: AttributeValue =
-//    AttributeValue.builder().l(List.empty[AttributeValue].asJava).build()
-//
-//  val EmptyMapAttributeValue: AttributeValue  =
-//    AttributeValue.builder().m(Map.empty[String, AttributeValue].asJava).build()
 
   implicit def optionDynamoFormat[T: DynamoFormat]: DynamoFormat[Option[T]] =
     new DynamoFormat[Option[T]] {
@@ -79,6 +69,6 @@ object DynamoFormat
 private[alternator] trait LowPriorityDynamoFormats {
 
   final implicit def importedDynamoFormat[A](implicit
-    exported: Exported[CompoundDynamoFormat[A]]
-  ): CompoundDynamoFormat[A] = exported.instance
+    exported: Exported[RootDynamoFormat[A]]
+  ): RootDynamoFormat[A] = exported.instance
 }

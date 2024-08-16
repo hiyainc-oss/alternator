@@ -72,21 +72,6 @@ object ScalarDynamoFormat {
       override def isEmpty(value: String): Boolean = false
     }
 
-//    implicit val binaryDynamoValue: StringLikeDynamoFormat[SdkBytes] = new StringLikeDynamoFormat[SdkBytes] {
-//
-//      override def attributeType: ScalarAttributeType =
-//        ScalarAttributeType.B
-//
-//      override def read(av: AttributeValue): DynamoFormat.Result[SdkBytes] = {
-//        if(av.nul()) Right(SdkBytes.fromByteArray(Array.emptyByteArray))
-//        else Option(av.b()).fold[DynamoFormat.Result[SdkBytes]](Left(DynamoAttributeError.AttributeIsNull))(Right(_))
-//      }
-//
-//      override def write(value: SdkBytes): AttributeValue = AttributeValue.builder().b(value).build()
-//
-//      override def isEmpty(value: SdkBytes): Boolean = false
-//    }
-
     implicit val byteArray: StringLikeDynamoFormat[Array[Byte]] = new StringLikeDynamoFormat[Array[Byte]] {
       override def attributeType: ScalarType = ScalarType.Binary
 

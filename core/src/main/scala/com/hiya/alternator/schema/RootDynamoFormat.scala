@@ -8,7 +8,7 @@ import scala.collection.compat._
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-trait CompoundDynamoFormat[T] extends DynamoFormat[T] {
+trait RootDynamoFormat[T] extends DynamoFormat[T] {
   def readFields[AV: AttributeValue](av: java.util.Map[String, AV]): DynamoFormat.Result[T]
   def writeFields[AV: AttributeValue](value: T): java.util.Map[String, AV]
 
@@ -24,23 +24,23 @@ trait CompoundDynamoFormat[T] extends DynamoFormat[T] {
 
   override def isEmpty(value: T): Boolean = false
 
-  override def emap[B](f: T => Either[DynamoAttributeError, B], g: B => T): CompoundDynamoFormat[B] =
-    new CompoundDynamoFormat[B] {
+  override def emap[B](f: T => Either[DynamoAttributeError, B], g: B => T): RootDynamoFormat[B] =
+    new RootDynamoFormat[B] {
 
       override def readFields[AV: AttributeValue](av: util.Map[String, AV]): Result[B] =
-        CompoundDynamoFormat.this.readFields(av).fold(Left(_), f)
+        RootDynamoFormat.this.readFields(av).fold(Left(_), f)
 
       override def writeFields[AV: AttributeValue](value: B): util.Map[String, AV] =
-        CompoundDynamoFormat.this.writeFields(g(value))
+        RootDynamoFormat.this.writeFields(g(value))
     }
 }
 
-object CompoundDynamoFormat {
-  def apply[T](implicit T: CompoundDynamoFormat[T]): CompoundDynamoFormat[T] = T
+object RootDynamoFormat {
+  def apply[T](implicit T: RootDynamoFormat[T]): RootDynamoFormat[T] = T
 
   trait Instances {
-    implicit def mapDynamoFormat[T: DynamoFormat]: CompoundDynamoFormat[Map[String, T]] =
-      new CompoundDynamoFormat[Map[String, T]] {
+    implicit def mapDynamoFormat[T: DynamoFormat]: RootDynamoFormat[Map[String, T]] =
+      new RootDynamoFormat[Map[String, T]] {
         def traverseMap[AV](
           m: mutable.Map[String, AV],
           f: AV => DynamoFormat.Result[T]

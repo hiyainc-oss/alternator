@@ -4,7 +4,7 @@ import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.ScalarType
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
 
-trait DynamoDBValue[F[_], C] {
+trait DynamoDBItem[F[_], C] {
   type BatchGetItemResponse
   type BatchWriteItemResponse
 
@@ -25,8 +25,8 @@ trait DynamoDBValue[F[_], C] {
   def batchWrite[V, PK](table: TableLike[C, V, PK], values: Seq[Either[PK, V]]): F[BatchWriteItemResponse]
 }
 
-object DynamoDBValue {
-  def apply[F[_], C](implicit D: DynamoDBValue[F, C]): DynamoDBValue[F, C] = D
+object DynamoDBItem {
+  def apply[F[_], C](implicit D: DynamoDBItem[F, C]): DynamoDBItem[F, C] = D
 }
 
 trait DynamoDBSource[F[_], C] {
@@ -38,7 +38,7 @@ object DynamoDBSource {
   def apply[F[_], C](implicit D: DynamoDBSource[F, C]): DynamoDBSource[F, C] = D
 }
 
-trait DynamoDB[F[_], S[_], C] extends DynamoDBValue[F, C] with DynamoDBSource[S, C] {
+trait DynamoDB[F[_], S[_], C] extends DynamoDBItem[F, C] with DynamoDBSource[S, C] {
   def eval[T](f: => F[T]): S[T]
   def evalMap[A, B](in: S[A])(f: A => F[B]): S[B]
   def bracket[T, B](acquire: => F[T])(release: T => F[Unit])(s: T => S[B]): S[B]

@@ -54,7 +54,7 @@ trait DynamoFormatInstances {
 //    )
 
 //  implicit val byteArraySetDynamoFormat: DynamoFormat[Set[Array[Byte]]] =
-//    new SetDynamoFormat[Array[Byte]](
+//    new DynamoFormatInstances.SetDynamoFormat[Array[Byte]](
 //      _.bs().asScala.map(_.asByteArray()).asRight,
 //      x => AttributeValue.builder().bs(x.map(SdkBytes.fromByteArray).asJava).build()
 //    )

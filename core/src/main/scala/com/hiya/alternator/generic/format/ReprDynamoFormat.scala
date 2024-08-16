@@ -3,14 +3,14 @@ package com.hiya.alternator.generic.format
 import cats.instances.either._
 import cats.syntax.all._
 import com.hiya.alternator.schema.DynamoFormat.Result
-import com.hiya.alternator.schema.{AttributeValue, CompoundDynamoFormat, DynamoFormat}
+import com.hiya.alternator.schema.{AttributeValue, DynamoFormat, RootDynamoFormat}
 import shapeless._
 import shapeless.labelled.{FieldType, field}
 
 import java.util
 import scala.jdk.CollectionConverters._
 
-trait ReprDynamoFormat[T] extends CompoundDynamoFormat[T]
+trait ReprDynamoFormat[T] extends RootDynamoFormat[T]
 
 object ReprDynamoFormat {
   sealed trait HConsBase[T] extends ReprDynamoFormat[T] {

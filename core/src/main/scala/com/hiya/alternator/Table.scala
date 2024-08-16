@@ -49,36 +49,36 @@ abstract class TableLike[C, V, PK](
 
   def schema: TableSchema.Aux[V, PK]
 
-  def get[F[_]](pk: PK)(implicit DB: DynamoDBValue[F, C]): F[Option[DynamoFormat.Result[V]]] =
+  def get[F[_]](pk: PK)(implicit DB: DynamoDBItem[F, C]): F[Option[DynamoFormat.Result[V]]] =
     DB.get(this, pk)
 
-  def put[F[_]: Functor](value: V)(implicit DB: DynamoDBValue[F, C]): F[Unit] =
+  def put[F[_]: Functor](value: V)(implicit DB: DynamoDBItem[F, C]): F[Unit] =
     DB.put(this, value, None).map(_ => ())
 
-  def put[F[_]](value: V, condition: ConditionExpression[Boolean])(implicit DB: DynamoDBValue[F, C]): F[Boolean] =
+  def put[F[_]](value: V, condition: ConditionExpression[Boolean])(implicit DB: DynamoDBItem[F, C]): F[Boolean] =
     DB.put(this, value, condition = Some(condition))
 
-  def delete[F[_]: Functor](key: PK)(implicit DB: DynamoDBValue[F, C]): F[Unit] =
+  def delete[F[_]: Functor](key: PK)(implicit DB: DynamoDBItem[F, C]): F[Unit] =
     DB.delete(this, key, None).map(_ => ())
 
-  def delete[F[_]](key: PK, condition: ConditionExpression[Boolean])(implicit DB: DynamoDBValue[F, C]): F[Boolean] =
+  def delete[F[_]](key: PK, condition: ConditionExpression[Boolean])(implicit DB: DynamoDBItem[F, C]): F[Boolean] =
     DB.delete(this, key, Some(condition))
 
   def scan[F[_]](segment: Option[Segment] = None)(implicit DB: DynamoDBSource[F, C]): F[DynamoFormat.Result[V]] =
     DB.scan(this, segment)
 
-  def batchGet[F[_]](keys: Seq[PK])(implicit DB: DynamoDBValue[F, C]): F[DB.BatchGetItemResponse] =
+  def batchGet[F[_]](keys: Seq[PK])(implicit DB: DynamoDBItem[F, C]): F[DB.BatchGetItemResponse] =
     DB.batchGet(this, keys)
 
-  def batchPut[F[_]](values: Seq[V])(implicit DB: DynamoDBValue[F, C]): F[DB.BatchWriteItemResponse] =
+  def batchPut[F[_]](values: Seq[V])(implicit DB: DynamoDBItem[F, C]): F[DB.BatchWriteItemResponse] =
     batchWrite(values.map(Right(_)))
 
   def batchDelete[F[_], T](
     keys: Seq[T]
-  )(implicit T: ItemMagnet[T, V, PK], DB: DynamoDBValue[F, C]): F[DB.BatchWriteItemResponse] =
+  )(implicit T: ItemMagnet[T, V, PK], DB: DynamoDBItem[F, C]): F[DB.BatchWriteItemResponse] =
     batchWrite(keys.map(x => Left(T.key(x)(schema))))
 
-  def batchWrite[F[_]](values: Seq[Either[PK, V]])(implicit DB: DynamoDBValue[F, C]): F[DB.BatchWriteItemResponse] =
+  def batchWrite[F[_]](values: Seq[Either[PK, V]])(implicit DB: DynamoDBItem[F, C]): F[DB.BatchWriteItemResponse] =
     DB.batchWrite(this, values)
 
   def batchedGet[F[_]](
@@ -144,7 +144,7 @@ object Table {
     writeCapacity: Long = 1L,
     attributes: List[(String, ScalarType)] = Nil,
     client: C = Client.Missing
-  )(implicit DB: DynamoDBValue[F, C]): F[Unit] =
+  )(implicit DB: DynamoDBItem[F, C]): F[Unit] =
     DB.createTable(
       client,
       tableName,
@@ -155,6 +155,6 @@ object Table {
       attributes
     )
 
-  def drop[F[_], C](tableName: String, client: C = Client.Missing)(implicit DB: DynamoDBValue[F, C]): F[Unit] =
+  def drop[F[_], C](tableName: String, client: C = Client.Missing)(implicit DB: DynamoDBItem[F, C]): F[Unit] =
     DB.dropTable(client, tableName)
 }

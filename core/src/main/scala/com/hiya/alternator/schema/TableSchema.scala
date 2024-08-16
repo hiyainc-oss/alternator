@@ -7,7 +7,7 @@ import com.hiya.alternator.{Client, Table, TableLike}
 import java.util.{Map => JMap}
 import scala.jdk.CollectionConverters._
 
-abstract class TableSchema[V](val serializeValue: CompoundDynamoFormat[V]) {
+abstract class TableSchema[V](val serializeValue: RootDynamoFormat[V]) {
   type IndexType
 
   def serializePK[AV: AttributeValue](pk: IndexType): JMap[String, AV]
@@ -25,7 +25,7 @@ object TableSchema {
 
   def schemaWithPK[V, PK](pkField: String, extractPK: V => PK)(implicit
     PK: ScalarDynamoFormat[PK],
-    V: CompoundDynamoFormat[V]
+    V: RootDynamoFormat[V]
   ): TableSchema.Aux[V, PK] = new TableSchema[V](V) {
     override type IndexType = PK
 
@@ -42,7 +42,7 @@ object TableSchema {
   }
 
   def schemaWithRK[V, PKType, RKType](pkField: String, rkField: String, extractPK: V => (PKType, RKType))(implicit
-    V: CompoundDynamoFormat[V],
+    V: RootDynamoFormat[V],
     PKType: ScalarDynamoFormat[PKType],
     RKType: ScalarDynamoFormat[RKType]
   ): TableSchemaWithRange.Aux[V, PKType, RKType] = new TableSchemaWithRange[V](V, pkField, rkField) {
