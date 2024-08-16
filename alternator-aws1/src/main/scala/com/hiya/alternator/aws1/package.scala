@@ -7,7 +7,7 @@ import com.hiya.alternator.schema.{AttributeValue, ScalarType}
 import com.hiya.alternator.testkit.LocalDynamoClient
 
 import java.nio.ByteBuffer
-import java.util.{List => JList, Map => JMap, Set => JSet}
+import java.util.{Collection => JCollection, List => JList, Map => JMap}
 
 package object aws1 {
   implicit val aws1LocalDynamoClient: LocalDynamoClient[AmazonDynamoDBAsync] =
@@ -68,16 +68,16 @@ package object aws1 {
     override val emptyList: model.AttributeValue =
       new model.AttributeValue().withL()
 
-    override def stringSet(av: model.AttributeValue): Option[JList[String]] =
+    override def stringSet(av: model.AttributeValue): Option[JCollection[String]] =
       Option(av.getSS)
 
-    override def createStringSet(value: JSet[String]): model.AttributeValue =
+    override def createStringSet(value: JCollection[String]): model.AttributeValue =
       new model.AttributeValue().withSS(value)
 
-    override def createNumberSet(value: JSet[String]): model.AttributeValue =
+    override def createNumberSet(value: JCollection[String]): model.AttributeValue =
       new model.AttributeValue().withNS(value)
 
-    override def numberSet(av: model.AttributeValue): Option[JList[String]] =
+    override def numberSet(av: model.AttributeValue): Option[JCollection[String]] =
       Option(av.getNS)
 
     override def createBinary(value: Array[Byte]): model.AttributeValue =
@@ -91,6 +91,13 @@ package object aws1 {
 
     override def byteArray(av: model.AttributeValue): Option[Array[Byte]] =
       Option(av.getB).map(_.array())
+
+    override def createByteBufferSet(value: JCollection[ByteBuffer]): model.AttributeValue = {
+      new model.AttributeValue().withBS(value)
+    }
+
+    override def byteBufferSet(av: model.AttributeValue): Option[JCollection[ByteBuffer]] =
+      Option(av.getBS)
 
     override def numeric(av: model.AttributeValue): Option[String] =
       Option(av.getN)

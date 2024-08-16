@@ -10,7 +10,7 @@ import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbBa
 
 import java.net.URI
 import java.nio.ByteBuffer
-import java.util.{List => JList, Map => JMap, Set => JSet}
+import java.util.{Collection => JCollection, List => JList, Map => JMap}
 
 package object aws2 {
   implicit val aws2LocalDynamoClient: LocalDynamoClient[DynamoDbAsyncClient] =
@@ -72,16 +72,16 @@ package object aws2 {
     override val emptyList: model.AttributeValue =
       model.AttributeValue.fromL(JList.of())
 
-    override def stringSet(av: model.AttributeValue): Option[JList[String]] =
+    override def stringSet(av: model.AttributeValue): Option[JCollection[String]] =
       if (av.hasSs) Option(av.ss()) else None
 
-    override def createStringSet(value: JSet[String]): model.AttributeValue =
+    override def createStringSet(value: JCollection[String]): model.AttributeValue =
       model.AttributeValue.builder().ss(value).build()
 
-    override def createNumberSet(value: JSet[String]): model.AttributeValue =
+    override def createNumberSet(value: JCollection[String]): model.AttributeValue =
       model.AttributeValue.builder().ns(value).build()
 
-    override def numberSet(av: model.AttributeValue): Option[JList[String]] =
+    override def numberSet(av: model.AttributeValue): Option[JCollection[String]] =
       if (av.hasNs) Option(av.ns()) else None
 
     override def createBinary(value: Array[Byte]): model.AttributeValue =
@@ -101,6 +101,12 @@ package object aws2 {
 
     override def createNumeric(value: String): model.AttributeValue =
       model.AttributeValue.fromN(value)
+
+    override def createByteBufferSet(value: JCollection[ByteBuffer]): model.AttributeValue =
+      model.AttributeValue.builder().bs(value.stream().map(SdkBytes.fromByteBuffer).toList).build()
+
+    override def byteBufferSet(av: model.AttributeValue): Option[JList[ByteBuffer]] =
+      if (av.hasBs) Option(av.bs()).map(_.stream().map(item => item.asByteBuffer()).toList) else None
   }
 
 }

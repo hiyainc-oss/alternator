@@ -2,7 +2,9 @@ package com.hiya.alternator.schema
 
 import cats.instances.either._
 import cats.syntax.all._
+import com.hiya.alternator.schema.DynamoFormat.Result
 
+import java.nio.ByteBuffer
 import scala.collection.compat._
 import scala.jdk.CollectionConverters._
 
@@ -47,23 +49,18 @@ trait DynamoFormatInstances {
         AV.createNumberSet(value.map(_.toString).asJava)
     }
 
-//  implicit val byteSetDynamoFormat: DynamoFormat[Set[SdkBytes]] =
-//    new SetDynamoFormat[SdkBytes](
-//      _.bs().asScala.asRight,
-//      x => AttributeValue.builder().bs(x.asJava).build()
-//    )
+  implicit val byteBufferSetDynamoFormat: DynamoFormat[Set[ByteBuffer]] =
+    new DynamoFormatInstances.SetDynamoFormat[ByteBuffer] {
+      override protected def reader[AV](av: AV)(implicit AV: AttributeValue[AV]): Result[IterableOnce[ByteBuffer]] =
+        AV.byteBufferSet(av) match {
+          case Some(value) => value.asScala.asRight
+          case None => DynamoAttributeError.TypeError(av, "BS").asLeft
+        }
 
-//  implicit val byteArraySetDynamoFormat: DynamoFormat[Set[Array[Byte]]] =
-//    new DynamoFormatInstances.SetDynamoFormat[Array[Byte]](
-//      _.bs().asScala.map(_.asByteArray()).asRight,
-//      x => AttributeValue.builder().bs(x.map(SdkBytes.fromByteArray).asJava).build()
-//    )
-
-//  implicit val byteStringSetDynamoFormat: DynamoFormat[Set[ByteBuffer]] = {
-//    byteArraySetDynamoFormat.emap[Set[ByteBuffer]](
-//      {x => Right(x.map(ByteBuffer.wrap))}, {x => x.map(_.array())}
-//    )
-//  }
+      override protected def writer[AV](value: Set[ByteBuffer])(implicit AV: AttributeValue[AV]): AV = {
+        AV.createByteBufferSet(value.asJava)
+      }
+    }
 }
 
 object DynamoFormatInstances {

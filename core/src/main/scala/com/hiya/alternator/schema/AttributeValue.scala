@@ -20,16 +20,19 @@ trait AttributeValue[AV] {
   def createList(av: java.util.List[AV]): AV
   def emptyList: AV
 
-  def stringSet(av: AV): Option[java.util.List[String]]
-  def createStringSet(value: java.util.Set[String]): AV
+  def stringSet(av: AV): Option[java.util.Collection[String]]
+  def createStringSet(value: java.util.Collection[String]): AV
 
-  def createNumberSet(value: java.util.Set[String]): AV
-  def numberSet(av: AV): Option[java.util.List[String]]
+  def createNumberSet(value: java.util.Collection[String]): AV
+  def numberSet(av: AV): Option[java.util.Collection[String]]
 
   def createBinary(value: Array[Byte]): AV
   def createBinary(value: ByteBuffer): AV
   def byteBuffer(av: AV): Option[ByteBuffer]
   def byteArray(av: AV): Option[Array[Byte]]
+
+  def createByteBufferSet(value: java.util.Collection[ByteBuffer]): AV
+  def byteBufferSet(av: AV): Option[java.util.Collection[ByteBuffer]]
 
   def numeric(av: AV): Option[String]
   def createNumeric(value: String): AV
