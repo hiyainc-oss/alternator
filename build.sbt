@@ -1,5 +1,7 @@
-import org.typelevel.sbt.tpolecat._
+import org.typelevel.sbt.tpolecat.*
 import org.typelevel.scalacoptions.ScalacOptions
+
+import java.util.Objects
 
 ThisBuild / crossScalaVersions := Seq("2.13.14", "2.12.19")
 ThisBuild / scalaVersion := "2.13.14"
@@ -15,6 +17,24 @@ ThisBuild / githubRepository := "alternator"
 
 ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
 ThisBuild / githubWorkflowPublishTargetBranches := Seq(RefPredicate.StartsWith(Ref.Tag("v")))
+
+ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("17"))
+
+
+def dynamoDBPort(base: Int, name: String, scalaVersion: String): Int =
+  Math.abs(base + 31 * Objects.hash(name, scalaVersion)) % 512 + 8484
+
+def withDynamoDBLocal(base: Int = 0) = Seq(
+  dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
+  dynamoDBLocalHeapSize := Some(256),
+  dynamoDBLocalPort := dynamoDBPort(base, name.value, scalaVersion.value),
+  startDynamoDBLocal := startDynamoDBLocal.dependsOn(Test / compile).value,
+  Test / test := (Test / test).dependsOn(startDynamoDBLocal).value,
+  Test / testOnly := (Test / testOnly).dependsOn(startDynamoDBLocal).evaluated,
+  Test / testQuick := (Test / testQuick).dependsOn(startDynamoDBLocal).evaluated,
+  Test / testOptions += dynamoDBLocalTestCleanup.value,
+  Test / javaOptions += s"-DdynamoDBLocalPort=${dynamoDBPort(base, name.value, scalaVersion.value)}"
+)
 
 lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(Dependencies.MonadicFor, Dependencies.KindProjector),
@@ -89,16 +109,7 @@ lazy val `alternator-akka-aws2` = (project in file("akka-aws2"))
   .settings(
     commonSettings,
     libraryDependencies ++= Dependencies.AkkaAws2,
-    dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
-    dynamoDBLocalHeapSize := Some(256),
-    dynamoDBLocalPort := 8484,
-    (Test / javaOptions) += s"-DdynamoDBLocalPort=8484",
-    startDynamoDBLocal := startDynamoDBLocal.dependsOn(Test / compile).value,
-    Test / test := (Test / test).dependsOn(startDynamoDBLocal).value,
-    Test / testOnly := (Test / testOnly).dependsOn(startDynamoDBLocal).evaluated,
-    Test / testQuick := (Test / testQuick).dependsOn(startDynamoDBLocal).evaluated,
-    Test / testOptions += dynamoDBLocalTestCleanup.value,
-    Test / fork := true
+    withDynamoDBLocal()
   )
 
 lazy val `alternator-akka-aws1` = (project in file("akka-aws1"))
@@ -110,16 +121,7 @@ lazy val `alternator-akka-aws1` = (project in file("akka-aws1"))
   .settings(
     commonSettings,
     libraryDependencies ++= Dependencies.AkkaAws1,
-    dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
-    dynamoDBLocalHeapSize := Some(256),
-    dynamoDBLocalPort := 8485,
-    (Test / javaOptions) += s"-DdynamoDBLocalPort=8485",
-    startDynamoDBLocal := startDynamoDBLocal.dependsOn(Test / compile).value,
-    Test / test := (Test / test).dependsOn(startDynamoDBLocal).value,
-    Test / testOnly := (Test / testOnly).dependsOn(startDynamoDBLocal).evaluated,
-    Test / testQuick := (Test / testQuick).dependsOn(startDynamoDBLocal).evaluated,
-    Test / testOptions += dynamoDBLocalTestCleanup.value,
-    Test / fork := true
+    withDynamoDBLocal()
   )
 
 lazy val `alternator-cats-base` = (project in file("cats-base"))
@@ -138,16 +140,7 @@ lazy val `alternator-cats-aws2` = (project in file("cats-aws2"))
   .settings(
     commonSettings,
     libraryDependencies ++= Dependencies.CatsAws2,
-    dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
-    dynamoDBLocalHeapSize := Some(256),
-    dynamoDBLocalPort := 8486,
-    (Test / javaOptions) += s"-DdynamoDBLocalPort=8486",
-    startDynamoDBLocal := startDynamoDBLocal.dependsOn(Test / compile).value,
-    Test / test := (Test / test).dependsOn(startDynamoDBLocal).value,
-    Test / testOnly := (Test / testOnly).dependsOn(startDynamoDBLocal).evaluated,
-    Test / testQuick := (Test / testQuick).dependsOn(startDynamoDBLocal).evaluated,
-    Test / testOptions += dynamoDBLocalTestCleanup.value,
-    Test / fork := true
+    withDynamoDBLocal()
   )
 
 lazy val `alternator-cats-aws1` = (project in file("cats-aws1"))
@@ -159,16 +152,7 @@ lazy val `alternator-cats-aws1` = (project in file("cats-aws1"))
   .settings(
     commonSettings,
     libraryDependencies ++= Dependencies.CatsAws1,
-    dynamoDBLocalDownloadUrl := Some("https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz"),
-    dynamoDBLocalHeapSize := Some(256),
-    dynamoDBLocalPort := 8487,
-    (Test / javaOptions) += s"-DdynamoDBLocalPort=8487",
-    startDynamoDBLocal := startDynamoDBLocal.dependsOn(Test / compile).value,
-    Test / test := (Test / test).dependsOn(startDynamoDBLocal).value,
-    Test / testOnly := (Test / testOnly).dependsOn(startDynamoDBLocal).evaluated,
-    Test / testQuick := (Test / testQuick).dependsOn(startDynamoDBLocal).evaluated,
-    Test / testOptions += dynamoDBLocalTestCleanup.value,
-    Test / fork := true
+    withDynamoDBLocal()
   )
 
 lazy val `tests` = project in file("tests")
