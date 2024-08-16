@@ -32,12 +32,12 @@ object Client {
 }
 
 trait ReadScheduler[C, F[_]] {
-  def get[V, PK](value: TableLike[C, V, PK], key: PK)(implicit timeout: BatchTimeout): F[Option[Result[V]]]
+  def get[V, PK](table: TableLike[C, V, PK], key: PK)(implicit timeout: BatchTimeout): F[Option[Result[V]]]
 }
 
 trait WriteScheduler[C, F[_]] {
-  def put[V, PK](value: TableLike[C, V, PK], key: V)(implicit timeout: BatchTimeout): F[Unit]
-  def delete[V, PK](value: TableLike[C, V, PK], key: PK)(implicit timeout: BatchTimeout): F[Unit]
+  def put[V, PK](table: TableLike[C, V, PK], value: V)(implicit timeout: BatchTimeout): F[Unit]
+  def delete[V, PK](table: TableLike[C, V, PK], key: PK)(implicit timeout: BatchTimeout): F[Unit]
 }
 
 abstract class TableLike[C, V, PK](
