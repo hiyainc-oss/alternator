@@ -53,12 +53,12 @@ trait DynamoFormatInstances {
     new DynamoFormatInstances.SetDynamoFormat[ByteBuffer] {
       override protected def reader[AV](av: AV)(implicit AV: AttributeValue[AV]): Result[IterableOnce[ByteBuffer]] =
         AV.byteBufferSet(av) match {
-          case Some(value) => value.asScala.asRight
+          case Some(value) => value.asRight
           case None => DynamoAttributeError.TypeError(av, "BS").asLeft
         }
 
       override protected def writer[AV](value: Set[ByteBuffer])(implicit AV: AttributeValue[AV]): AV = {
-        AV.createByteBufferSet(value.asJava)
+        AV.createByteBufferSet(value)
       }
     }
 }

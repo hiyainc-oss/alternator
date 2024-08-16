@@ -5,7 +5,6 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import com.hiya.alternator.BatchedException.RetriesExhausted
 import com.hiya.alternator.{BatchMonitoring, BatchRetryPolicy}
 
-import scala.collection.compat._
 import scala.collection.immutable.Queue
 import scala.concurrent.Future
 import scala.concurrent.duration._

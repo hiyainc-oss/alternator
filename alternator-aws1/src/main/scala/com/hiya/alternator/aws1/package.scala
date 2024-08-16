@@ -8,6 +8,7 @@ import com.hiya.alternator.testkit.LocalDynamoClient
 
 import java.nio.ByteBuffer
 import java.util.{Collection => JCollection, List => JList, Map => JMap}
+import scala.jdk.CollectionConverters._
 
 package object aws1 {
   implicit val aws1LocalDynamoClient: LocalDynamoClient[AmazonDynamoDBAsync] =
@@ -92,12 +93,11 @@ package object aws1 {
     override def byteArray(av: model.AttributeValue): Option[Array[Byte]] =
       Option(av.getB).map(_.array())
 
-    override def createByteBufferSet(value: JCollection[ByteBuffer]): model.AttributeValue = {
-      new model.AttributeValue().withBS(value)
-    }
+    override def createByteBufferSet(value: scala.Iterable[ByteBuffer]): model.AttributeValue =
+      new model.AttributeValue().withBS(value.asJavaCollection)
 
-    override def byteBufferSet(av: model.AttributeValue): Option[JCollection[ByteBuffer]] =
-      Option(av.getBS)
+    override def byteBufferSet(av: model.AttributeValue): Option[Iterable[ByteBuffer]] =
+      Option(av.getBS).map(_.asScala.view)
 
     override def numeric(av: model.AttributeValue): Option[String] =
       Option(av.getN)

@@ -31,8 +31,8 @@ trait AttributeValue[AV] {
   def byteBuffer(av: AV): Option[ByteBuffer]
   def byteArray(av: AV): Option[Array[Byte]]
 
-  def createByteBufferSet(value: java.util.Collection[ByteBuffer]): AV
-  def byteBufferSet(av: AV): Option[java.util.Collection[ByteBuffer]]
+  def createByteBufferSet(value: Iterable[ByteBuffer]): AV
+  def byteBufferSet(av: AV): Option[Iterable[ByteBuffer]]
 
   def numeric(av: AV): Option[String]
   def createNumeric(value: String): AV

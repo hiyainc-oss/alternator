@@ -11,6 +11,8 @@ import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbBa
 import java.net.URI
 import java.nio.ByteBuffer
 import java.util.{Collection => JCollection, List => JList, Map => JMap}
+import scala.jdk.CollectionConverters._
+
 
 package object aws2 {
   implicit val aws2LocalDynamoClient: LocalDynamoClient[DynamoDbAsyncClient] =
@@ -102,11 +104,11 @@ package object aws2 {
     override def createNumeric(value: String): model.AttributeValue =
       model.AttributeValue.fromN(value)
 
-    override def createByteBufferSet(value: JCollection[ByteBuffer]): model.AttributeValue =
-      model.AttributeValue.builder().bs(value.stream().map(SdkBytes.fromByteBuffer).toList).build()
+    override def createByteBufferSet(value: Iterable[ByteBuffer]): model.AttributeValue =
+      model.AttributeValue.builder().bs(value.view.map(SdkBytes.fromByteBuffer).asJavaCollection).build()
 
-    override def byteBufferSet(av: model.AttributeValue): Option[JList[ByteBuffer]] =
-      if (av.hasBs) Option(av.bs()).map(_.stream().map(item => item.asByteBuffer()).toList) else None
+    override def byteBufferSet(av: model.AttributeValue): Option[Iterable[ByteBuffer]] =
+      if (av.hasBs) Option(av.bs()).map(_.asScala.map(_.asByteBuffer())) else None
   }
 
 }
