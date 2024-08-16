@@ -1,6 +1,6 @@
 package com.hiya.alternator
 
-import cats.MonadThrow
+import cats.{Id, MonadThrow}
 import cats.syntax.all._
 import com.hiya.alternator.util.TableConfig
 import org.scalatest.funspec.AnyFunSpecLike
@@ -26,7 +26,7 @@ trait BatchedRead[ClientT, F[_], S[_]] {
 
   protected implicit val timeout: BatchTimeout = BatchTimeout(10.seconds)
 
-  protected object monitoring extends BatchMonitoring[Any] {
+  protected object monitoring extends BatchMonitoring[Id, Any] {
     private var inflightF: () => Int = _
     private var queueSizeF: () => Int = _
     var retries = 0
@@ -35,7 +35,7 @@ trait BatchedRead[ClientT, F[_], S[_]] {
     def inflight(): Int = inflightF()
     def queueSize(): Int = queueSizeF()
 
-    override def register(actorName: String, behavior: SchedulerMetrics): Unit = {
+    override def register(actorName: String, behavior: SchedulerMetrics[Id]): Unit = {
       inflightF = () => behavior.inflight
       queueSizeF = () => behavior.queueSize
     }

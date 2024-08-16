@@ -3,6 +3,7 @@ package com.hiya.alternator.akka.internal
 import akka.Done
 import akka.actor.typed.scaladsl._
 import akka.actor.typed.{ActorRef, Behavior}
+import cats.Id
 import com.hiya.alternator.BatchedException.Unprocessed
 import com.hiya.alternator.{BatchMonitoring, BatchRetryPolicy, SchedulerMetrics}
 
@@ -59,9 +60,9 @@ private[alternator] abstract class BatchedBehavior[AttributeValue] {
     timer: TimerScheduler[BatchedRequest],
     maxWait: FiniteDuration,
     retryPolicy: BatchRetryPolicy,
-    monitoring: BatchMonitoring[PK],
+    monitoring: BatchMonitoring[Id, PK],
     maxQueued: Int
-  ) extends SchedulerMetrics {
+  ) extends SchedulerMetrics[Id] {
     private val name = ctx.self.path.name
     private val atomicQueueSize = new AtomicInteger()
     private val atomicInflightCount = new AtomicInteger()

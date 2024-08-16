@@ -6,6 +6,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.{ActorRef, Behavior, Scheduler}
 import akka.actor.{ActorSystem, CoordinatedShutdown}
 import akka.util.Timeout
+import cats.Id
 import com.hiya.alternator._
 import com.hiya.alternator.akka.internal.BatchedReadBehavior
 import com.hiya.alternator.aws2._
@@ -93,7 +94,7 @@ object AkkaAws2ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
     client: DynamoDbAsyncClient,
     maxWait: FiniteDuration = BatchedReadBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedReadBehavior.DEFAULT_RETRY_POLICY,
-    monitoring: BatchMonitoring[PK] = BatchedReadBehavior.DEFAULT_MONITORING
+    monitoring: BatchMonitoring[Id, PK] = BatchedReadBehavior.DEFAULT_MONITORING
   ): Behavior[BatchedRequest] = {
     apply(
       client = new AwsClientAdapter(client),
@@ -113,7 +114,7 @@ object AkkaAws2ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
     shutdownTimeout: FiniteDuration = 60.seconds,
     maxWait: FiniteDuration = BatchedReadBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedReadBehavior.DEFAULT_RETRY_POLICY,
-    monitoring: BatchMonitoring[PK] = BatchedReadBehavior.DEFAULT_MONITORING
+    monitoring: BatchMonitoring[Id, PK] = BatchedReadBehavior.DEFAULT_MONITORING
   )(implicit system: ActorSystem): AkkaAws2ReadScheduler = {
     implicit val scheduler: Scheduler = system.scheduler.toTyped
     val ret = apply(system.spawn(behavior(client, maxWait, retryPolicy, monitoring), name))

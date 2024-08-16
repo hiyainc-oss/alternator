@@ -6,16 +6,10 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.{ActorRef, Behavior, Scheduler}
 import akka.actor.{ActorSystem, CoordinatedShutdown}
 import akka.util.Timeout
+import cats.Id
 import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
-import com.amazonaws.services.dynamodbv2.model.{
-  AttributeValue,
-  BatchWriteItemRequest,
-  BatchWriteItemResult,
-  DeleteRequest,
-  PutRequest,
-  WriteRequest
-}
+import com.amazonaws.services.dynamodbv2.model.{AttributeValue, BatchWriteItemRequest, BatchWriteItemResult, DeleteRequest, PutRequest, WriteRequest}
 import com.hiya.alternator._
 import com.hiya.alternator.akka.AkkaAws1.async
 import com.hiya.alternator.akka.internal.BatchedWriteBehavior
@@ -128,7 +122,7 @@ object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
     client: AmazonDynamoDBAsync,
     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
-    monitoring: BatchMonitoring[PK] = BatchedWriteBehavior.DEFAULT_MONITORING
+    monitoring: BatchMonitoring[Id, PK] = BatchedWriteBehavior.DEFAULT_MONITORING
   ): Behavior[BatchedRequest] = {
     apply(
       new AwsClientAdapter(client),
@@ -148,7 +142,7 @@ object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
     shutdownTimeout: FiniteDuration = 60.seconds,
     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
-    monitoring: BatchMonitoring[PK] = BatchedWriteBehavior.DEFAULT_MONITORING
+    monitoring: BatchMonitoring[Id, PK] = BatchedWriteBehavior.DEFAULT_MONITORING
   )(implicit system: ActorSystem): AkkaAws1WriteScheduler = {
     implicit val scheduler: Scheduler = system.scheduler.toTyped
     val ret = apply(system.spawn(behavior(client, maxWait, retryPolicy, monitoring), name))

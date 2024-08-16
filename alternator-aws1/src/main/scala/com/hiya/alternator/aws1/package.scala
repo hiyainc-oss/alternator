@@ -13,7 +13,9 @@ import scala.jdk.CollectionConverters._
 package object aws1 {
   implicit val aws1LocalDynamoClient: LocalDynamoClient[AmazonDynamoDBAsync] =
     new LocalDynamoClient[AmazonDynamoDBAsync] {
-      def clientConfig(builder: AmazonDynamoDBAsyncClientBuilder, port: Int): AmazonDynamoDBAsyncClientBuilder =
+      type Config = AmazonDynamoDBAsyncClientBuilder
+
+      def config(builder: AmazonDynamoDBAsyncClientBuilder, port: Int): AmazonDynamoDBAsyncClientBuilder =
         builder
           .withCredentials(
             new AWSStaticCredentialsProvider(new BasicAWSCredentials("dummy", "credentials"))
@@ -22,8 +24,10 @@ package object aws1 {
             new EndpointConfiguration(s"http://localhost:$port", "us-east-1")
           )
 
-      def client(port: Int): AmazonDynamoDBAsync =
-        clientConfig(AmazonDynamoDBAsyncClientBuilder.standard(), port).build
+      override def config(port: Int): AmazonDynamoDBAsyncClientBuilder = config(AmazonDynamoDBAsyncClientBuilder.standard(), port)
+
+      override def client(port: Int): AmazonDynamoDBAsync =
+        config(AmazonDynamoDBAsyncClientBuilder.standard(), port).build
     }
 
   implicit def typeOf(t: ScalarType): model.ScalarAttributeType = t match {

@@ -6,7 +6,7 @@ import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCrede
 import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient
 import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbBaseClientBuilder, model}
+import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbAsyncClientBuilder, DynamoDbBaseClientBuilder, model}
 
 import java.net.URI
 import java.nio.ByteBuffer
@@ -17,7 +17,9 @@ import scala.jdk.CollectionConverters._
 package object aws2 {
   implicit val aws2LocalDynamoClient: LocalDynamoClient[DynamoDbAsyncClient] =
     new LocalDynamoClient[DynamoDbAsyncClient] {
-      def clientConfig[B <: DynamoDbBaseClientBuilder[B, _]](builder: B, port: Int): B =
+      type Config = DynamoDbAsyncClientBuilder
+
+      def config[B <: DynamoDbBaseClientBuilder[B, _]](builder: B, port: Int): B =
         builder
           .credentialsProvider(
             StaticCredentialsProvider.create(AwsBasicCredentials.create("dummy", "credentials"))
@@ -25,8 +27,11 @@ package object aws2 {
           .endpointOverride(URI.create(s"http://localhost:$port"))
           .region(Region.US_EAST_1)
 
-      def client(port: Int): DynamoDbAsyncClient =
-        clientConfig(DynamoDbAsyncClient.builder, port)
+      override def config(port: Int): DynamoDbAsyncClientBuilder =
+        config(DynamoDbAsyncClient.builder, port)
+
+      override def client(port: Int): DynamoDbAsyncClient =
+        config(port)
           .httpClient(NettyNioAsyncHttpClient.builder.build)
           .build
     }

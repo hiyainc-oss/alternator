@@ -1,13 +1,13 @@
 package com.hiya.alternator.aws1
 
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, model}
-import com.hiya.alternator.TableWithRangeLike
+import com.hiya.alternator.TableWithRangeKeyLike
 import com.hiya.alternator.schema.DynamoFormat
 import com.hiya.alternator.syntax.RKCondition
 
 import scala.jdk.CollectionConverters._
 
-class Aws1TableWithRangeKey[V, PK, RK](val underlying: TableWithRangeLike[AmazonDynamoDBAsync, V, PK, RK])
+class Aws1TableWithRangeKey[V, PK, RK](val underlying: TableWithRangeKeyLike[AmazonDynamoDBAsync, V, PK, RK])
   extends AnyVal {
 
   import underlying._
@@ -39,6 +39,6 @@ class Aws1TableWithRangeKey[V, PK, RK](val underlying: TableWithRangeLike[Amazon
 }
 
 object Aws1TableWithRangeKey {
-  @inline def apply[V, PK, RK](underlying: TableWithRangeLike[AmazonDynamoDBAsync, V, PK, RK]) =
+  @inline def apply[V, PK, RK](underlying: TableWithRangeKeyLike[AmazonDynamoDBAsync, V, PK, RK]) =
     new Aws1TableWithRangeKey(underlying)
 }

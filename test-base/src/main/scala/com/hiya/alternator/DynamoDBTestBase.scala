@@ -65,7 +65,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
       num: Int,
       payload: Option[String] = None
     )(
-      f: TableWithRangeLike[C, DataRK, String, String] => S[T]
+      f: TableWithRangeKeyLike[C, DataRK, String, String] => S[T]
     ): List[T] =
       eval {
         list {

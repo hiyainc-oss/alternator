@@ -28,7 +28,7 @@ import com.hiya.alternator.aws1.{Aws1Table, Aws1TableWithRangeKey}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.ScalarType
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
-import com.hiya.alternator.{DynamoDB, TableLike, TableWithRangeLike}
+import com.hiya.alternator.{DynamoDB, TableLike, TableWithRangeKeyLike}
 import fs2.Stream
 
 import java.util.concurrent.{Future => JFuture}
@@ -156,9 +156,9 @@ class CatsAws1[F[_]: Async] extends DynamoDB[F, Stream[F, *], AmazonDynamoDBAsyn
   }
 
   override def query[V, PK, RK](
-    table: TableWithRangeLike[AmazonDynamoDBAsync, V, PK, RK],
-    pk: PK,
-    rk: RKCondition[RK]
+                                 table: TableWithRangeKeyLike[AmazonDynamoDBAsync, V, PK, RK],
+                                 pk: PK,
+                                 rk: RKCondition[RK]
   ): Stream[F, Result[V]] =
     queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk))
       .flatMap { data => fs2.Stream.emits(Aws1TableWithRangeKey(table).deserialize(data)) }

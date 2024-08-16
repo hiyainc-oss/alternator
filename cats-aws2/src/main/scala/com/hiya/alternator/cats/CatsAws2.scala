@@ -6,7 +6,7 @@ import com.hiya.alternator.aws2.{Aws2Table, Aws2TableWithRangeKey}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.ScalarType
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
-import com.hiya.alternator.{DynamoDB, TableLike, TableWithRangeLike}
+import com.hiya.alternator.{DynamoDB, TableLike, TableWithRangeKeyLike}
 import fs2.Stream
 import fs2.interop.reactivestreams.PublisherOps
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
@@ -95,9 +95,9 @@ class CatsAws2[F[_]: Async] extends DynamoDB[F, Stream[F, *], DynamoDbAsyncClien
       .flatMap(data => Stream.emits(Aws2Table(table).deserialize(data)))
 
   override def query[V, PK, RK](
-    table: TableWithRangeLike[DynamoDbAsyncClient, V, PK, RK],
-    pk: PK,
-    rk: RKCondition[RK]
+                                 table: TableWithRangeKeyLike[DynamoDbAsyncClient, V, PK, RK],
+                                 pk: PK,
+                                 rk: RKCondition[RK]
   ): Stream[F, Result[V]] =
     table.client
       .queryPaginator(Aws2TableWithRangeKey(table).query(pk, rk).build())

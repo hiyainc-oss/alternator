@@ -1,13 +1,13 @@
 package com.hiya.alternator.aws2
 
-import com.hiya.alternator.TableWithRangeLike
+import com.hiya.alternator.TableWithRangeKeyLike
 import com.hiya.alternator.schema.DynamoFormat
 import com.hiya.alternator.syntax.RKCondition
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
 
 import scala.jdk.CollectionConverters._
 
-class Aws2TableWithRangeKey[V, PK, RK](val underlying: TableWithRangeLike[DynamoDbAsyncClient, V, PK, RK])
+class Aws2TableWithRangeKey[V, PK, RK](val underlying: TableWithRangeKeyLike[DynamoDbAsyncClient, V, PK, RK])
   extends AnyVal {
 
   import underlying._
@@ -40,6 +40,6 @@ class Aws2TableWithRangeKey[V, PK, RK](val underlying: TableWithRangeLike[Dynamo
 }
 
 object Aws2TableWithRangeKey {
-  @inline def apply[V, PK, RK](underlying: TableWithRangeLike[DynamoDbAsyncClient, V, PK, RK]) =
+  @inline def apply[V, PK, RK](underlying: TableWithRangeKeyLike[DynamoDbAsyncClient, V, PK, RK]) =
     new Aws2TableWithRangeKey(underlying)
 }

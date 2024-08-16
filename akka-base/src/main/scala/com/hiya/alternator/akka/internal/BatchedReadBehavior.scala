@@ -2,6 +2,7 @@ package com.hiya.alternator.akka.internal
 
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
+import cats.Id
 import com.hiya.alternator.BatchedException.RetriesExhausted
 import com.hiya.alternator.akka.internal.BatchedBehavior.BufferItemBase
 import com.hiya.alternator.{BatchMonitoring, BatchRetryPolicy}
@@ -21,7 +22,7 @@ class BatchedReadBehavior[AttributeValue, BatchGetItemResponse] extends BatchedB
     client: BatchedReadBehavior.AwsClientAdapter[AV, FutureResult],
     maxWait: FiniteDuration,
     retryPolicy: BatchRetryPolicy,
-    monitoring: BatchMonitoring[PK]
+    monitoring: BatchMonitoring[Id, PK]
   )(
     ctx: ActorContext[BatchedRequest],
     scheduler: TimerScheduler[BatchedRequest]
@@ -81,7 +82,7 @@ class BatchedReadBehavior[AttributeValue, BatchGetItemResponse] extends BatchedB
     client: BatchedReadBehavior.AwsClientAdapter[AV, BatchGetItemResponse],
     maxWait: FiniteDuration,
     retryPolicy: BatchRetryPolicy,
-    monitoring: BatchMonitoring[PK]
+    monitoring: BatchMonitoring[Id, PK]
   ): Behavior[BatchedRequest] =
     Behaviors.setup { ctx =>
       Behaviors.withTimers { scheduler =>
@@ -98,7 +99,7 @@ class BatchedReadBehavior[AttributeValue, BatchGetItemResponse] extends BatchedB
 object BatchedReadBehavior {
   val DEFAULT_MAX_WAIT: FiniteDuration = 5.millis
   val DEFAULT_RETRY_POLICY: BatchRetryPolicy = BatchRetryPolicy.DefaultBatchRetryPolicy()
-  val DEFAULT_MONITORING: BatchMonitoring[Any] = BatchMonitoring.Disabled
+  val DEFAULT_MONITORING: BatchMonitoring[Id, Any] = new BatchMonitoring.Disabled[Id]
 
   trait AwsClientAdapter[AV, FutureResult] {
     private final type PK = (String, AV)

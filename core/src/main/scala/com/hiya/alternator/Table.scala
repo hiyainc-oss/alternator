@@ -93,10 +93,10 @@ abstract class TableLike[C, V, PK](
     batchReader.delete(this, key)
 }
 
-abstract class TableWithRangeLike[C, V, PK, RK](c: C, name: String) extends TableLike[C, V, (PK, RK)](c, name) {
-  override def withClient[C1](client: C1): TableWithRangeLike[C1, V, PK, RK] =
-    new TableWithRangeLike[C1, V, PK, RK](client, name) {
-      override def schema: TableSchemaWithRange.Aux[V, PK, RK] = TableWithRangeLike.this.schema
+abstract class TableWithRangeKeyLike[C, V, PK, RK](c: C, name: String) extends TableLike[C, V, (PK, RK)](c, name) {
+  override def withClient[C1](client: C1): TableWithRangeKeyLike[C1, V, PK, RK] =
+    new TableWithRangeKeyLike[C1, V, PK, RK](client, name) {
+      override def schema: TableSchemaWithRange.Aux[V, PK, RK] = TableWithRangeKeyLike.this.schema
     }
 
   override def schema: TableSchemaWithRange.Aux[V, PK, RK]
@@ -116,7 +116,7 @@ class Table[V, PK](
 class TableWithRangeKey[V, PK, RK](
   name: String,
   override val schema: TableSchemaWithRange.Aux[V, PK, RK]
-) extends TableWithRangeLike[Client.Missing, V, PK, RK](Client.Missing, name)
+) extends TableWithRangeKeyLike[Client.Missing, V, PK, RK](Client.Missing, name)
 
 final case class DynamoDBException(error: DynamoAttributeError) extends Exception(error.message)
 

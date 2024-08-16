@@ -11,7 +11,7 @@ import com.hiya.alternator.aws1.{Aws1Table, Aws1TableWithRangeKey}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.ScalarType
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
-import com.hiya.alternator.{DynamoDB, TableLike, TableWithRangeLike}
+import com.hiya.alternator.{DynamoDB, TableLike, TableWithRangeKeyLike}
 
 import java.util.concurrent.{Future => JFuture}
 import scala.concurrent.{Future, Promise}
@@ -150,9 +150,9 @@ class AkkaAws1(implicit val system: ClassicActorSystemProvider)
   }
 
   override def query[V, PK, RK](
-    table: TableWithRangeLike[AmazonDynamoDBAsync, V, PK, RK],
-    pk: PK,
-    rk: RKCondition[RK]
+                                 table: TableWithRangeKeyLike[AmazonDynamoDBAsync, V, PK, RK],
+                                 pk: PK,
+                                 rk: RKCondition[RK]
   ): Source[Result[V], NotUsed] =
     queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk))
       .mapConcat { data => Aws1TableWithRangeKey(table).deserialize(data) }
