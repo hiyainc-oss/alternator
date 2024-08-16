@@ -25,12 +25,12 @@ class FormatTest extends AnyFunSpec with Matchers {
 
     it("should derive a case class") {
       final case class Test(a: String)
-      iso(Test("asd"))(semiauto.deriveCompound[Test])
+      iso(Test("asd"))(semiauto.derive[Test])
     }
 
     it("should derive a case class [int]") {
       final case class Test(a: Int)
-      iso(Test(1))(semiauto.deriveCompound[Test])
+      iso(Test(1))(semiauto.derive[Test])
     }
 
     it("should derive a sealed trait") {
@@ -38,8 +38,8 @@ class FormatTest extends AnyFunSpec with Matchers {
       final case class B(s: String) extends A
       final case object C extends A
 
-      implicit val b: RootDynamoFormat[B] = semiauto.deriveCompound[B]
-      implicit val a: RootDynamoFormat[A] = semiauto.deriveCompound[A]
+      implicit val b: RootDynamoFormat[B] = semiauto.derive[B]
+      implicit val a: RootDynamoFormat[A] = semiauto.derive[A]
 
       iso[A](B("asd"))
       iso[A](C)

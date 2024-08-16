@@ -6,16 +6,20 @@ import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCrede
 import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient
 import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbAsyncClientBuilder, DynamoDbBaseClientBuilder, model}
+import software.amazon.awssdk.services.dynamodb.{
+  DynamoDbAsyncClient,
+  DynamoDbAsyncClientBuilder,
+  DynamoDbBaseClientBuilder,
+  model
+}
 
 import java.net.URI
 import java.nio.ByteBuffer
 import java.util.{Collection => JCollection, List => JList, Map => JMap}
 import scala.jdk.CollectionConverters._
 
-
 package object aws2 {
-  implicit val aws2LocalDynamoClient: LocalDynamoClient[DynamoDbAsyncClient] =
+  implicit val aws2LocalDynamoClient: LocalDynamoClient.Aux[DynamoDbAsyncClient, DynamoDbAsyncClientBuilder] =
     new LocalDynamoClient[DynamoDbAsyncClient] {
       type Config = DynamoDbAsyncClientBuilder
 

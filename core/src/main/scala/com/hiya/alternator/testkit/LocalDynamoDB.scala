@@ -11,12 +11,18 @@ trait LocalDynamoClient[C] {
   def client(port: Int): C
 }
 
+object LocalDynamoClient {
+  type Aux[C, B] = LocalDynamoClient[C] { type Config = B }
+}
+
 object LocalDynamoDB {
   val DEFAULT_PORT = 8000
   val configuredPort: Int =
     Option(System.getProperty("dynamoDBLocalPort")).map(_.toInt).getOrElse(DEFAULT_PORT)
 
-  def config[C](port: Int = configuredPort)(implicit localDynamoClient: LocalDynamoClient[C]): localDynamoClient.Config =
+  def config[C](port: Int = configuredPort)(implicit
+    localDynamoClient: LocalDynamoClient[C]
+  ): localDynamoClient.Config =
     localDynamoClient.config(port)
 
   def client[C](port: Int = configuredPort)(implicit localDynamoClient: LocalDynamoClient[C]): C =

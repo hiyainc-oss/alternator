@@ -9,7 +9,14 @@ import akka.util.Timeout
 import cats.Id
 import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
-import com.amazonaws.services.dynamodbv2.model.{AttributeValue, BatchWriteItemRequest, BatchWriteItemResult, DeleteRequest, PutRequest, WriteRequest}
+import com.amazonaws.services.dynamodbv2.model.{
+  AttributeValue,
+  BatchWriteItemRequest,
+  BatchWriteItemResult,
+  DeleteRequest,
+  PutRequest,
+  WriteRequest
+}
 import com.hiya.alternator._
 import com.hiya.alternator.akka.AkkaAws1.async
 import com.hiya.alternator.akka.internal.BatchedWriteBehavior

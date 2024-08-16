@@ -18,7 +18,12 @@ object BatchMonitoring {
   class Disabled[F[_]: Monad] extends BatchMonitoring[F, Any] {
     override def register(actorName: String, behavior: SchedulerMetrics[F]): F[Unit] = Monad[F].pure(())
     override def retries(actorName: String, failed: List[Any]): F[Unit] = Monad[F].pure(())
-    override def requestComplete(actorName: String, ex: Option[Throwable], keys: List[Any], durationNano: Long): F[Unit] = Monad[F].pure(())
+    override def requestComplete(
+      actorName: String,
+      ex: Option[Throwable],
+      keys: List[Any],
+      durationNano: Long
+    ): F[Unit] = Monad[F].pure(())
     override def close(): F[Unit] = Monad[F].pure(())
   }
 }

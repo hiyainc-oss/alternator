@@ -16,7 +16,7 @@ class AlternatorBenchmark {
 
   implicit val dynamoFormat: DynamoFormat[PS] = {
     import com.hiya.alternator.generic.auto._
-    com.hiya.alternator.generic.semiauto.deriveCompound
+    com.hiya.alternator.generic.semiauto.derive
   }
 
   val data10: PS = PS((0 until 10).map(genData).toList)
