@@ -16,7 +16,7 @@ class AkkaAws2DBTests extends DynamoDBTestBase[Future, Source[*, NotUsed], Dynam
   import system.dispatcher
 
   override protected lazy val client: DynamoDbAsyncClient = LocalDynamoDB.client()
-  override protected implicit lazy val dbr: DynamoDB[Future, Source[*, NotUsed], DynamoDbAsyncClient] = new AkkaAws2()
+  override protected implicit lazy val dbr: DynamoDB[Future, Source[*, NotUsed], DynamoDbAsyncClient] = AkkaAws2()
   override protected implicit lazy val monadF: MonadThrow[Future] = cats.instances.future.catsStdInstancesForFuture
   override protected implicit lazy val monadS: MonadThrow[Source[*, NotUsed]] = new MonadThrow[Source[*, NotUsed]] {
     override def pure[A](x: A): Source[A, NotUsed] = Source.single(x)
