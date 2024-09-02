@@ -1,8 +1,8 @@
-lazy val `alternator-attributevalue` = LocalProject("alternator-attributevalue")
+lazy val `alternator-aws2` = LocalProject("alternator-aws2")
 
 lazy val `scanamo-base` = (project in (file("scanamo-base")))
   .enablePlugins(JmhPlugin)
-  .dependsOn(`alternator-attributevalue`)
+  .dependsOn(`alternator-aws2`)
   .settings(
     BuildConfig.commonSettings,
     publish / skip := true,
