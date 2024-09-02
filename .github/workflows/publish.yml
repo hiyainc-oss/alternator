@@ -4,8 +4,9 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 on:
-  pull_request:
-    branches: ['**']
+  push:
+    tags:
+      - 'v*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -17,7 +18,7 @@ defaults:
 
 jobs:
   build:
-    name: Build and Test
+    name: Publish Artifacts
     timeout-minutes: 10
     strategy:
       matrix:
@@ -36,13 +37,7 @@ jobs:
           distribution: temurin
           java-version: 17
           cache: 'sbt'
-      - name: Get DynamoDBLocal
-        run: |
-          mkdir dynamodb-local
-          cd dynamodb-local 
-          wget https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz
-          tar -xzf dynamodb_local_latest.tar.gz
       - name: Build project
-        run: sbt ++${{ matrix.scala }} test
+        run: sbt ++${{ matrix.scala }} publish
         env:
-          SBT_TPOLECAT_CI: true
+          SBT_TPOLECAT_RELEASE: true

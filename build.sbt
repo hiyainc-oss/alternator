@@ -7,18 +7,11 @@ ThisBuild / crossScalaVersions := Seq("2.13.14", "2.12.19")
 ThisBuild / scalaVersion := "2.13.14"
 ThisBuild / organization := "com.hiya"
 ThisBuild / versionScheme := Some("early-semver")
-
 ThisBuild / tpolecatDefaultOptionsMode := DevMode
-ThisBuild / Test / fork := true
-
-
 ThisBuild / githubOwner := "hiyainc-oss"
 ThisBuild / githubRepository := "alternator"
-
-ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
-ThisBuild / githubWorkflowPublishTargetBranches := Seq(RefPredicate.StartsWith(Ref.Tag("v")))
-
-ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("17"))
+ThisBuild / Test / fork := true
+ThisBuild / run / fork := true
 
 
 def dynamoDBPort(base: Int, name: String, scalaVersion: String): Int =
