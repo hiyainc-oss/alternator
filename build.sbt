@@ -69,7 +69,7 @@ lazy val `test-base` = (project in file("test-base"))
     commonSettings,
     libraryDependencies ++= Dependencies.TestBase,
     tpolecatExcludeOptions += ScalacOptions.warnNonUnitStatement,
-    publish := {},
+    publish / skip := true
   )
 
 lazy val `alternator-aws2` = (project in file("alternator-aws2"))
@@ -149,5 +149,5 @@ lazy val `alternator-cats-aws1` = (project in file("cats-aws1"))
   )
 
 lazy val `tests` = project in file("tests")
-
+publish / skip := true
 crossScalaVersions := Nil
