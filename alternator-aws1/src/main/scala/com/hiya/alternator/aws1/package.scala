@@ -52,25 +52,24 @@ package object aws1 {
       builder.withExpressionAttributeValues(attributeValues)
   }
 
-  implicit val aws1LocalDynamoClient: LocalDynamoClient.Aux[AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder] =
-    new LocalDynamoClient[AmazonDynamoDBAsync] {
-      type Config = AmazonDynamoDBAsyncClientBuilder
+  implicit object Aws1LocalDynamoClient extends LocalDynamoClient[AmazonDynamoDBAsync] {
+    type Config = AmazonDynamoDBAsyncClientBuilder
 
-      def config(builder: AmazonDynamoDBAsyncClientBuilder, port: Int): AmazonDynamoDBAsyncClientBuilder =
-        builder
-          .withCredentials(
-            new AWSStaticCredentialsProvider(new BasicAWSCredentials("dummy", "credentials"))
-          )
-          .withEndpointConfiguration(
-            new EndpointConfiguration(s"http://localhost:$port", "us-east-1")
-          )
+    def config(builder: AmazonDynamoDBAsyncClientBuilder, port: Int): AmazonDynamoDBAsyncClientBuilder =
+      builder
+        .withCredentials(
+          new AWSStaticCredentialsProvider(new BasicAWSCredentials("dummy", "credentials"))
+        )
+        .withEndpointConfiguration(
+          new EndpointConfiguration(s"http://localhost:$port", "us-east-1")
+        )
 
-      override def config(port: Int): AmazonDynamoDBAsyncClientBuilder =
-        config(AmazonDynamoDBAsyncClientBuilder.standard(), port)
+    override def config(port: Int): AmazonDynamoDBAsyncClientBuilder =
+      config(AmazonDynamoDBAsyncClientBuilder.standard(), port)
 
-      override def client(port: Int): AmazonDynamoDBAsync =
-        config(AmazonDynamoDBAsyncClientBuilder.standard(), port).build
-    }
+    override def client(port: Int): AmazonDynamoDBAsync =
+      config(AmazonDynamoDBAsyncClientBuilder.standard(), port).build
+  }
 
   implicit def typeOf(t: ScalarType): model.ScalarAttributeType = t match {
     case ScalarType.String => model.ScalarAttributeType.S
@@ -78,7 +77,7 @@ package object aws1 {
     case ScalarType.Binary => model.ScalarAttributeType.B
   }
 
-  implicit val aws1IsAttributeValues: AttributeValue[model.AttributeValue] = new AttributeValue[model.AttributeValue] {
+  implicit object Aws1IsAttributeValues extends AttributeValue[model.AttributeValue] {
     override def map(av: model.AttributeValue): Option[JMap[String, model.AttributeValue]] =
       Option(av.getM)
 

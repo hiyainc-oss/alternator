@@ -15,7 +15,7 @@ class Aws1BatchWrite(override val response: BatchWriteItemResult)
   extends AnyVal
   with BatchWriteResult[WriteRequest, BatchWriteItemResult, AttributeValue] {
 
-  override def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue] = aws1IsAttributeValues
+  override def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue] = Aws1IsAttributeValues
 
   override def unprocessed: util.Map[String, util.List[WriteRequest]] =
     response.getUnprocessedItems
@@ -53,7 +53,7 @@ class Aws1BatchRead(
   override val response: BatchGetItemResult
 ) extends AnyVal
   with BatchReadResult[KeysAndAttributes, BatchGetItemResult, AttributeValue] {
-  override def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue] = aws1IsAttributeValues
+  override def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue] = Aws1IsAttributeValues
 
   override def processed: util.Map[String, util.List[util.Map[String, AttributeValue]]] = response.getResponses
 

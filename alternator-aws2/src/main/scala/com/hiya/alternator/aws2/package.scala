@@ -55,26 +55,25 @@ package object aws2 {
     ): model.DeleteItemRequest.Builder = builder.expressionAttributeValues(attributeValues)
   }
 
-  implicit val aws2LocalDynamoClient: LocalDynamoClient.Aux[DynamoDbAsyncClient, DynamoDbAsyncClientBuilder] =
-    new LocalDynamoClient[DynamoDbAsyncClient] {
-      type Config = DynamoDbAsyncClientBuilder
+  implicit object Aws2LocalDynamoClient extends LocalDynamoClient[DynamoDbAsyncClient] {
+    type Config = DynamoDbAsyncClientBuilder
 
-      def config[B <: DynamoDbBaseClientBuilder[B, _]](builder: B, port: Int): B =
-        builder
-          .credentialsProvider(
-            StaticCredentialsProvider.create(AwsBasicCredentials.create("dummy", "credentials"))
-          )
-          .endpointOverride(URI.create(s"http://localhost:$port"))
-          .region(Region.US_EAST_1)
+    def config[B <: DynamoDbBaseClientBuilder[B, _]](builder: B, port: Int): B =
+      builder
+        .credentialsProvider(
+          StaticCredentialsProvider.create(AwsBasicCredentials.create("dummy", "credentials"))
+        )
+        .endpointOverride(URI.create(s"http://localhost:$port"))
+        .region(Region.US_EAST_1)
 
-      override def config(port: Int): DynamoDbAsyncClientBuilder =
-        config(DynamoDbAsyncClient.builder, port)
+    override def config(port: Int): DynamoDbAsyncClientBuilder =
+      config(DynamoDbAsyncClient.builder, port)
 
-      override def client(port: Int): DynamoDbAsyncClient =
-        config(port)
-          .httpClient(NettyNioAsyncHttpClient.builder.build)
-          .build
-    }
+    override def client(port: Int): DynamoDbAsyncClient =
+      config(port)
+        .httpClient(NettyNioAsyncHttpClient.builder.build)
+        .build
+  }
 
   implicit def typeOf(t: ScalarType): model.ScalarAttributeType = t match {
     case ScalarType.String => model.ScalarAttributeType.S
@@ -82,7 +81,7 @@ package object aws2 {
     case ScalarType.Binary => model.ScalarAttributeType.B
   }
 
-  implicit val aws2IsAttributeValues: AttributeValue[model.AttributeValue] = new AttributeValue[model.AttributeValue] {
+  implicit object Aws2IsAttributeValues extends AttributeValue[model.AttributeValue] {
     override def map(av: model.AttributeValue): Option[JMap[String, model.AttributeValue]] =
       if (av.hasM) Option(av.m()) else None
 

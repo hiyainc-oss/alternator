@@ -2,11 +2,11 @@ package com.hiya.alternator.aws2.internal
 
 import cats.MonadThrow
 import cats.syntax.all._
-import com.hiya.alternator.aws2.{Aws2BatchRead, Aws2BatchWrite, Aws2Table, aws2IsAttributeValues}
+import com.hiya.alternator.aws2._
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.ScalarType
 import com.hiya.alternator.syntax.ConditionExpression
-import com.hiya.alternator.{BatchReadResult, ConditionResult, DynamoDB, TableLike, schema}
+import com.hiya.alternator._
 import software.amazon.awssdk.services.dynamodb.model.{
   BatchGetItemResponse,
   BatchWriteItemRequest,
@@ -17,8 +17,8 @@ import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
 
 import java.util
 import java.util.concurrent.CompletionException
-import scala.jdk.CollectionConverters._
 import scala.collection.compat._
+import scala.jdk.CollectionConverters._
 
 abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F, S, DynamoDbAsyncClient] {
   override type AttributeValue = model.AttributeValue
@@ -27,7 +27,7 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F, S, Dyna
   override type BatchWriteItemRequest = model.WriteRequest
   override type BatchWriteItemResponse = model.BatchWriteItemResponse
 
-  override def AV: schema.AttributeValue[AttributeValue] = aws2IsAttributeValues
+  override def AV: schema.AttributeValue[AttributeValue] = Aws2IsAttributeValues
 
   protected def async[T](f: => java.util.concurrent.CompletableFuture[T]): F[T]
 
