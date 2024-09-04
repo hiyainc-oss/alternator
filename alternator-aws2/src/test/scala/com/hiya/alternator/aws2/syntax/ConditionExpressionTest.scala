@@ -1,7 +1,8 @@
 package com.hiya.alternator.aws2.syntax
 
-import com.hiya.alternator.aws2.RenderedConditional
-import com.hiya.alternator.aws2.RenderedConditional.render
+import com.hiya.alternator.aws2._
+import com.hiya.alternator.internal.RenderedConditional
+import com.hiya.alternator.internal.RenderedConditional.render
 import com.hiya.alternator.syntax._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers

@@ -4,7 +4,7 @@ import cats.MonadThrow
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 
-package object util {
+package object internal {
   implicit class OptApp[T](underlying: T) {
 
     def optApp[A](f: T => A => T): Option[A] => T = {

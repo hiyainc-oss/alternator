@@ -2,10 +2,10 @@ package com.hiya.alternator.aws1
 
 import cats.syntax.all._
 import com.amazonaws.services.dynamodbv2.model._
+import com.hiya.alternator.internal.{ConditionalSupport, OptApp}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
 import com.hiya.alternator.syntax.{ConditionExpression, Segment}
-import com.hiya.alternator.util.OptApp
 import com.hiya.alternator.{BatchReadResult, BatchWriteResult, TableLike}
 
 import java.util
@@ -128,8 +128,7 @@ class Aws1Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
   }
 
   final def put(item: V, condition: ConditionExpression[Boolean], returnOld: Boolean = false): PutItemRequest = {
-    val renderedCondition = RenderedConditional.render(condition)
-    val ret = renderedCondition(put(item))
+    val ret = ConditionalSupport(put(item), condition)
     if (returnOld) ret.withReturnValues(ReturnValue.ALL_OLD) else ret.withReturnValues(ReturnValue.NONE)
   }
 
@@ -141,8 +140,7 @@ class Aws1Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
   }
 
   final def delete(key: PK, condition: ConditionExpression[Boolean], returnOld: Boolean = false): DeleteItemRequest = {
-    val renderedCondition = RenderedConditional.render(condition)
-    val ret = renderedCondition(delete(key))
+    val ret = ConditionalSupport(delete(key), condition)
     if (returnOld) ret.withReturnValues(ReturnValue.ALL_OLD) else ret.withReturnValues(ReturnValue.NONE)
   }
 

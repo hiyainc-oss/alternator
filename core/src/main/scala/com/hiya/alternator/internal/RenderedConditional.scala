@@ -1,43 +1,45 @@
-package com.hiya.alternator.aws1
+package com.hiya.alternator.internal
 
-import com.amazonaws.services.dynamodbv2.model.{AttributeValue, DeleteItemRequest, PutItemRequest}
-import com.amazonaws.services.dynamodbv2.model
+import com.hiya.alternator.schema.AttributeValue
 import com.hiya.alternator.syntax.ConditionExpression
 import com.hiya.alternator.syntax.ConditionExpression._
 
+import java.util
 import scala.jdk.CollectionConverters._
 
-private[alternator] final case class RenderedConditional(
+private[alternator] trait ConditionalSupport[Builder, AV] {
+  def withConditionExpression(builder: Builder, conditionExpression: String): Builder
+  def withExpressionAttributeNames(builder: Builder, attributeNames: util.Map[String, String]): Builder
+  def withExpressionAttributeValues(builder: Builder, attributeValues: util.Map[String, AV]): Builder
+}
+
+private[alternator] object ConditionalSupport {
+  def apply[Builder, AV: AttributeValue](builder: Builder, expression: ConditionExpression[Boolean])(implicit
+    Builder: ConditionalSupport[Builder, AV]
+  ): Builder =
+    RenderedConditional.render(expression).apply(builder)
+}
+
+private[alternator] final case class RenderedConditional[AV](
   conditionExpression: String,
   attributeNames: Map[String, String],
-  attributeValues: Map[String, AttributeValue]
+  attributeValues: Map[String, AV]
 ) {
 
-  def apply(builder: PutItemRequest): PutItemRequest = {
-    builder.withConditionExpression(this.conditionExpression)
-    if (this.attributeNames.nonEmpty) {
-      builder.setExpressionAttributeNames(this.attributeNames.asJava)
-    }
-    if (this.attributeValues.nonEmpty) {
-      builder.setExpressionAttributeValues(this.attributeValues.asJava)
-    }
-    builder
-  }
+  def apply[Builder](builder: Builder)(implicit Builder: ConditionalSupport[Builder, AV]): Builder = {
+    val r1 = Builder.withConditionExpression(builder, this.conditionExpression)
 
-  def apply(builder: DeleteItemRequest): DeleteItemRequest = {
-    builder.setConditionExpression(this.conditionExpression)
-    if (this.attributeNames.nonEmpty) {
-      builder.setExpressionAttributeNames(this.attributeNames.asJava)
-    }
+    val r2 = if (this.attributeNames.nonEmpty) {
+      Builder.withExpressionAttributeNames(r1, this.attributeNames.asJava)
+    } else r1
+
     if (this.attributeValues.nonEmpty) {
-      builder.setExpressionAttributeValues(this.attributeValues.asJava)
-    }
-    builder
+      Builder.withExpressionAttributeValues(r2, this.attributeValues.asJava)
+    } else r2
   }
 }
 
 object RenderedConditional {
-
   private def attributeNamesOf(expr: ConditionExpression[_]): Set[String] =
     expr match {
       case e: Attr[_] => Set(e.name)
@@ -48,15 +50,15 @@ object RenderedConditional {
       case e: BinOp[_] => attributeNamesOf(e.lhs) ++ attributeNamesOf(e.rhs)
     }
 
-  private def attributeValuesOf(expr: ConditionExpression[_]): List[model.AttributeValue] =
+  private def attributeValuesOf[AV: AttributeValue](expr: ConditionExpression[_]): List[AV] =
     expr match {
       case _: Path[_] => Nil
-      case e: Literal[_] => List(e.write[model.AttributeValue])
-      case e: FunCall[_] => e.args.flatMap(attributeValuesOf)
+      case e: Literal[_] => List(e.write[AV])
+      case e: FunCall[_] => e.args.flatMap(attributeValuesOf[AV])
       case e: BinOp[_] => attributeValuesOf(e.lhs) ++ attributeValuesOf(e.rhs)
     }
 
-  private[alternator] def render(expression: ConditionExpression[_]): RenderedConditional = {
+  private[alternator] def render[AV: AttributeValue](expression: ConditionExpression[_]): RenderedConditional[AV] = {
     val attributeNames = attributeNamesOf(expression).zipWithIndex.map { case (attributeName, i) =>
       (attributeName, "#a" + i.toString)
     }.toMap

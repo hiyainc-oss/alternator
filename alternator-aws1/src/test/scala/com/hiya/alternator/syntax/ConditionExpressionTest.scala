@@ -1,8 +1,9 @@
 package com.hiya.alternator.syntax
 
 import com.amazonaws.services.dynamodbv2.model.AttributeValue
-import com.hiya.alternator.aws1.RenderedConditional.render
 import com.hiya.alternator.aws1._
+import com.hiya.alternator.internal.RenderedConditional
+import com.hiya.alternator.internal.RenderedConditional.render
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 

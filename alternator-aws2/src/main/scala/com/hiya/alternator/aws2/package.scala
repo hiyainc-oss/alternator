@@ -1,5 +1,6 @@
 package com.hiya.alternator
 
+import com.hiya.alternator.internal.ConditionalSupport
 import com.hiya.alternator.schema.{AttributeValue, ScalarType}
 import com.hiya.alternator.testkit.LocalDynamoClient
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
@@ -19,6 +20,41 @@ import java.util.{Collection => JCollection, List => JList, Map => JMap}
 import scala.jdk.CollectionConverters._
 
 package object aws2 {
+  implicit object PutIsConditional extends ConditionalSupport[model.PutItemRequest.Builder, model.AttributeValue] {
+    override def withConditionExpression(
+      builder: model.PutItemRequest.Builder,
+      conditionExpression: String
+    ): model.PutItemRequest.Builder = builder.conditionExpression(conditionExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.PutItemRequest.Builder,
+      attributeNames: JMap[String, String]
+    ): model.PutItemRequest.Builder = builder.expressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.PutItemRequest.Builder,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.PutItemRequest.Builder = builder.expressionAttributeValues(attributeValues)
+  }
+
+  implicit object DeleteIsConditional
+    extends ConditionalSupport[model.DeleteItemRequest.Builder, model.AttributeValue] {
+    override def withConditionExpression(
+      builder: model.DeleteItemRequest.Builder,
+      conditionExpression: String
+    ): model.DeleteItemRequest.Builder = builder.conditionExpression(conditionExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.DeleteItemRequest.Builder,
+      attributeNames: JMap[String, String]
+    ): model.DeleteItemRequest.Builder = builder.expressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.DeleteItemRequest.Builder,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.DeleteItemRequest.Builder = builder.expressionAttributeValues(attributeValues)
+  }
+
   implicit val aws2LocalDynamoClient: LocalDynamoClient.Aux[DynamoDbAsyncClient, DynamoDbAsyncClientBuilder] =
     new LocalDynamoClient[DynamoDbAsyncClient] {
       type Config = DynamoDbAsyncClientBuilder

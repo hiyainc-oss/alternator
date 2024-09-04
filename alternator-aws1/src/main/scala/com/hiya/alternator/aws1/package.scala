@@ -3,6 +3,7 @@ package com.hiya.alternator
 import com.amazonaws.auth.{AWSStaticCredentialsProvider, BasicAWSCredentials}
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder, model}
+import com.hiya.alternator.internal.ConditionalSupport
 import com.hiya.alternator.schema.{AttributeValue, ScalarType}
 import com.hiya.alternator.testkit.LocalDynamoClient
 
@@ -11,6 +12,46 @@ import java.util.{Collection => JCollection, List => JList, Map => JMap}
 import scala.jdk.CollectionConverters._
 
 package object aws1 {
+  implicit object PutIsConditional extends ConditionalSupport[model.PutItemRequest, model.AttributeValue] {
+    override def withConditionExpression(
+      builder: model.PutItemRequest,
+      conditionExpression: String
+    ): model.PutItemRequest =
+      builder.withConditionExpression(conditionExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.PutItemRequest,
+      attributeNames: JMap[String, String]
+    ): model.PutItemRequest =
+      builder.withExpressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.PutItemRequest,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.PutItemRequest =
+      builder.withExpressionAttributeValues(attributeValues)
+  }
+
+  implicit object DeleteIsConditional extends ConditionalSupport[model.DeleteItemRequest, model.AttributeValue] {
+    override def withConditionExpression(
+      builder: model.DeleteItemRequest,
+      conditionExpression: String
+    ): model.DeleteItemRequest =
+      builder.withConditionExpression(conditionExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.DeleteItemRequest,
+      attributeNames: JMap[String, String]
+    ): model.DeleteItemRequest =
+      builder.withExpressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.DeleteItemRequest,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.DeleteItemRequest =
+      builder.withExpressionAttributeValues(attributeValues)
+  }
+
   implicit val aws1LocalDynamoClient: LocalDynamoClient.Aux[AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder] =
     new LocalDynamoClient[AmazonDynamoDBAsync] {
       type Config = AmazonDynamoDBAsyncClientBuilder
