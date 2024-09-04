@@ -128,7 +128,7 @@ class Aws1Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
   }
 
   final def put(item: V, condition: ConditionExpression[Boolean], returnOld: Boolean = false): PutItemRequest = {
-    val ret = ConditionalSupport(put(item), condition)
+    val ret = ConditionalSupport.eval(put(item), condition)
     if (returnOld) ret.withReturnValues(ReturnValue.ALL_OLD) else ret.withReturnValues(ReturnValue.NONE)
   }
 
@@ -140,7 +140,7 @@ class Aws1Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
   }
 
   final def delete(key: PK, condition: ConditionExpression[Boolean], returnOld: Boolean = false): DeleteItemRequest = {
-    val ret = ConditionalSupport(delete(key), condition)
+    val ret = ConditionalSupport.eval(delete(key), condition)
     if (returnOld) ret.withReturnValues(ReturnValue.ALL_OLD) else ret.withReturnValues(ReturnValue.NONE)
   }
 

@@ -1,9 +1,10 @@
-package com.hiya.alternator.generic
+package com.hiya.alternator.aws1.generic
 
 import com.amazonaws.services.dynamodbv2.model.AttributeValue
 import com.hiya.alternator.aws1._
+import com.hiya.alternator.generic.semiauto
 import com.hiya.alternator.schema.DynamoAttributeError.AttributeIsNull
-import com.hiya.alternator.schema.{RootDynamoFormat, DynamoFormat}
+import com.hiya.alternator.schema.{DynamoFormat, RootDynamoFormat}
 import org.scalatest.Assertion
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers

@@ -138,7 +138,7 @@ class Aws2Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
     condition: ConditionExpression[Boolean],
     returnOld: Boolean = false
   ): PutItemRequest.Builder = {
-    val ret = ConditionalSupport(put(item), condition)
+    val ret = ConditionalSupport.eval(put(item), condition)
     if (returnOld) ret.returnValues(ReturnValue.ALL_OLD) else ret.returnValues(ReturnValue.NONE)
   }
 
@@ -155,7 +155,7 @@ class Aws2Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
     condition: ConditionExpression[Boolean],
     returnOld: Boolean = false
   ): DeleteItemRequest.Builder = {
-    val ret = ConditionalSupport(delete(key), condition)
+    val ret = ConditionalSupport.eval(delete(key), condition)
     if (returnOld) ret.returnValues(ReturnValue.ALL_OLD) else ret.returnValues(ReturnValue.NONE)
   }
 
