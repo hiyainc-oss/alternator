@@ -85,7 +85,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
     it("should compile =") {
       val result = withRangeData(5) { table =>
-        table.query(pk = "5", rk == "3").raiseError
+        table.query(pk = "5", rk === "3").raiseError
       }
 
       result shouldBe List(DataRK("5", "3", "5/3"))

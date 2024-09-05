@@ -6,7 +6,7 @@ sealed trait ConditionExpression[+T]
 
 object ConditionExpression {
 
-  final implicit class ConditionExpressionBoolExt(expr: ConditionExpression[Boolean]) {
+  final class ConditionExpressionBoolExt(val expr: ConditionExpression[Boolean]) extends AnyVal {
 
     def &&(rhs: ConditionExpression[Boolean]): ConditionExpression[Boolean] =
       ConditionExpression.BinOp("AND", expr, rhs)
