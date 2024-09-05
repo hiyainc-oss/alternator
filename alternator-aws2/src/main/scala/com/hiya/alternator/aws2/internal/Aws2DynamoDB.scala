@@ -101,8 +101,12 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F, S, Dyna
           .map(_ => true)
     }
 
-  override def get[V, PK](table: TableLike[DynamoDbAsyncClient, V, PK], pk: PK): F[Option[Result[V]]] = {
-    async(table.client.getItem(Aws2Table(table).get(pk).build())).map(Aws2Table(table).deserialize)
+  override def get[V, PK](
+    table: TableLike[DynamoDbAsyncClient, V, PK],
+    pk: PK,
+    consistent: Boolean
+  ): F[Option[Result[V]]] = {
+    async(table.client.getItem(Aws2Table(table).get(pk, consistent).build())).map(Aws2Table(table).deserialize)
   }
   override def createTable(
     client: DynamoDbAsyncClient,

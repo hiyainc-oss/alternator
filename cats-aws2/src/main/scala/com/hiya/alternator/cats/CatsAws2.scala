@@ -22,22 +22,26 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
 
   override def scan[V, PK](
     table: TableLike[DynamoDbAsyncClient, V, PK],
-    segment: Option[Segment],
-    condition: Option[ConditionExpression[Boolean]]
+    segment: Option[Segment] = None,
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int],
+    consistent: Boolean
   ): Stream[F, Result[V]] =
     table.client
-      .scanPaginator(Aws2Table(table).scan(segment, condition).build())
+      .scanPaginator(Aws2Table(table).scan(segment, condition, limit, consistent).build())
       .toStreamBuffered(1)
       .flatMap(data => Stream.emits(Aws2Table(table).deserialize(data)))
 
   override def query[V, PK, RK](
     table: TableWithRangeKeyLike[DynamoDbAsyncClient, V, PK, RK],
     pk: PK,
-    rk: RKCondition[RK],
-    condition: Option[ConditionExpression[Boolean]]
+    rk: RKCondition[RK] = RKCondition.Empty,
+    condition: Option[ConditionExpression[Boolean]] = None,
+    limit: Option[Int] = None,
+    consistent: Boolean = false
   ): Stream[F, Result[V]] =
     table.client
-      .queryPaginator(Aws2TableWithRangeKey(table).query(pk, rk, condition).build())
+      .queryPaginator(Aws2TableWithRangeKey(table).query(pk, rk, condition, limit, consistent).build())
       .toStreamBuffered(1)
       .flatMap { data => fs2.Stream.emits(Aws2TableWithRangeKey(table).deserialize(data)) }
 }

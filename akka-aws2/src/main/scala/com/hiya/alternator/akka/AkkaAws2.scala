@@ -29,20 +29,26 @@ class AkkaAws2 private (override implicit val system: ActorSystem, override impl
   override def scan[V, PK](
     table: TableLike[DynamoDbAsyncClient, V, PK],
     segment: Option[Segment],
-    condition: Option[ConditionExpression[Boolean]]
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int] = None,
+    consistent: Boolean = false
   ): Source[Result[V], NotUsed] =
     Source
-      .fromPublisher(table.client.scanPaginator(Aws2Table(table).scan(segment, condition).build()))
+      .fromPublisher(table.client.scanPaginator(Aws2Table(table).scan(segment, condition, limit, consistent).build()))
       .mapConcat(data => Aws2Table(table).deserialize(data))
 
   override def query[V, PK, RK](
     table: TableWithRangeKeyLike[DynamoDbAsyncClient, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK],
-    condition: Option[ConditionExpression[Boolean]]
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int] = None,
+    consistent: Boolean = false
   ): Source[Result[V], NotUsed] = {
     Source
-      .fromPublisher(table.client.queryPaginator(Aws2TableWithRangeKey(table).query(pk, rk, condition).build()))
+      .fromPublisher(
+        table.client.queryPaginator(Aws2TableWithRangeKey(table).query(pk, rk, condition, limit, consistent).build())
+      )
       .mapConcat(data => Aws2TableWithRangeKey(table).deserialize(data))
   }
 }

@@ -48,9 +48,11 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
   override def scan[V, PK](
     table: TableLike[AmazonDynamoDBAsync, V, PK],
     segment: Option[Segment],
-    condition: Option[ConditionExpression[Boolean]]
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int],
+    consistent: Boolean
   ): Stream[F, Result[V]] =
-    scanPaginator(table.client.scanAsync, Aws1Table(table).scan(segment, condition))
+    scanPaginator(table.client.scanAsync, Aws1Table(table).scan(segment, condition, limit, consistent))
       .flatMap(data => Stream.emits(Aws1Table(table).deserialize(data)))
 
   private def queryPaginator(
@@ -71,9 +73,11 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
     table: TableWithRangeKeyLike[AmazonDynamoDBAsync, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK],
-    condition: Option[ConditionExpression[Boolean]]
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int],
+    consistent: Boolean
   ): Stream[F, Result[V]] =
-    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk, condition))
+    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk, condition, limit, consistent))
       .flatMap { data => fs2.Stream.emits(Aws1TableWithRangeKey(table).deserialize(data)) }
 }
 

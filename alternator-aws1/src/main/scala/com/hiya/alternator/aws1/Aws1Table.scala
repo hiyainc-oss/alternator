@@ -98,16 +98,23 @@ class Aws1Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
     Option(response.getItems).toList.flatMap(_.asScala.toList.map(deserialize))
   }
 
-  final def get(pk: PK): GetItemRequest =
-    new GetItemRequest(tableName, schema.serializePK(pk))
+  final def get(pk: PK, consistent: Boolean): GetItemRequest =
+    new GetItemRequest(tableName, schema.serializePK(pk)).withConsistentRead(consistent)
 
-  final def scan(segment: Option[Segment] = None, condition: Option[ConditionExpression[Boolean]]): ScanRequest = {
+  final def scan(
+    segment: Option[Segment] = None,
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int],
+    consistent: Boolean
+  ): ScanRequest = {
     val request = new ScanRequest(tableName)
       .optApp(req =>
         (segment: Segment) => {
           req.withSegment(segment.segment).withTotalSegments(segment.totalSegments)
         }
       )(segment)
+      .optApp(_.withLimit)(limit.map(Int.box))
+      .withConsistentRead(consistent)
 
     condition match {
       case Some(condition) => ConditionalSupport.eval(request, condition)

@@ -44,9 +44,11 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
   override def scan[V, PK](
     table: TableLike[AmazonDynamoDBAsync, V, PK],
     segment: Option[Segment],
-    condition: Option[ConditionExpression[Boolean]]
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int],
+    consistent: Boolean
   ): Source[Result[V], NotUsed] = {
-    scanPaginator(table.client.scanAsync, Aws1Table(table).scan(segment, condition))
+    scanPaginator(table.client.scanAsync, Aws1Table(table).scan(segment, condition, limit, consistent))
       .mapConcat(data => Aws1Table(table).deserialize(data))
   }
 
@@ -70,9 +72,11 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
     table: TableWithRangeKeyLike[AmazonDynamoDBAsync, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK],
-    condition: Option[ConditionExpression[Boolean]]
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int],
+    consistent: Boolean
   ): Source[Result[V], NotUsed] =
-    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk, condition))
+    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk, condition, limit, consistent))
       .mapConcat { data => Aws1TableWithRangeKey(table).deserialize(data) }
 }
 
