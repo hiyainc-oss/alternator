@@ -94,10 +94,15 @@ abstract class TableLike[C, V, PK](
   ): F[ConditionResult[V]] =
     DB.deleteAndReturn(this, key, Some(condition))
 
-  def scan[F[_]](segment: Option[Segment] = None, condition: Option[ConditionExpression[Boolean]] = None)(implicit
+  def scan[F[_]](
+    segment: Option[Segment] = None,
+    condition: Option[ConditionExpression[Boolean]] = None,
+    limit: Option[Int] = None,
+    consistent: Boolean = false
+  )(implicit
     DB: DynamoDBSource[F, C]
   ): F[DynamoFormat.Result[V]] =
-    DB.scan(this, segment, condition)
+    DB.scan(this, segment, condition, limit, consistent)
 
   def batchGetRequest[F[_]](key: PK)(implicit DB: DynamoDBItem[F, C]): java.util.Map[String, DB.AttributeValue] =
     DB.batchGetRequest(this, key)

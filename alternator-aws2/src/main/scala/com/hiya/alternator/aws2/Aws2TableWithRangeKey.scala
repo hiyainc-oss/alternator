@@ -19,13 +19,11 @@ class Aws2TableWithRangeKey[V, PK, RK](val underlying: TableWithRangeKeyLike[Dyn
     pk: PK,
     rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[Boolean]],
-    limit: Option[Int] = None,
     consistent: Boolean = false
   ): model.QueryRequest.Builder = {
     val request: QueryRequest.Builder = model.QueryRequest
       .builder()
       .tableName(tableName)
-      .optApp(_.limit)(limit.map(Int.box))
       .consistentRead(consistent)
 
     Condition.eval {

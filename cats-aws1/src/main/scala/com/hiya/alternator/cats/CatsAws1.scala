@@ -33,14 +33,21 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
 
   private def scanPaginator(
     f: (ScanRequest, AsyncHandler[ScanRequest, ScanResult]) => JFuture[ScanResult],
-    request: ScanRequest
+    request: ScanRequest,
+    limit: Option[Int]
   ): Stream[F, ScanResult] = {
-    Stream.unfoldLoopEval(request) { req =>
-      async(f(req, _))
+    Stream.unfoldLoopEval[F, (ScanRequest, Option[Int]), ScanResult](request -> limit) { case (req, limit) =>
+      async(f(req.withLimit(limit.map(Int.box).orNull), _))
         .map { result =>
-          result -> Option(result.getLastEvaluatedKey).map { key =>
-            req.withExclusiveStartKey(key)
+          val newReq = limit.map(_ - result.getCount) match {
+            case Some(limit) if limit == 0 =>
+              None
+            case limit =>
+              Option(result.getLastEvaluatedKey).map { lastEvaluatedKey =>
+                req.withExclusiveStartKey(lastEvaluatedKey) -> limit
+              }
           }
+          result -> newReq
         }
     }
   }
@@ -52,19 +59,26 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
     limit: Option[Int],
     consistent: Boolean
   ): Stream[F, Result[V]] =
-    scanPaginator(table.client.scanAsync, Aws1Table(table).scan(segment, condition, limit, consistent))
+    scanPaginator(table.client.scanAsync, Aws1Table(table).scan(segment, condition, consistent), limit)
       .flatMap(data => Stream.emits(Aws1Table(table).deserialize(data)))
 
   private def queryPaginator(
     f: (QueryRequest, AsyncHandler[QueryRequest, QueryResult]) => JFuture[QueryResult],
-    request: QueryRequest
+    request: QueryRequest,
+    limit: Option[Int]
   ): Stream[F, QueryResult] = {
-    Stream.unfoldLoopEval(request) { req =>
-      async(f(req, _))
+    Stream.unfoldLoopEval[F, (QueryRequest, Option[Int]), QueryResult](request -> limit) { case (req, limit) =>
+      async(f(req.withLimit(limit.map(Int.box).orNull), _))
         .map { result =>
-          result -> Option(result.getLastEvaluatedKey).map { key =>
-            req.withExclusiveStartKey(key)
+          val newReq = limit.map(_ - result.getCount) match {
+            case Some(limit) if limit == 0 =>
+              None
+            case limit =>
+              Option(result.getLastEvaluatedKey).map { lastEvaluatedKey =>
+                req.withExclusiveStartKey(lastEvaluatedKey) -> limit
+              }
           }
+          result -> newReq
         }
     }
   }
@@ -77,7 +91,7 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
     limit: Option[Int],
     consistent: Boolean
   ): Stream[F, Result[V]] =
-    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk, condition, limit, consistent))
+    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk, condition, consistent), limit)
       .flatMap { data => fs2.Stream.emits(Aws1TableWithRangeKey(table).deserialize(data)) }
 }
 
