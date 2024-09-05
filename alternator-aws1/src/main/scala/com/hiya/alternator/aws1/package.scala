@@ -3,6 +3,7 @@ package com.hiya.alternator
 import com.amazonaws.auth.{AWSStaticCredentialsProvider, BasicAWSCredentials}
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder, model}
+import com.hiya.alternator.internal.ConditionalSupport
 import com.hiya.alternator.schema.{AttributeValue, ScalarType}
 import com.hiya.alternator.testkit.LocalDynamoClient
 
@@ -11,25 +12,104 @@ import java.util.{Collection => JCollection, List => JList, Map => JMap}
 import scala.jdk.CollectionConverters._
 
 package object aws1 {
-  implicit val aws1LocalDynamoClient: LocalDynamoClient.Aux[AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder] =
-    new LocalDynamoClient[AmazonDynamoDBAsync] {
-      type Config = AmazonDynamoDBAsyncClientBuilder
+  implicit object PutIsConditional extends ConditionalSupport[model.PutItemRequest, model.AttributeValue] {
+    override def withConditionExpression(
+      builder: model.PutItemRequest,
+      conditionExpression: String
+    ): model.PutItemRequest =
+      builder.withConditionExpression(conditionExpression)
 
-      def config(builder: AmazonDynamoDBAsyncClientBuilder, port: Int): AmazonDynamoDBAsyncClientBuilder =
-        builder
-          .withCredentials(
-            new AWSStaticCredentialsProvider(new BasicAWSCredentials("dummy", "credentials"))
-          )
-          .withEndpointConfiguration(
-            new EndpointConfiguration(s"http://localhost:$port", "us-east-1")
-          )
+    override def withExpressionAttributeNames(
+      builder: model.PutItemRequest,
+      attributeNames: JMap[String, String]
+    ): model.PutItemRequest =
+      builder.withExpressionAttributeNames(attributeNames)
 
-      override def config(port: Int): AmazonDynamoDBAsyncClientBuilder =
-        config(AmazonDynamoDBAsyncClientBuilder.standard(), port)
+    override def withExpressionAttributeValues(
+      builder: model.PutItemRequest,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.PutItemRequest =
+      builder.withExpressionAttributeValues(attributeValues)
+  }
 
-      override def client(port: Int): AmazonDynamoDBAsync =
-        config(AmazonDynamoDBAsyncClientBuilder.standard(), port).build
-    }
+  implicit object DeleteIsConditional extends ConditionalSupport[model.DeleteItemRequest, model.AttributeValue] {
+    override def withConditionExpression(
+      builder: model.DeleteItemRequest,
+      conditionExpression: String
+    ): model.DeleteItemRequest =
+      builder.withConditionExpression(conditionExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.DeleteItemRequest,
+      attributeNames: JMap[String, String]
+    ): model.DeleteItemRequest =
+      builder.withExpressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.DeleteItemRequest,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.DeleteItemRequest =
+      builder.withExpressionAttributeValues(attributeValues)
+  }
+
+  implicit object ScanIsConditional extends ConditionalSupport[model.ScanRequest, model.AttributeValue] {
+    override def withConditionExpression(
+      builder: model.ScanRequest,
+      conditionExpression: String
+    ): model.ScanRequest =
+      builder.withFilterExpression(conditionExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.ScanRequest,
+      attributeNames: JMap[String, String]
+    ): model.ScanRequest =
+      builder.withExpressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.ScanRequest,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.ScanRequest =
+      builder.withExpressionAttributeValues(attributeValues)
+  }
+
+  implicit object QueryIsConditional extends ConditionalSupport[model.QueryRequest, model.AttributeValue] {
+    override def withConditionExpression(
+      builder: model.QueryRequest,
+      conditionExpression: String
+    ): model.QueryRequest =
+      builder.withKeyConditionExpression(conditionExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.QueryRequest,
+      attributeNames: JMap[String, String]
+    ): model.QueryRequest =
+      builder.withExpressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.QueryRequest,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.QueryRequest =
+      builder.withExpressionAttributeValues(attributeValues)
+  }
+
+  implicit object Aws1LocalDynamoClient extends LocalDynamoClient[AmazonDynamoDBAsync] {
+    type Config = AmazonDynamoDBAsyncClientBuilder
+
+    def config(builder: AmazonDynamoDBAsyncClientBuilder, port: Int): AmazonDynamoDBAsyncClientBuilder =
+      builder
+        .withCredentials(
+          new AWSStaticCredentialsProvider(new BasicAWSCredentials("dummy", "credentials"))
+        )
+        .withEndpointConfiguration(
+          new EndpointConfiguration(s"http://localhost:$port", "us-east-1")
+        )
+
+    override def config(port: Int): AmazonDynamoDBAsyncClientBuilder =
+      config(AmazonDynamoDBAsyncClientBuilder.standard(), port)
+
+    override def client(port: Int): AmazonDynamoDBAsync =
+      config(AmazonDynamoDBAsyncClientBuilder.standard(), port).build
+  }
 
   implicit def typeOf(t: ScalarType): model.ScalarAttributeType = t match {
     case ScalarType.String => model.ScalarAttributeType.S
@@ -37,7 +117,7 @@ package object aws1 {
     case ScalarType.Binary => model.ScalarAttributeType.B
   }
 
-  implicit val aws1IsAttributeValues: AttributeValue[model.AttributeValue] = new AttributeValue[model.AttributeValue] {
+  implicit object Aws1IsAttributeValues extends AttributeValue[model.AttributeValue] {
     override def map(av: model.AttributeValue): Option[JMap[String, model.AttributeValue]] =
       Option(av.getM)
 

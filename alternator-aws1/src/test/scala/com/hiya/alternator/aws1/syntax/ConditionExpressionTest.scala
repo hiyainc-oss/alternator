@@ -1,12 +1,23 @@
-package com.hiya.alternator.syntax
+package com.hiya.alternator.aws1.syntax
 
 import com.amazonaws.services.dynamodbv2.model.AttributeValue
-import com.hiya.alternator.aws1.RenderedConditional.render
 import com.hiya.alternator.aws1._
+import com.hiya.alternator.aws1.syntax.ConditionExpressionTest.RenderedConditional
+import com.hiya.alternator.internal.{Condition, ConditionParameters}
+import com.hiya.alternator.syntax._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
+object ConditionExpressionTest {
+  final case class RenderedConditional(str: String, params: Map[String, String], values: Map[String, AttributeValue])
+}
+
 class ConditionExpressionTest extends AnyFunSpec with Matchers {
+  def render(expression: ConditionExpression[Boolean]): RenderedConditional = {
+    val (params, exp) = Condition.renderCondition(expression).run(ConditionParameters.empty).value
+    RenderedConditional(exp, params.names, params.values)
+  }
+
 
   describe("render") {
 

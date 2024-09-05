@@ -55,8 +55,10 @@ abstract class TableLike[C, V, PK](
 
   def schema: TableSchema.Aux[V, PK]
 
-  def get[F[_]](pk: PK)(implicit DB: DynamoDBItem[F, C]): F[Option[DynamoFormat.Result[V]]] =
-    DB.get(this, pk)
+  def get[F[_]](pk: PK, consistent: Boolean = false)(implicit
+    DB: DynamoDBItem[F, C]
+  ): F[Option[DynamoFormat.Result[V]]] =
+    DB.get(this, pk, consistent)
 
   def put[F[_]: Functor](value: V)(implicit DB: DynamoDBItem[F, C]): F[Unit] =
     DB.put(this, value, None).map(_ => ())
@@ -92,8 +94,10 @@ abstract class TableLike[C, V, PK](
   ): F[ConditionResult[V]] =
     DB.deleteAndReturn(this, key, Some(condition))
 
-  def scan[F[_]](segment: Option[Segment] = None)(implicit DB: DynamoDBSource[F, C]): F[DynamoFormat.Result[V]] =
-    DB.scan(this, segment)
+  def scan[F[_]](segment: Option[Segment] = None, condition: Option[ConditionExpression[Boolean]] = None)(implicit
+    DB: DynamoDBSource[F, C]
+  ): F[DynamoFormat.Result[V]] =
+    DB.scan(this, segment, condition)
 
   def batchGetRequest[F[_]](key: PK)(implicit DB: DynamoDBItem[F, C]): java.util.Map[String, DB.AttributeValue] =
     DB.batchGetRequest(this, key)
@@ -135,11 +139,16 @@ abstract class TableWithRangeKeyLike[C, V, PK, RK](c: C, name: String) extends T
 
   override def schema: TableSchemaWithRange.Aux[V, PK, RK]
 
-  def query[F[_]](pk: PK, rk: RKCondition[RK] = RKCondition.empty)(implicit
+  def query[F[_]](
+    pk: PK,
+    rk: RKCondition[RK] = RKCondition.Empty,
+    condition: Option[ConditionExpression[Boolean]] = None,
+    limit: Option[Int] = None,
+    consistent: Boolean = false
+  )(implicit
     DB: DynamoDBSource[F, C]
   ): F[DynamoFormat.Result[V]] =
-    DB.query(this, pk, rk)
-
+    DB.query(this, pk, rk, condition, limit, consistent)
 }
 
 class Table[V, PK](

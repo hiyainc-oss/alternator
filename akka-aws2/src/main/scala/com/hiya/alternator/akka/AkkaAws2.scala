@@ -8,7 +8,7 @@ import com.hiya.alternator.akka.internal.AkkaBase
 import com.hiya.alternator.aws2.internal.Aws2DynamoDB
 import com.hiya.alternator.aws2.{Aws2Table, Aws2TableWithRangeKey}
 import com.hiya.alternator.schema.DynamoFormat.Result
-import com.hiya.alternator.syntax.{RKCondition, Segment}
+import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
 import com.hiya.alternator.{TableLike, TableWithRangeKeyLike}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
@@ -28,21 +28,29 @@ class AkkaAws2 private (override implicit val system: ActorSystem, override impl
 
   override def scan[V, PK](
     table: TableLike[DynamoDbAsyncClient, V, PK],
-    segment: Option[Segment]
-  ): Source[Result[V], NotUsed] = {
+    segment: Option[Segment],
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int] = None,
+    consistent: Boolean = false
+  ): Source[Result[V], NotUsed] =
     Source
-      .fromPublisher(table.client.scanPaginator(Aws2Table(table).scan(segment).build()))
+      .fromPublisher(table.client.scanPaginator(Aws2Table(table).scan(segment, condition, limit, consistent).build()))
       .mapConcat(data => Aws2Table(table).deserialize(data))
-  }
 
   override def query[V, PK, RK](
     table: TableWithRangeKeyLike[DynamoDbAsyncClient, V, PK, RK],
     pk: PK,
-    rk: RKCondition[RK]
-  ): Source[Result[V], NotUsed] =
+    rk: RKCondition[RK],
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int] = None,
+    consistent: Boolean = false
+  ): Source[Result[V], NotUsed] = {
     Source
-      .fromPublisher(table.client.queryPaginator(Aws2TableWithRangeKey(table).query(pk, rk).build()))
+      .fromPublisher(
+        table.client.queryPaginator(Aws2TableWithRangeKey(table).query(pk, rk, condition, limit, consistent).build())
+      )
       .mapConcat(data => Aws2TableWithRangeKey(table).deserialize(data))
+  }
 }
 
 object AkkaAws2 {

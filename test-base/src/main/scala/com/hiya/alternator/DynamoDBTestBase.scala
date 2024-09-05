@@ -43,7 +43,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
       val exampleDBInstance2 = Table.tableWithPK[ExampleData](tableName).withClient(client)
 
       eval {
-        LocalDynamoDB.withTable(client)(tableName, LocalDynamoDB.schema[ExampleData]).eval { _ =>
+        LocalDynamoDB.withTable(client, tableName, LocalDynamoDB.schema[ExampleData]).eval { _ =>
           for {
             _ <- toTry(exampleDBInstance.get[F](key)).raiseError.map(_ shouldBe None)
             _ <- exampleDBInstance.put[F](data).map(_ shouldBe (()))
@@ -85,7 +85,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
     it("should compile =") {
       val result = withRangeData(5) { table =>
-        table.query(pk = "5", rk == "3").raiseError
+        table.query(pk = "5", rk === "3").raiseError
       }
 
       result shouldBe List(DataRK("5", "3", "5/3"))
@@ -154,6 +154,22 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
       }
 
       result should have size 1000
+    }
+
+    it("should filter with non-key and range condition") {
+      val result = withRangeData(13) { table =>
+        table.query(pk = "13", rk < "5", condition = Some(attr("value") === "13/1")).raiseError
+      }
+
+      result shouldBe List(DataRK("13", "1", "13/1"))
+    }
+
+    it("should filter with non-key condition") {
+      val result = withRangeData(13) { table =>
+        table.query(pk = "13", condition = Some(attr("value") === "13/1")).raiseError
+      }
+
+      result shouldBe List(DataRK("13", "1", "13/1"))
     }
   }
 
@@ -258,5 +274,14 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
           list(table.scan()).map(_.size shouldBe 1000)
       }
     }
+
+    it("should filter with condition") {
+      val result = withData { table =>
+        list(table.scan(condition = Some(attr[Int]("value") === 330)))
+      }
+
+      result shouldBe List(Right(DataPK("330", 330)))
+    }
+
   }
 }

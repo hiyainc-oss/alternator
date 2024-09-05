@@ -11,7 +11,7 @@ import com.hiya.alternator.akka.internal.AkkaBase
 import com.hiya.alternator.aws1.internal.Aws1DynamoDB
 import com.hiya.alternator.aws1.{Aws1Table, Aws1TableWithRangeKey}
 import com.hiya.alternator.schema.DynamoFormat.Result
-import com.hiya.alternator.syntax.{RKCondition, Segment}
+import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
 import com.hiya.alternator.{TableLike, TableWithRangeKeyLike}
 
 import java.util.concurrent.{Future => JFuture}
@@ -43,10 +43,14 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
 
   override def scan[V, PK](
     table: TableLike[AmazonDynamoDBAsync, V, PK],
-    segment: Option[Segment]
-  ): Source[Result[V], NotUsed] =
-    scanPaginator(table.client.scanAsync, Aws1Table(table).scan(segment))
+    segment: Option[Segment],
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int],
+    consistent: Boolean
+  ): Source[Result[V], NotUsed] = {
+    scanPaginator(table.client.scanAsync, Aws1Table(table).scan(segment, condition, limit, consistent))
       .mapConcat(data => Aws1Table(table).deserialize(data))
+  }
 
   private def queryPaginator(
     f: (QueryRequest, AsyncHandler[QueryRequest, QueryResult]) => JFuture[QueryResult],
@@ -67,9 +71,12 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
   override def query[V, PK, RK](
     table: TableWithRangeKeyLike[AmazonDynamoDBAsync, V, PK, RK],
     pk: PK,
-    rk: RKCondition[RK]
+    rk: RKCondition[RK],
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int],
+    consistent: Boolean
   ): Source[Result[V], NotUsed] =
-    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk))
+    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk, condition, limit, consistent))
       .mapConcat { data => Aws1TableWithRangeKey(table).deserialize(data) }
 }
 

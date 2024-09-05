@@ -44,7 +44,7 @@ trait DynamoDBItem[F[_], C] {
 
   def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue]
 
-  def get[V, PK](table: TableLike[C, V, PK], pk: PK): F[Option[Result[V]]]
+  def get[V, PK](table: TableLike[C, V, PK], pk: PK, consistent: Boolean): F[Option[Result[V]]]
   def put[V, PK](table: TableLike[C, V, PK], item: V, condition: Option[ConditionExpression[Boolean]]): F[Boolean]
   def putAndReturn[V, PK](
     table: TableLike[C, V, PK],
@@ -105,8 +105,21 @@ object DynamoDBItem {
 }
 
 trait DynamoDBSource[F[_], C] {
-  def scan[V, PK](table: TableLike[C, V, PK], segment: Option[Segment]): F[Result[V]]
-  def query[V, PK, RK](table: TableWithRangeKeyLike[C, V, PK, RK], pk: PK, rk: RKCondition[RK]): F[Result[V]]
+  def scan[V, PK](
+    table: TableLike[C, V, PK],
+    segment: Option[Segment],
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int] = None,
+    consistent: Boolean = false
+  ): F[Result[V]]
+  def query[V, PK, RK](
+    table: TableWithRangeKeyLike[C, V, PK, RK],
+    pk: PK,
+    rk: RKCondition[RK],
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int] = None,
+    consistent: Boolean = false
+  ): F[Result[V]]
 }
 
 object DynamoDBSource {

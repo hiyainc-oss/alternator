@@ -7,15 +7,15 @@ import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.dynamodbv2.model._
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, model}
 import com.hiya.alternator._
-import com.hiya.alternator.aws1.{Aws1BatchRead, Aws1BatchWrite, Aws1Table, aws1IsAttributeValues}
+import com.hiya.alternator.aws1._
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.ScalarType
 import com.hiya.alternator.syntax.ConditionExpression
 
 import java.util
 import java.util.concurrent.{CompletionException, Future => JFuture}
-import scala.jdk.CollectionConverters._
 import scala.collection.compat._
+import scala.jdk.CollectionConverters._
 
 abstract class Aws1DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F, S, AmazonDynamoDBAsync] {
   override type AttributeValue = model.AttributeValue
@@ -29,7 +29,7 @@ abstract class Aws1DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F, S, Amaz
 
   protected def async[Req <: AmazonWebServiceRequest, Resp](f: AsyncHandler[Req, Resp] => JFuture[Resp]): F[Resp]
 
-  override def AV: schema.AttributeValue[AttributeValue] = aws1IsAttributeValues
+  override def AV: schema.AttributeValue[AttributeValue] = Aws1IsAttributeValues
 
   override def put[V, PK](
     table: TableLike[AmazonDynamoDBAsync, V, PK],
@@ -115,8 +115,14 @@ abstract class Aws1DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F, S, Amaz
           .map(_ => true)
     }
 
-  override def get[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], pk: PK): F[Option[Result[V]]] =
-    async(table.client.getItemAsync(Aws1Table(table).get(pk), _: AsyncHandler[GetItemRequest, GetItemResult]))
+  override def get[V, PK](
+    table: TableLike[AmazonDynamoDBAsync, V, PK],
+    pk: PK,
+    consistent: Boolean
+  ): F[Option[Result[V]]] =
+    async(
+      table.client.getItemAsync(Aws1Table(table).get(pk, consistent), _: AsyncHandler[GetItemRequest, GetItemResult])
+    )
       .map(Aws1Table(table).deserialize)
 
   override def createTable(

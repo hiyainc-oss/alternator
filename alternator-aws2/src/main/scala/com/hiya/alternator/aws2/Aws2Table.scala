@@ -1,10 +1,10 @@
 package com.hiya.alternator.aws2
 
 import cats.syntax.all._
+import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
 import com.hiya.alternator.syntax.{ConditionExpression, Segment}
-import com.hiya.alternator.util._
 import com.hiya.alternator.{BatchReadResult, BatchWriteResult, TableLike}
 import software.amazon.awssdk.services.dynamodb.model._
 
@@ -15,7 +15,7 @@ class Aws2BatchWrite(
   override val response: BatchWriteItemResponse
 ) extends AnyVal
   with BatchWriteResult[WriteRequest, BatchWriteItemResponse, AttributeValue] {
-  override def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue] = aws2IsAttributeValues
+  override def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue] = Aws2IsAttributeValues
 
   override def unprocessed: util.Map[String, util.List[WriteRequest]] =
     response.unprocessedItems()
@@ -53,7 +53,7 @@ class Aws2BatchRead(
   override val response: BatchGetItemResponse
 ) extends AnyVal
   with BatchReadResult[KeysAndAttributes, BatchGetItemResponse, AttributeValue] {
-  override def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue] = aws2IsAttributeValues
+  override def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue] = Aws2IsAttributeValues
 
   override def processed: util.Map[String, util.List[util.Map[String, AttributeValue]]] = response.responses()
 
@@ -100,14 +100,26 @@ class Aws2Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
     else Nil
   }
 
-  final def get(pk: PK): GetItemRequest.Builder =
-    GetItemRequest.builder().key(schema.serializePK(pk)).tableName(tableName)
+  final def get(pk: PK, consistent: Boolean): GetItemRequest.Builder =
+    GetItemRequest.builder().key(schema.serializePK(pk)).tableName(tableName).consistentRead(consistent)
 
-  final def scan(segment: Option[Segment] = None): ScanRequest.Builder = {
-    ScanRequest
+  final def scan(
+    segment: Option[Segment] = None,
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int],
+    consistent: Boolean
+  ): ScanRequest.Builder = {
+    val request = ScanRequest
       .builder()
       .tableName(tableName)
       .optApp(req => (segment: Segment) => req.segment(segment.segment).totalSegments(segment.totalSegments))(segment)
+      .optApp(_.limit)(limit.map(Int.box))
+      .consistentRead(consistent)
+
+    condition match {
+      case Some(cond) => ConditionalSupport.eval(request, cond)
+      case None => request
+    }
   }
 
   final def batchGet(items: Seq[PK]): BatchGetItemRequest.Builder = {
@@ -138,8 +150,7 @@ class Aws2Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
     condition: ConditionExpression[Boolean],
     returnOld: Boolean = false
   ): PutItemRequest.Builder = {
-    val renderedCondition = RenderedConditional.render(condition)
-    val ret = renderedCondition(put(item))
+    val ret = ConditionalSupport.eval(put(item), condition)
     if (returnOld) ret.returnValues(ReturnValue.ALL_OLD) else ret.returnValues(ReturnValue.NONE)
   }
 
@@ -156,8 +167,7 @@ class Aws2Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
     condition: ConditionExpression[Boolean],
     returnOld: Boolean = false
   ): DeleteItemRequest.Builder = {
-    val renderedCondition = RenderedConditional.render(condition)
-    val ret = renderedCondition(delete(key))
+    val ret = ConditionalSupport.eval(delete(key), condition)
     if (returnOld) ret.returnValues(ReturnValue.ALL_OLD) else ret.returnValues(ReturnValue.NONE)
   }
 

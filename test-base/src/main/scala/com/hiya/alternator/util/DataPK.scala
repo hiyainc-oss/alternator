@@ -1,9 +1,8 @@
 package com.hiya.alternator.util
 
-import cats.Monad
 import com.hiya.alternator.schema.TableSchema
-import com.hiya.alternator.testkit.LocalDynamoDB
-import com.hiya.alternator.{DynamoDB, Table, TableLike}
+import com.hiya.alternator.testkit.{LocalDynamoDB, LocalDynamoPartial}
+import com.hiya.alternator.{Table, TableLike}
 
 case class DataPK(key: String, value: Int)
 
@@ -22,23 +21,7 @@ object DataPK {
         i.toString -> DataPK(i.toString, v.getOrElse(i))
       }
 
-      override def withTable[F[_], S[_], C](client: C): TableConfig.Partial[F, S, C, TableLike[*, DataPK, String]] =
-        new TableConfig.Partial[F, S, C, TableLike[*, DataPK, String]] {
-          override def source[T](
-            f: TableLike[C, DataPK, String] => S[T]
-          )(implicit dynamoDB: DynamoDB[F, S, C]): S[T] = {
-            LocalDynamoDB.withRandomTable(client)(LocalDynamoDB.schema[DataPK]).source { tableName =>
-              f(table(tableName, client))
-            }
-          }
-
-          override def eval[T](
-            f: TableLike[C, DataPK, String] => F[T]
-          )(implicit dynamoDB: DynamoDB[F, S, C], F: Monad[F]): F[T] = {
-            LocalDynamoDB.withRandomTable(client)(LocalDynamoDB.schema[DataPK]).eval { tableName =>
-              f(table(tableName, client))
-            }
-          }
-        }
+      override def withTable[F[_], S[_], C](client: C): LocalDynamoPartial[TableLike[C, DataPK, String], C] =
+        LocalDynamoDB.withRandomTable[C, DataPK](client)
     }
 }
