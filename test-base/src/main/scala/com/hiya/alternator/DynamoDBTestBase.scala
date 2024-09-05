@@ -43,7 +43,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
       val exampleDBInstance2 = Table.tableWithPK[ExampleData](tableName).withClient(client)
 
       eval {
-        LocalDynamoDB.withTable(client)(tableName, LocalDynamoDB.schema[ExampleData]).eval { _ =>
+        LocalDynamoDB.withTable(client, tableName, LocalDynamoDB.schema[ExampleData]).eval { _ =>
           for {
             _ <- toTry(exampleDBInstance.get[F](key)).raiseError.map(_ shouldBe None)
             _ <- exampleDBInstance.put[F](data).map(_ shouldBe (()))

@@ -1,9 +1,8 @@
 package com.hiya.alternator.util
 
-import cats.Monad
-import com.hiya.alternator.schema.{ScalarType, TableSchema, TableSchemaWithRange}
-import com.hiya.alternator.testkit.{LocalDynamoDB, SchemaMagnet}
-import com.hiya.alternator.{DynamoDB, Table, TableWithRangeKeyLike}
+import com.hiya.alternator.schema.{TableSchema, TableSchemaWithRange}
+import com.hiya.alternator.testkit.{LocalDynamoDB, LocalDynamoPartial}
+import com.hiya.alternator.{Table, TableWithRangeKeyLike}
 
 case class DataRK(key: String, range: String, value: String)
 
@@ -15,38 +14,11 @@ object DataRK {
 
   implicit val config: TableConfig[DataRK, (String, String), TableWithRangeKeyLike[*, DataRK, String, String]] =
     new TableConfig[DataRK, (String, String), TableWithRangeKeyLike[*, DataRK, String, String]] {
+
       override def withTable[F[_], S[_], C](
         client: C
-      ): TableConfig.Partial[F, S, C, TableWithRangeKeyLike[*, DataRK, String, String]] =
-        new TableConfig.Partial[F, S, C, TableWithRangeKeyLike[*, DataRK, String, String]] {
-          override def source[T](f: TableWithRangeKeyLike[C, DataRK, String, String] => S[T])(implicit
-            dynamoDB: DynamoDB[F, S, C]
-          ): S[T] = {
-            LocalDynamoDB
-              .withRandomTable(client)(
-                new SchemaMagnet {
-                  override def hashKey: String = "key"
-                  override def rangeKey: Option[String] = Some("range")
-                  override def attributes: List[(String, ScalarType)] = List(
-                    "key" -> ScalarType.String,
-                    "range" -> ScalarType.String
-                  )
-                }
-              )
-              .source { tableName =>
-                f(table(tableName, client))
-              }
-          }
-
-          override def eval[T](f: TableWithRangeKeyLike[C, DataRK, String, String] => F[T])(implicit
-            dynamoDB: DynamoDB[F, S, C],
-            F: Monad[F]
-          ): F[T] = {
-            LocalDynamoDB.withRandomTable(client)(LocalDynamoDB.schema[DataRK]).eval { tableName =>
-              f(table(tableName, client))
-            }
-          }
-        }
+      ): LocalDynamoPartial[TableWithRangeKeyLike[C, DataRK, String, String], C] =
+        LocalDynamoDB.withRandomTableRK[C, DataRK](client)
 
       override def table[C](tableName: String, client: C): TableWithRangeKeyLike[C, DataRK, String, String] =
         Table.tableWithRK[DataRK](tableName).withClient(client)
