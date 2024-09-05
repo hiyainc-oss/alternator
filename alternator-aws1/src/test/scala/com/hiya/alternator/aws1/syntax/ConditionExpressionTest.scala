@@ -3,7 +3,7 @@ package com.hiya.alternator.aws1.syntax
 import com.amazonaws.services.dynamodbv2.model.AttributeValue
 import com.hiya.alternator.aws1._
 import com.hiya.alternator.aws1.syntax.ConditionExpressionTest.RenderedConditional
-import com.hiya.alternator.internal.ConditionParameters
+import com.hiya.alternator.internal.{Condition, ConditionParameters}
 import com.hiya.alternator.syntax._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -14,7 +14,7 @@ object ConditionExpressionTest {
 
 class ConditionExpressionTest extends AnyFunSpec with Matchers {
   def render(expression: ConditionExpression[Boolean]): RenderedConditional = {
-    val (params, exp) = ConditionParameters.renderCondition(expression).run(ConditionParameters.empty).value
+    val (params, exp) = Condition.renderCondition(expression).run(ConditionParameters.empty).value
     RenderedConditional(exp, params.names, params.values)
   }
 

@@ -18,8 +18,8 @@ private[alternator] object ConditionalSupport {
     Builder: ConditionalSupport[Builder, AV]
   ): IndexedStateT[Eval, ConditionParameters[AV], ConditionParameters[AV], Builder] =
     for {
-      exp <- ConditionParameters.renderCondition(expression)
-      ret <- ConditionParameters.execute(Builder.withConditionExpression(builder, exp))
+      exp <- Condition.renderCondition(expression)
+      ret <- Condition.execute(Builder.withConditionExpression(builder, exp))
     } yield ret
 
   def eval[Builder, AV: AttributeValue](builder: Builder, expression: ConditionExpression[Boolean])(implicit

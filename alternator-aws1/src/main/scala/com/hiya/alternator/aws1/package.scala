@@ -52,6 +52,46 @@ package object aws1 {
       builder.withExpressionAttributeValues(attributeValues)
   }
 
+  implicit object ScanIsConditional extends ConditionalSupport[model.ScanRequest, model.AttributeValue] {
+    override def withConditionExpression(
+      builder: model.ScanRequest,
+      conditionExpression: String
+    ): model.ScanRequest =
+      builder.withFilterExpression(conditionExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.ScanRequest,
+      attributeNames: JMap[String, String]
+    ): model.ScanRequest =
+      builder.withExpressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.ScanRequest,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.ScanRequest =
+      builder.withExpressionAttributeValues(attributeValues)
+  }
+
+  implicit object QueryIsConditional extends ConditionalSupport[model.QueryRequest, model.AttributeValue] {
+    override def withConditionExpression(
+      builder: model.QueryRequest,
+      conditionExpression: String
+    ): model.QueryRequest =
+      builder.withKeyConditionExpression(conditionExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.QueryRequest,
+      attributeNames: JMap[String, String]
+    ): model.QueryRequest =
+      builder.withExpressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.QueryRequest,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.QueryRequest =
+      builder.withExpressionAttributeValues(attributeValues)
+  }
+
   implicit object Aws1LocalDynamoClient extends LocalDynamoClient[AmazonDynamoDBAsync] {
     type Config = AmazonDynamoDBAsyncClientBuilder
 

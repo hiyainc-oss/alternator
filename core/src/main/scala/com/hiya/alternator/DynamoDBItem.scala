@@ -105,8 +105,17 @@ object DynamoDBItem {
 }
 
 trait DynamoDBSource[F[_], C] {
-  def scan[V, PK](table: TableLike[C, V, PK], segment: Option[Segment]): F[Result[V]]
-  def query[V, PK, RK](table: TableWithRangeKeyLike[C, V, PK, RK], pk: PK, rk: RKCondition[RK]): F[Result[V]]
+  def scan[V, PK](
+    table: TableLike[C, V, PK],
+    segment: Option[Segment],
+    condition: Option[ConditionExpression[Boolean]]
+  ): F[Result[V]]
+  def query[V, PK, RK](
+    table: TableWithRangeKeyLike[C, V, PK, RK],
+    pk: PK,
+    rk: RKCondition[RK],
+    condition: Option[ConditionExpression[Boolean]]
+  ): F[Result[V]]
 }
 
 object DynamoDBSource {

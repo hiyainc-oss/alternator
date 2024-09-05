@@ -103,11 +103,19 @@ class Aws2Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
   final def get(pk: PK): GetItemRequest.Builder =
     GetItemRequest.builder().key(schema.serializePK(pk)).tableName(tableName)
 
-  final def scan(segment: Option[Segment] = None): ScanRequest.Builder = {
-    ScanRequest
+  final def scan(
+    segment: Option[Segment] = None,
+    condition: Option[ConditionExpression[Boolean]]
+  ): ScanRequest.Builder = {
+    val request = ScanRequest
       .builder()
       .tableName(tableName)
       .optApp(req => (segment: Segment) => req.segment(segment.segment).totalSegments(segment.totalSegments))(segment)
+
+    condition match {
+      case Some(cond) => ConditionalSupport.eval(request, cond)
+      case None => request
+    }
   }
 
   final def batchGet(items: Seq[PK]): BatchGetItemRequest.Builder = {

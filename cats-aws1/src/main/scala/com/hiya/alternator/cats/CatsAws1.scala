@@ -10,7 +10,7 @@ import com.hiya.alternator.aws1.internal.Aws1DynamoDB
 import com.hiya.alternator.aws1.{Aws1Table, Aws1TableWithRangeKey}
 import com.hiya.alternator.cats.internal.CatsBase
 import com.hiya.alternator.schema.DynamoFormat.Result
-import com.hiya.alternator.syntax.{RKCondition, Segment}
+import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
 import com.hiya.alternator.{TableLike, TableWithRangeKeyLike}
 import fs2.Stream
 
@@ -47,9 +47,10 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
 
   override def scan[V, PK](
     table: TableLike[AmazonDynamoDBAsync, V, PK],
-    segment: Option[Segment]
+    segment: Option[Segment],
+    condition: Option[ConditionExpression[Boolean]]
   ): Stream[F, Result[V]] =
-    scanPaginator(table.client.scanAsync, Aws1Table(table).scan(segment))
+    scanPaginator(table.client.scanAsync, Aws1Table(table).scan(segment, condition))
       .flatMap(data => Stream.emits(Aws1Table(table).deserialize(data)))
 
   private def queryPaginator(
@@ -69,9 +70,10 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
   override def query[V, PK, RK](
     table: TableWithRangeKeyLike[AmazonDynamoDBAsync, V, PK, RK],
     pk: PK,
-    rk: RKCondition[RK]
+    rk: RKCondition[RK],
+    condition: Option[ConditionExpression[Boolean]]
   ): Stream[F, Result[V]] =
-    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk))
+    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk, condition))
       .flatMap { data => fs2.Stream.emits(Aws1TableWithRangeKey(table).deserialize(data)) }
 }
 

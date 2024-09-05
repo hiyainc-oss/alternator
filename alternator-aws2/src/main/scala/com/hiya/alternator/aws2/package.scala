@@ -75,6 +75,40 @@ package object aws2 {
         .build
   }
 
+  implicit object ScanIsConditional extends ConditionalSupport[model.ScanRequest.Builder, model.AttributeValue] {
+    override def withConditionExpression(
+      builder: model.ScanRequest.Builder,
+      conditionExpression: String
+    ): model.ScanRequest.Builder = builder.filterExpression(conditionExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.ScanRequest.Builder,
+      attributeNames: JMap[String, String]
+    ): model.ScanRequest.Builder = builder.expressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.ScanRequest.Builder,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.ScanRequest.Builder = builder.expressionAttributeValues(attributeValues)
+  }
+
+  implicit object QueryIsConditional extends ConditionalSupport[model.QueryRequest.Builder, model.AttributeValue] {
+    override def withConditionExpression(
+      builder: model.QueryRequest.Builder,
+      conditionExpression: String
+    ): model.QueryRequest.Builder = builder.keyConditionExpression(conditionExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.QueryRequest.Builder,
+      attributeNames: JMap[String, String]
+    ): model.QueryRequest.Builder = builder.expressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.QueryRequest.Builder,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.QueryRequest.Builder = builder.expressionAttributeValues(attributeValues)
+  }
+
   implicit def typeOf(t: ScalarType): model.ScalarAttributeType = t match {
     case ScalarType.String => model.ScalarAttributeType.S
     case ScalarType.Numeric => model.ScalarAttributeType.N

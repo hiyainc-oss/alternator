@@ -155,6 +155,22 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
       result should have size 1000
     }
+
+    it("should filter with non-key and range condition") {
+      val result = withRangeData(13) { table =>
+        table.query(pk = "13", rk < "5", condition = Some(attr("value") === "13/1")).raiseError
+      }
+
+      result shouldBe List(DataRK("13", "1", "13/1"))
+    }
+
+    it("should filter with non-key condition") {
+      val result = withRangeData(13) { table =>
+        table.query(pk = "13", condition = Some(attr("value") === "13/1")).raiseError
+      }
+
+      result shouldBe List(DataRK("13", "1", "13/1"))
+    }
   }
 
   describe("put") {
@@ -258,5 +274,14 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
           list(table.scan()).map(_.size shouldBe 1000)
       }
     }
+
+    it("should filter with condition") {
+      val result = withData { table =>
+        list(table.scan(condition = Some(attr[Int]("value") === 330)))
+      }
+
+      result shouldBe List(Right(DataPK("330", 330)))
+    }
+
   }
 }

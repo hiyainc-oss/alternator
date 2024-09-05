@@ -1,8 +1,8 @@
 package com.hiya.alternator.util
 
 import cats.Monad
-import com.hiya.alternator.schema.{TableSchema, TableSchemaWithRange}
-import com.hiya.alternator.testkit.LocalDynamoDB
+import com.hiya.alternator.schema.{ScalarType, TableSchema, TableSchemaWithRange}
+import com.hiya.alternator.testkit.{LocalDynamoDB, SchemaMagnet}
 import com.hiya.alternator.{DynamoDB, Table, TableWithRangeKeyLike}
 
 case class DataRK(key: String, range: String, value: String)
@@ -22,9 +22,20 @@ object DataRK {
           override def source[T](f: TableWithRangeKeyLike[C, DataRK, String, String] => S[T])(implicit
             dynamoDB: DynamoDB[F, S, C]
           ): S[T] = {
-            LocalDynamoDB.withRandomTable(client)(LocalDynamoDB.schema[DataRK]).source { tableName =>
-              f(table(tableName, client))
-            }
+            LocalDynamoDB
+              .withRandomTable(client)(
+                new SchemaMagnet {
+                  override def hashKey: String = "key"
+                  override def rangeKey: Option[String] = Some("range")
+                  override def attributes: List[(String, ScalarType)] = List(
+                    "key" -> ScalarType.String,
+                    "range" -> ScalarType.String
+                  )
+                }
+              )
+              .source { tableName =>
+                f(table(tableName, client))
+              }
           }
 
           override def eval[T](f: TableWithRangeKeyLike[C, DataRK, String, String] => F[T])(implicit
