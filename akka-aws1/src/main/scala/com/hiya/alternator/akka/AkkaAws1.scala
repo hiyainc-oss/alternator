@@ -27,16 +27,23 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
 
   private def scanPaginator(
     f: (ScanRequest, AsyncHandler[ScanRequest, ScanResult]) => JFuture[ScanResult],
-    request: ScanRequest
+    request: ScanRequest,
+    limit: Option[Int]
   ): Source[ScanResult, NotUsed] = {
-    Source.unfoldAsync[Option[ScanRequest], ScanResult](Some(request)) {
+    Source.unfoldAsync[Option[(ScanRequest, Option[Int])], ScanResult](Some(request -> limit)) {
       case None => Future.successful(None)
-      case Some(req) =>
-        async(f(req, _))
+      case Some((req, limit)) =>
+        async(f(req.withLimit(limit.map(Int.box).orNull), _))
           .map { result =>
-            Some(Option(result.getLastEvaluatedKey).map { key =>
-              req.withExclusiveStartKey(key)
-            } -> result)
+            val newReq = limit.map(_ - result.getCount) match {
+              case Some(limit) if limit == 0 =>
+                None
+              case newLimit =>
+                Option(result.getLastEvaluatedKey).map { key =>
+                  req.withExclusiveStartKey(key) -> newLimit
+                }
+            }
+            Some(newReq -> result)
           }
     }
   }
@@ -48,22 +55,29 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
     limit: Option[Int],
     consistent: Boolean
   ): Source[Result[V], NotUsed] = {
-    scanPaginator(table.client.scanAsync, Aws1Table(table).scan(segment, condition, limit, consistent))
+    scanPaginator(table.client.scanAsync, Aws1Table(table).scan(segment, condition, consistent), limit)
       .mapConcat(data => Aws1Table(table).deserialize(data))
   }
 
   private def queryPaginator(
     f: (QueryRequest, AsyncHandler[QueryRequest, QueryResult]) => JFuture[QueryResult],
-    request: QueryRequest
+    request: QueryRequest,
+    limit: Option[Int]
   ): Source[QueryResult, NotUsed] = {
-    Source.unfoldAsync[Option[QueryRequest], QueryResult](Some(request)) {
+    Source.unfoldAsync[Option[(QueryRequest, Option[Int])], QueryResult](Some(request -> limit)) {
       case None => Future.successful(None)
-      case Some(req) =>
-        async(f(req, _))
+      case Some((req, limit)) =>
+        async(f(req.withLimit(limit.map(Int.box).orNull), _))
           .map { result =>
-            Some(Option(result.getLastEvaluatedKey).map { key =>
-              req.withExclusiveStartKey(key)
-            } -> result)
+            val newReq = limit.map(_ - result.getCount) match {
+              case Some(limit) if limit == 0 =>
+                None
+              case limit =>
+                Option(result.getLastEvaluatedKey).map { key =>
+                  req.withExclusiveStartKey(key) -> limit
+                }
+            }
+            Some(newReq -> result)
           }
     }
   }
@@ -75,9 +89,10 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
     consistent: Boolean
-  ): Source[Result[V], NotUsed] =
-    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk, condition, limit, consistent))
+  ): Source[Result[V], NotUsed] = {
+    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk, condition, consistent), limit)
       .mapConcat { data => Aws1TableWithRangeKey(table).deserialize(data) }
+  }
 }
 
 object AkkaAws1 {

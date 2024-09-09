@@ -14,7 +14,6 @@ object Dependencies {
   private val catsEffect          = "org.typelevel"              %% "cats-effect"      % "3.4.2"
   private val catsFree            = "org.typelevel"              %% "cats-free"        % "2.12.0"
   private val fs2Core             = "co.fs2"                     %% "fs2-core"         % "3.10.2"
-  private val fs2Reactive         = "co.fs2"                     %% "fs2-reactive-streams" % "3.10.2"
   private val akkaActor           = "com.typesafe.akka"          %% "akka-actor"       % akkaV
   private val akkaTyped           = "com.typesafe.akka"          %% "akka-actor-typed" % akkaV
   private val akkaTestkit         = "com.typesafe.akka"          %% "akka-testkit"     % akkaV
@@ -104,7 +103,6 @@ object Dependencies {
   val CatsBase = Seq(
     catsEffect,
     fs2Core,
-    fs2Reactive,
   )
 
   val CatsAws2 = Seq(

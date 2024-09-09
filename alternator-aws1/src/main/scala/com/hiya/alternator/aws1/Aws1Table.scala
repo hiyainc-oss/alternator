@@ -104,7 +104,6 @@ class Aws1Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
   final def scan(
     segment: Option[Segment] = None,
     condition: Option[ConditionExpression[Boolean]],
-    limit: Option[Int],
     consistent: Boolean
   ): ScanRequest = {
     val request = new ScanRequest(tableName)
@@ -113,7 +112,6 @@ class Aws1Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
           req.withSegment(segment.segment).withTotalSegments(segment.totalSegments)
         }
       )(segment)
-      .optApp(_.withLimit)(limit.map(Int.box))
       .withConsistentRead(consistent)
 
     condition match {
