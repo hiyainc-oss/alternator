@@ -19,7 +19,7 @@ trait BatchedRead[ClientT, F[+_], S[_]] {
   protected implicit def readScheduler: ReadScheduler[ClientT, F]
   protected def stableClient: ClientT
   protected def lossyClient: ClientT
-  protected implicit def dynamoDB: DynamoDB[F, S, ClientT]
+  protected implicit def dynamoDB: DynamoDB.Aux[F, S, ClientT]
   protected def eval[T](f: => F[T]): T
   protected type ResourceNotFoundException <: Throwable
   protected def resourceNotFoundException: ClassTag[ResourceNotFoundException]

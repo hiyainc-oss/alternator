@@ -12,7 +12,7 @@ import fs2.Stream
 
 class CatsAws1Tests extends DynamoDBTestBase[IO, Stream[IO, *], AmazonDynamoDBAsync] {
   override protected val client: AmazonDynamoDBAsync = LocalDynamoDB.client[AmazonDynamoDBAsync]()
-  override protected implicit val dbr: DynamoDB[IO, Stream[IO, *], AmazonDynamoDBAsync] = CatsAws1.forIO
+  override protected implicit val DB: DynamoDB.Aux[IO, Stream[IO, *], AmazonDynamoDBAsync] = CatsAws1.forIO
   override protected implicit val monadF: MonadThrow[IO] = IO.asyncForIO
   override protected implicit val monadS: MonadThrow[Stream[IO, *]] = Stream.monadErrorInstance
   override protected def eval[T](body: IO[T]): T = body.unsafeRunSync()

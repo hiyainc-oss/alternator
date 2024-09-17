@@ -12,7 +12,7 @@ abstract class TableConfig[Data, Key, +TableType[_]] {
 
 object TableConfig {
   trait Partial[F[_], S[_], C, +TableType[_]] {
-    def source[T](f: TableType[C] => S[T])(implicit dynamoDB: DynamoDB[F, S, C]): S[T]
-    def eval[T](f: TableType[C] => F[T])(implicit dynamoDB: DynamoDB[F, S, C], F: Monad[F]): F[T]
+    def source[T](f: TableType[C] => S[T])(implicit dynamoDB: DynamoDB.Aux[F, S, C]): S[T]
+    def eval[T](f: TableType[C] => F[T])(implicit dynamoDB: DynamoDB.Aux[F, S, C], F: Monad[F]): F[T]
   }
 }

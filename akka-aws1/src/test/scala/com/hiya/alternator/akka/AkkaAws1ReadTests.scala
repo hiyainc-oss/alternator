@@ -42,7 +42,7 @@ class AkkaAws1ReadTests extends TestKit(ActorSystem())
   override protected val lossyClient: AmazonDynamoDBAsync = stableClient // new DynamoDBLossyClient(stableClient)
   override protected implicit val readScheduler: ReadScheduler[AmazonDynamoDBAsync, Future] =
     AkkaAws1ReadScheduler("reader", lossyClient, monitoring = monitoring, retryPolicy = retryPolicy)
-  override protected implicit val dynamoDB: DynamoDB[Future, Source[*, NotUsed], AmazonDynamoDBAsync] = AkkaAws1()
+  override protected implicit val dynamoDB: DynamoDB.Aux[Future, Source[*, NotUsed], AmazonDynamoDBAsync] = AkkaAws1()
   override protected def eval[T](f: => Future[T]): T = Await.result(f, 10.seconds)
 
   override type ResourceNotFoundException = model.ResourceNotFoundException

@@ -17,7 +17,9 @@ import java.util.concurrent.{CompletionException, Future => JFuture}
 import scala.collection.compat._
 import scala.jdk.CollectionConverters._
 
-abstract class Aws1DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F, S, AmazonDynamoDBAsync] {
+abstract class Aws1DynamoDB[F[+_]: MonadThrow] extends DynamoDB[F] {
+  type C = AmazonDynamoDBAsync
+
   override type AttributeValue = model.AttributeValue
   override type BatchReadItemRequest = KeysAndAttributes
   override type BatchReadItemResponse = model.BatchGetItemResult

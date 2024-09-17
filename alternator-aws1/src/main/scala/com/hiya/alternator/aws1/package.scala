@@ -12,6 +12,10 @@ import java.util.{Collection => JCollection, List => JList, Map => JMap}
 import scala.jdk.CollectionConverters._
 
 package object aws1 {
+  type Aws1TableLike[V, PK] = TableLike[AmazonDynamoDBAsync, V, PK]
+  type Aws1TableWithRangeKeyLike[V, PK, RK] = TableWithRangeKeyLike[AmazonDynamoDBAsync, V, PK, RK]
+  type Aws1DynamoDB[F[_]] = DynamoDB.Client[F, AmazonDynamoDBAsync]
+
   implicit object PutIsConditional extends ConditionalSupport[model.PutItemRequest, model.AttributeValue] {
     override def withConditionExpression(
       builder: model.PutItemRequest,

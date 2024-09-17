@@ -20,7 +20,9 @@ import java.util.concurrent.CompletionException
 import scala.collection.compat._
 import scala.jdk.CollectionConverters._
 
-abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F, S, DynamoDbAsyncClient] {
+abstract class Aws2DynamoDB[F[+_]: MonadThrow, PS[_]] extends DynamoDB[F] {
+  override type C = DynamoDbAsyncClient
+  override type S[T] = PS[T]
   override type AttributeValue = model.AttributeValue
   override type BatchReadItemRequest = KeysAndAttributes
   override type BatchReadItemResponse = model.BatchGetItemResponse
