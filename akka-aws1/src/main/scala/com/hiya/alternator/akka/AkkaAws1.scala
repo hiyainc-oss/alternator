@@ -18,8 +18,10 @@ import java.util.concurrent.{Future => JFuture}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class AkkaAws1 private (override implicit val system: ActorSystem, override implicit val workerEc: ExecutionContext)
-  extends Aws1DynamoDB[Future, Source[*, NotUsed]]
+  extends Aws1DynamoDB[Future]
   with AkkaBase {
+
+  type S[T] = Source[T, NotUsed]
 
   override protected def async[Req <: AmazonWebServiceRequest, Resp](
     f: AsyncHandler[Req, Resp] => JFuture[Resp]

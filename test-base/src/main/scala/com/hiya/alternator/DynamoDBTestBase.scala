@@ -26,7 +26,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
   import DynamoDBTestBase._
 
   protected def client: C
-  protected implicit def dbr: DynamoDB[F, S, C]
+  protected implicit def DB: DynamoDB.Aux[F, S, C]
   protected implicit def monadF: MonadThrow[F]
   protected implicit def monadS: MonadThrow[S]
 
@@ -70,22 +70,20 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
       eval {
         list {
           DataRK.config.withTable(client).source { table =>
-            DynamoDB[F, S, C]
-              .eval {
-                List(num, 11).traverse { i =>
-                  (0 until num).toList.traverse { j =>
-                    table.put[F](DataRK(i.toString, j.toString, payload.getOrElse(s"$i/$j")))
-                  }
+            DB.eval {
+              List(num, 11).traverse { i =>
+                (0 until num).toList.traverse { j =>
+                  table.put[F](DataRK(i.toString, j.toString, payload.getOrElse(s"$i/$j")))
                 }
               }
-              .flatMap(_ => f(table))
+            }.flatMap(_ => f(table))
           }
         }
       }
 
     it("should compile =") {
       val result = withRangeData(5) { table =>
-        table.query(pk = "5", rk === "3").raiseError
+        table.query[S](pk = "5", rk === "3").raiseError
       }
 
       result shouldBe List(DataRK("5", "3", "5/3"))
@@ -93,7 +91,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
     it("should compile <") {
       val result = withRangeData(5) { table =>
-        table.query(pk = "5", rk < "3").raiseError
+        table.query[S](pk = "5", rk < "3").raiseError
       }
 
       result shouldBe (0 until 3).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -101,7 +99,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
     it("should compile <=") {
       val result = withRangeData(5) { table =>
-        table.query(pk = "5", rk <= "3").raiseError
+        table.query[S](pk = "5", rk <= "3").raiseError
       }
 
       result shouldBe (0 to 3).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -109,7 +107,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
     it("should compile >") {
       val result = withRangeData(5) { table =>
-        table.query(pk = "5", rk > "3").raiseError
+        table.query[S](pk = "5", rk > "3").raiseError
       }
 
       result shouldBe (4 until 5).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -117,7 +115,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
     it("should compile >=") {
       val result = withRangeData(5) { table =>
-        table.query(pk = "5", rk >= "3").raiseError
+        table.query[S](pk = "5", rk >= "3").raiseError
       }
 
       result shouldBe (3 until 5).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -125,7 +123,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
     it("should compile between") {
       val result = withRangeData(5) { table =>
-        table.query(pk = "5", rk.between("2", "3")).raiseError
+        table.query[S](pk = "5", rk.between("2", "3")).raiseError
       }
 
       result shouldBe (2 to 3).map { j => DataRK("5", s"$j", s"5/$j") }
@@ -133,7 +131,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
     it("should compile startswith") {
       val result = withRangeData(13) { table =>
-        table.query(pk = "13", rk.beginsWith("1")).raiseError
+        table.query[S](pk = "13", rk.beginsWith("1")).raiseError
       }
 
       result shouldBe (1 :: (10 until 13).toList).map { j => DataRK("13", s"$j", s"13/$j") }
@@ -141,7 +139,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
     it("should work without rk condition") {
       val result = withRangeData(13) { table =>
-        table.query(pk = "13").raiseError
+        table.query[S](pk = "13").raiseError
       }
 
       result should contain theSameElementsAs (0 until 13).map { j => DataRK("13", s"$j", s"13/$j") }
@@ -150,7 +148,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
     it("should work with a lots of data") {
       val payload = "0123456789abcdefghijklmnopqrstuvwxyz" * 1000
       val result = withRangeData(1000, payload = Some(payload)) { table =>
-        table.query(pk = "1000").raiseError
+        table.query[S](pk = "1000").raiseError
       }
 
       result should have size 1000
@@ -158,7 +156,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
     it("should work with limit") {
       val result = withRangeData(1000) { table =>
-        table.query(pk = "1000", limit = 500.some).raiseError
+        table.query[S](pk = "1000", limit = 500.some).raiseError
       }
 
       result should have size 500
@@ -166,7 +164,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
     it("should filter with non-key and range condition") {
       val result = withRangeData(13) { table =>
-        table.query(pk = "13", rk < "5", condition = Some(attr("value") === "13/1")).raiseError
+        table.query[S](pk = "13", rk < "5", condition = Some(attr("value") === "13/1")).raiseError
       }
 
       result shouldBe List(DataRK("13", "1", "13/1"))
@@ -174,7 +172,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
     it("should filter with non-key condition") {
       val result = withRangeData(13) { table =>
-        table.query(pk = "13", condition = Some(attr("value") === "13/1")).raiseError
+        table.query[S](pk = "13", condition = Some(attr("value") === "13/1")).raiseError
       }
 
       result shouldBe List(DataRK("13", "1", "13/1"))
@@ -278,14 +276,14 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
     it("should scan table twice") {
       withData { table =>
-        list(table.scan()).map(_.size shouldBe 1000) >>
-          list(table.scan()).map(_.size shouldBe 1000)
+        list(table.scan[S]()).map(_.size shouldBe 1000) >>
+          list(table.scan[S]()).map(_.size shouldBe 1000)
       }
     }
 
     it("should filter with condition") {
       val result = withData { table =>
-        list(table.scan(condition = Some(attr[Int]("value") === 330)))
+        list(table.scan[S](condition = Some(attr[Int]("value") === 330)))
       }
 
       result shouldBe List(Right(DataPK("330", 330)))
@@ -293,7 +291,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
 
     it("should work with limit") {
       val result = withData { table =>
-        list(table.scan(limit = 500.some)).raiseError
+        list(table.scan[S](limit = 500.some)).raiseError
       }
 
       result should have size 500

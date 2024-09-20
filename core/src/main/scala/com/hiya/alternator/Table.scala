@@ -56,72 +56,74 @@ abstract class TableLike[C, V, PK](
   def schema: TableSchema.Aux[V, PK]
 
   def get[F[_]](pk: PK, consistent: Boolean = false)(implicit
-    DB: DynamoDBItem[F, C]
+    DB: DynamoDB.Client[F, C]
   ): F[Option[DynamoFormat.Result[V]]] =
     DB.get(this, pk, consistent)
 
-  def put[F[_]: Functor](value: V)(implicit DB: DynamoDBItem[F, C]): F[Unit] =
+  def put[F[_]: Functor](value: V)(implicit DB: DynamoDB.Client[F, C]): F[Unit] =
     DB.put(this, value, None).map(_ => ())
 
-  def putAndReturn[F[_]: MonadThrow](value: V)(implicit DB: DynamoDBItem[F, C]): F[Option[DynamoFormat.Result[V]]] =
+  def putAndReturn[F[_]: MonadThrow](value: V)(implicit DB: DynamoDB.Client[F, C]): F[Option[DynamoFormat.Result[V]]] =
     DB.putAndReturn(this, value, None).flatMap {
       case ConditionResult.Success(oldValue) => oldValue.pure[F]
       case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
     }
 
-  def put[F[_]](value: V, condition: ConditionExpression[Boolean])(implicit DB: DynamoDBItem[F, C]): F[Boolean] =
+  def put[F[_]](value: V, condition: ConditionExpression[Boolean])(implicit DB: DynamoDB.Client[F, C]): F[Boolean] =
     DB.put(this, value, condition = Some(condition))
 
   def putAndReturn[F[_]](value: V, condition: ConditionExpression[Boolean])(implicit
-    DB: DynamoDBItem[F, C]
+    DB: DynamoDB.Client[F, C]
   ): F[ConditionResult[V]] =
     DB.putAndReturn(this, value, condition = Some(condition))
 
-  def delete[F[_]: Functor](key: PK)(implicit DB: DynamoDBItem[F, C]): F[Unit] =
+  def delete[F[_]: Functor](key: PK)(implicit DB: DynamoDB.Client[F, C]): F[Unit] =
     DB.delete(this, key, None).map(_ => ())
 
-  def deleteAndReturn[F[_]: MonadThrow](key: PK)(implicit DB: DynamoDBItem[F, C]): F[Option[DynamoFormat.Result[V]]] =
+  def deleteAndReturn[F[_]: MonadThrow](
+    key: PK
+  )(implicit DB: DynamoDB.Client[F, C]): F[Option[DynamoFormat.Result[V]]] =
     DB.deleteAndReturn(this, key, None).flatMap {
       case ConditionResult.Success(oldValue) => oldValue.pure[F]
       case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
     }
 
-  def delete[F[_]](key: PK, condition: ConditionExpression[Boolean])(implicit DB: DynamoDBItem[F, C]): F[Boolean] =
+  def delete[F[_]](key: PK, condition: ConditionExpression[Boolean])(implicit DB: DynamoDB.Client[F, C]): F[Boolean] =
     DB.delete(this, key, Some(condition))
 
   def deleteAndReturn[F[_]](key: PK, condition: ConditionExpression[Boolean])(implicit
-    DB: DynamoDBItem[F, C]
+    DB: DynamoDB.Client[F, C]
   ): F[ConditionResult[V]] =
     DB.deleteAndReturn(this, key, Some(condition))
 
-  def scan[F[_]](
+  def scan[S[_]](
     segment: Option[Segment] = None,
     condition: Option[ConditionExpression[Boolean]] = None,
     limit: Option[Int] = None,
     consistent: Boolean = false
   )(implicit
-    DB: DynamoDBSource[F, C]
-  ): F[DynamoFormat.Result[V]] =
+    DB: DynamoDBSource.Aux[S, C]
+  ): S[DynamoFormat.Result[V]] =
     DB.scan(this, segment, condition, limit, consistent)
 
-  def batchGetRequest[F[_]](key: PK)(implicit DB: DynamoDBItem[F, C]): java.util.Map[String, DB.AttributeValue] =
+  def batchGetRequest[F[_]](key: PK)(implicit DB: DynamoDB.Client[F, C]): java.util.Map[String, DB.AttributeValue] =
     DB.batchGetRequest(this, key)
 
   def batchPutAll[F[_]](values: Seq[V])(implicit
-    DB: DynamoDBItem[F, C]
+    DB: DynamoDB.Client[F, C]
   ): F[BatchWriteResult[DB.BatchWriteItemRequest, DB.BatchWriteItemResponse, DB.AttributeValue]] =
     DB.batchWrite(client, Map(tableName -> values.map(batchPutRequest(_)(DB))))
 
-  def batchPutRequest[F[_]](value: V)(implicit DB: DynamoDBItem[F, C]): DB.BatchWriteItemRequest =
+  def batchPutRequest[F[_]](value: V)(implicit DB: DynamoDB.Client[F, C]): DB.BatchWriteItemRequest =
     DB.batchPutRequest(this, value)
 
   def batchDeleteAll[F[_], T](keys: Seq[T])(implicit
     T: ItemMagnet[T, V, PK],
-    DB: DynamoDBItem[F, C]
+    DB: DynamoDB.Client[F, C]
   ): F[BatchWriteResult[DB.BatchWriteItemRequest, DB.BatchWriteItemResponse, DB.AttributeValue]] =
     DB.batchWrite(client, Map(tableName -> keys.map(key => batchDeleteRequest(T.key(key)(this.schema))(DB))))
 
-  def batchDeleteRequest[F[_]](key: PK)(implicit DB: DynamoDBItem[F, C]): DB.BatchWriteItemRequest =
+  def batchDeleteRequest[F[_]](key: PK)(implicit DB: DynamoDB.Client[F, C]): DB.BatchWriteItemRequest =
     DB.batchDeleteRequest(this, key)
 
   def batchedPut[F[_]](value: V)(implicit batchReader: WriteScheduler[C, F], timeout: BatchTimeout): F[Unit] =
@@ -144,15 +146,15 @@ abstract class TableWithRangeKeyLike[C, V, PK, RK](c: C, name: String) extends T
 
   override def schema: TableSchemaWithRange.Aux[V, PK, RK]
 
-  def query[F[_]](
+  def query[S[_]](
     pk: PK,
     rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[Boolean]] = None,
     limit: Option[Int] = None,
     consistent: Boolean = false
   )(implicit
-    DB: DynamoDBSource[F, C]
-  ): F[DynamoFormat.Result[V]] =
+    DB: DynamoDBSource.Aux[S, C]
+  ): S[DynamoFormat.Result[V]] =
     DB.query(this, pk, rk, condition, limit, consistent)
 }
 
@@ -192,7 +194,7 @@ object Table {
     writeCapacity: Long = 1L,
     attributes: List[(String, ScalarType)] = Nil,
     client: C = Client.Missing
-  )(implicit DB: DynamoDBItem[F, C]): F[Unit] =
+  )(implicit DB: DynamoDB.Client[F, C]): F[Unit] =
     DB.createTable(
       client,
       tableName,
@@ -203,6 +205,6 @@ object Table {
       attributes
     )
 
-  def drop[F[_], C](tableName: String, client: C = Client.Missing)(implicit DB: DynamoDBItem[F, C]): F[Unit] =
+  def drop[F[_], C](tableName: String, client: C = Client.Missing)(implicit DB: DynamoDB.Client[F, C]): F[Unit] =
     DB.dropTable(client, tableName)
 }

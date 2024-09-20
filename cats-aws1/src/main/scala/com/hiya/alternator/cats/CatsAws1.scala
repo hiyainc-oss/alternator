@@ -16,9 +16,9 @@ import fs2.Stream
 
 import java.util.concurrent.{Future => JFuture}
 
-class CatsAws1[F[+_]](protected override implicit val F: Async[F])
-  extends Aws1DynamoDB[F, Stream[F, *]]
-  with CatsBase[F] {
+class CatsAws1[F[+_]](protected override implicit val F: Async[F]) extends Aws1DynamoDB[F] with CatsBase[F] {
+
+  override type S[T] = Stream[F, T]
 
   protected override def async[Req <: AmazonWebServiceRequest, Resp](
     f: AsyncHandler[Req, Resp] => JFuture[Resp]
