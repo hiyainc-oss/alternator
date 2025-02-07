@@ -58,32 +58,72 @@ abstract class TableLike[C, V, PK](
   def get[F[_]](pk: PK, consistent: Boolean = false)(implicit
     DB: DynamoDB.Client[F, C]
   ): F[Option[DynamoFormat.Result[V]]] =
-    DB.get(this, pk, consistent)
+    DB.get(this, pk, consistent = consistent, overrides = None)
+
+  def get[F[_]](pk: PK, overrides: ClientOverrideMagnet[F, C]): F[Option[DynamoFormat.Result[V]]] =
+    get[F](pk, consistent = false, overrides = overrides)
+
+  def get[F[_]](pk: PK, consistent: Boolean, overrides: ClientOverrideMagnet[F, C]): F[Option[DynamoFormat.Result[V]]] =
+    overrides.DB.get(this, pk, consistent = consistent, overrides = Some(overrides.overrides))
 
   def put[F[_]: Functor](value: V)(implicit DB: DynamoDB.Client[F, C]): F[Unit] =
-    DB.put(this, value, None).map(_ => ())
+    DB.put(this, value, condition = None, overrides = None).map(_ => ())
+
+  def put[F[_]: Functor](value: V, overrides: ClientOverrideMagnet[F, C]): F[Unit] =
+    overrides.DB.put(this, value, condition = None, overrides = Some(overrides.overrides)).map(_ => ())
 
   def putAndReturn[F[_]: MonadThrow](value: V)(implicit DB: DynamoDB.Client[F, C]): F[Option[DynamoFormat.Result[V]]] =
-    DB.putAndReturn(this, value, None).flatMap {
+    DB.putAndReturn(this, value, condition = None, overrides = None).flatMap {
+      case ConditionResult.Success(oldValue) => oldValue.pure[F]
+      case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
+    }
+
+  def putAndReturn[F[_]: MonadThrow](
+    value: V,
+    overrides: ClientOverrideMagnet[F, C]
+  ): F[Option[DynamoFormat.Result[V]]] =
+    overrides.DB.putAndReturn(this, value, condition = None, overrides = Some(overrides.overrides)).flatMap {
       case ConditionResult.Success(oldValue) => oldValue.pure[F]
       case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
     }
 
   def put[F[_]](value: V, condition: ConditionExpression[Boolean])(implicit DB: DynamoDB.Client[F, C]): F[Boolean] =
-    DB.put(this, value, condition = Some(condition))
+    DB.put(this, value, condition = Some(condition), overrides = None)
+
+  def put[F[_]](value: V, condition: ConditionExpression[Boolean], overrides: ClientOverrideMagnet[F, C]): F[Boolean] =
+    overrides.DB.put(this, value, condition = Some(condition), overrides = Some(overrides.overrides))
 
   def putAndReturn[F[_]](value: V, condition: ConditionExpression[Boolean])(implicit
     DB: DynamoDB.Client[F, C]
   ): F[ConditionResult[V]] =
-    DB.putAndReturn(this, value, condition = Some(condition))
+    DB.putAndReturn(this, value, condition = Some(condition), overrides = None)
+
+  def putAndReturn[F[_]](
+    value: V,
+    condition: ConditionExpression[Boolean],
+    overrides: ClientOverrideMagnet[F, C]
+  ): F[ConditionResult[V]] =
+    overrides.DB.putAndReturn(this, value, condition = Some(condition), overrides = Some(overrides.overrides))
 
   def delete[F[_]: Functor](key: PK)(implicit DB: DynamoDB.Client[F, C]): F[Unit] =
-    DB.delete(this, key, None).map(_ => ())
+    DB.delete(this, key, condition = None).map(_ => ())
+
+  def delete[F[_]: Functor](key: PK, overrides: ClientOverrideMagnet[F, C]): F[Unit] =
+    overrides.DB.delete(this, key, condition = None, overrides = Some(overrides.overrides)).map(_ => ())
 
   def deleteAndReturn[F[_]: MonadThrow](
     key: PK
   )(implicit DB: DynamoDB.Client[F, C]): F[Option[DynamoFormat.Result[V]]] =
-    DB.deleteAndReturn(this, key, None).flatMap {
+    DB.deleteAndReturn(this, key, condition = None).flatMap {
+      case ConditionResult.Success(oldValue) => oldValue.pure[F]
+      case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
+    }
+
+  def deleteAndReturn[F[_]: MonadThrow](
+    key: PK,
+    overrides: ClientOverrideMagnet[F, C]
+  ): F[Option[DynamoFormat.Result[V]]] =
+    overrides.DB.deleteAndReturn(this, key, condition = None, overrides = Some(overrides.overrides)).flatMap {
       case ConditionResult.Success(oldValue) => oldValue.pure[F]
       case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
     }

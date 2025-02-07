@@ -71,21 +71,39 @@ trait DynamoDB[F[_]] extends DynamoDBSourceBase {
   type BatchReadItemResponse
   type BatchWriteItemRequest
   type BatchWriteItemResponse
+  type Overrides
 
   def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue]
 
-  def get[V, PK](table: TableLike[C, V, PK], pk: PK, consistent: Boolean): F[Option[Result[V]]]
-  def put[V, PK](table: TableLike[C, V, PK], item: V, condition: Option[ConditionExpression[Boolean]]): F[Boolean]
+  def get[V, PK](
+    table: TableLike[C, V, PK],
+    pk: PK,
+    consistent: Boolean = false,
+    overrides: Option[Overrides] = None
+  ): F[Option[Result[V]]]
+  def put[V, PK](
+    table: TableLike[C, V, PK],
+    item: V,
+    condition: Option[ConditionExpression[Boolean]] = None,
+    overrides: Option[Overrides] = None
+  ): F[Boolean]
   def putAndReturn[V, PK](
     table: TableLike[C, V, PK],
     item: V,
-    condition: Option[ConditionExpression[Boolean]]
+    condition: Option[ConditionExpression[Boolean]] = None,
+    overrides: Option[Overrides] = None
   ): F[ConditionResult[V]]
-  def delete[V, PK](table: TableLike[C, V, PK], key: PK, condition: Option[ConditionExpression[Boolean]]): F[Boolean]
+  def delete[V, PK](
+    table: TableLike[C, V, PK],
+    key: PK,
+    condition: Option[ConditionExpression[Boolean]] = None,
+    overrides: Option[Overrides] = None
+  ): F[Boolean]
   def deleteAndReturn[V, PK](
     value: TableLike[C, V, PK],
     key: PK,
-    condition: Option[ConditionExpression[Boolean]]
+    condition: Option[ConditionExpression[Boolean]] = None,
+    overrides: Option[Overrides] = None
   ): F[ConditionResult[V]]
   def createTable(
     client: C,
@@ -98,26 +116,44 @@ trait DynamoDB[F[_]] extends DynamoDBSourceBase {
   ): F[Unit]
   def dropTable(client: C, tableName: String): F[Unit]
 
-  def batchPutRequest[V, PK](table: TableLike[C, V, PK], value: V): BatchWriteItemRequest
-  def batchDeleteRequest[V, PK](table: TableLike[C, V, PK], key: PK): BatchWriteItemRequest
+  def batchPutRequest[V, PK](
+    table: TableLike[C, V, PK],
+    value: V
+  ): BatchWriteItemRequest
+  def batchDeleteRequest[V, PK](
+    table: TableLike[C, V, PK],
+    key: PK
+  ): BatchWriteItemRequest
   def batchWrite(
     client: C,
     values: Map[String, Seq[BatchWriteItemRequest]]
   ): F[BatchWriteResult[BatchWriteItemRequest, BatchWriteItemResponse, AttributeValue]] =
-    batchWrite(client, values.view.mapValues(_.asJava).toMap.asJava)
+    batchWrite(client, values, None)
   def batchWrite(
     client: C,
-    values: java.util.Map[String, java.util.List[BatchWriteItemRequest]]
+    values: Map[String, Seq[BatchWriteItemRequest]],
+    overrides: Option[Overrides]
+  ): F[BatchWriteResult[BatchWriteItemRequest, BatchWriteItemResponse, AttributeValue]] =
+    batchWrite(client, values.view.mapValues(_.asJava).toMap.asJava, overrides)
+  def batchWrite(
+    client: C,
+    values: java.util.Map[String, java.util.List[BatchWriteItemRequest]],
+    overrides: Option[Overrides] = None
   ): F[BatchWriteResult[BatchWriteItemRequest, BatchWriteItemResponse, AttributeValue]]
 
-  def batchGetRequest[V, PK](table: TableLike[C, V, PK], key: PK): java.util.Map[String, AttributeValue]
+  def batchGetRequest[V, PK](
+    table: TableLike[C, V, PK],
+    key: PK
+  ): java.util.Map[String, AttributeValue]
   def batchGetAV(
     client: C,
-    keys: Map[String, Seq[java.util.Map[String, AttributeValue]]]
+    keys: Map[String, Seq[java.util.Map[String, AttributeValue]]],
+    overrides: Option[Overrides] = None
   ): F[BatchReadResult[BatchReadItemRequest, BatchReadItemResponse, AttributeValue]]
   def batchGet(
     client: C,
-    keys: java.util.Map[String, BatchReadItemRequest]
+    keys: java.util.Map[String, BatchReadItemRequest],
+    overrides: Option[Overrides] = None
   ): F[BatchReadResult[BatchReadItemRequest, BatchReadItemResponse, AttributeValue]]
 
   def isRetryable(e: Throwable): Boolean

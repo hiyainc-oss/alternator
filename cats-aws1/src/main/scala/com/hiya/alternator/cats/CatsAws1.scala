@@ -1,6 +1,6 @@
 package com.hiya.alternator.cats
 
-import cats.effect.{Async, IO}
+import cats.effect.{Async, IO, LiftIO}
 import cats.syntax.all._
 import com.amazonaws.AmazonWebServiceRequest
 import com.amazonaws.handlers.AsyncHandler
@@ -16,7 +16,7 @@ import fs2.Stream
 
 import java.util.concurrent.{Future => JFuture}
 
-class CatsAws1[F[+_]](protected override implicit val F: Async[F]) extends Aws1DynamoDB[F] with CatsBase[F] {
+class CatsAws1[F[_]](protected override implicit val F: Async[F]) extends Aws1DynamoDB[F] with CatsBase[F] {
 
   override type S[T] = Stream[F, T]
 
@@ -96,9 +96,14 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F]) extends Aws1D
 }
 
 object CatsAws1 {
-  val forIO: CatsAws1[IO] = forAsync[IO]
+  def forIO: CatsAws1[IO] = forAsync[IO]
 
-  def forAsync[F[+_]: Async]: CatsAws1[F] = new CatsAws1[F]
+  implicit def forLiftIO[F[_]: Async: LiftIO]: CatsAws1[F] = {
+    val _ = LiftIO[F]
+    forAsync
+  }
 
-  def apply[F[+_]](implicit F: CatsAws1[F]): CatsAws1[F] = F
+  def forAsync[F[_]: Async]: CatsAws1[F] = new CatsAws1[F]
+
+  def apply[F[_]](implicit F: CatsAws1[F]): CatsAws1[F] = F
 }

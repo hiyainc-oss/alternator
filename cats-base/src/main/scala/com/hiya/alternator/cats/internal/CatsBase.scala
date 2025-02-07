@@ -20,5 +20,5 @@ trait CatsBase[F[_]] {
   def evalMap[A, B](in: Stream[F, A])(f: A => F[B]): Stream[F, B] =
     in.evalMap(f)
 
-  def toSeq[T](value: Stream[F, T]): F[Vector[T]] = value.compile.toVector
+  def toSeq[T](value: Stream[F, T]): F[Seq[T]] = value.compile.toVector.map(_.toSeq)
 }
