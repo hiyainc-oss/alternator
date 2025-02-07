@@ -14,7 +14,7 @@ import software.amazon.awssdk.services.dynamodb.model.{QueryRequest, QueryRespon
 
 import java.util.concurrent.CompletableFuture
 
-class CatsAws2[F[+_]](protected override implicit val F: Async[F])
+class CatsAws2[F[_]](protected override implicit val F: Async[F])
   extends Aws2DynamoDB[F, Stream[F, *]]
   with CatsBase[F] {
   override protected def async[T](f: => CompletableFuture[T]): F[T] = {
@@ -94,9 +94,14 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
 }
 
 object CatsAws2 {
-  val forIO: CatsAws2[IO] = forAsync[IO]
+  def forIO: CatsAws2[IO] = forAsync[IO]
 
-  def forAsync[F[+_]: Async]: CatsAws2[F] = new CatsAws2[F]
+  implicit def forLiftIO[F[_]: Async: LiftIO]: CatsAws2[F] = {
+    val _ = LiftIO[F]
+    forAsync
+  }
 
-  def apply[F[+_]](implicit F: CatsAws2[F]): CatsAws2[F] = F
+  def forAsync[F[_]: Async]: CatsAws2[F] = new CatsAws2[F]
+
+  def apply[F[_]](implicit F: CatsAws2[F]): CatsAws2[F] = F
 }
