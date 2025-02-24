@@ -15,11 +15,11 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model._
 
 import java.util.{Map => JMap}
-import scala.collection.compat._
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
+import scala.collection.compat._
 
 /** DynamoDB batched writer
   *
@@ -31,10 +31,10 @@ import scala.jdk.CollectionConverters._
   */
 class AkkaAws2WriteScheduler(val actorRef: ActorRef[AkkaAws2WriteScheduler.BatchedRequest])(implicit
   scheduler: Scheduler
-) extends WriteScheduler[DynamoDbAsyncClient, Future] {
+) extends WriteScheduler[Future] {
   import JdkCompat.parasitic
 
-  override def put[V, PK](table: TableLike[DynamoDbAsyncClient, V, PK], value: V)(implicit
+  override def put[V, PK](table: Table[Client.Missing, V, PK], value: V)(implicit
     timeout: BatchTimeout
   ): Future[Unit] = {
     val key = table.schema.extract(value)
@@ -48,7 +48,7 @@ class AkkaAws2WriteScheduler(val actorRef: ActorRef[AkkaAws2WriteScheduler.Batch
       .flatMap(result => Future.fromTry { result })
   }
 
-  override def delete[V, PK](table: TableLike[DynamoDbAsyncClient, V, PK], key: PK)(implicit
+  override def delete[V, PK](table: Table[Client.Missing, V, PK], key: PK)(implicit
     timeout: BatchTimeout
   ): Future[Unit] = {
     val pk = table.schema.serializePK[AttributeValue](key)

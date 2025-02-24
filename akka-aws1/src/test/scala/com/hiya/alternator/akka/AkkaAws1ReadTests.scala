@@ -6,8 +6,7 @@ import _root_.akka.actor.typed.scaladsl.adapter._
 import _root_.akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import cats.MonadThrow
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
-import com.amazonaws.services.dynamodbv2.model
+import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, model}
 import com.hiya.alternator._
 import com.hiya.alternator.aws1._
 import com.hiya.alternator.testkit.LocalDynamoDB
@@ -40,9 +39,9 @@ class AkkaAws1ReadTests extends TestKit(ActorSystem())
   override protected implicit val F: MonadThrow[Future] = _root_.cats.instances.future.catsStdInstancesForFuture
   override protected val stableClient: AmazonDynamoDBAsync = LocalDynamoDB.client()
   override protected val lossyClient: AmazonDynamoDBAsync = stableClient // new DynamoDBLossyClient(stableClient)
-  override protected implicit val readScheduler: ReadScheduler[AmazonDynamoDBAsync, Future] =
+  override protected implicit val readScheduler: ReadScheduler[Future] =
     AkkaAws1ReadScheduler("reader", lossyClient, monitoring = monitoring, retryPolicy = retryPolicy)
-  override protected implicit val dynamoDB: DynamoDB.Aux[Future, Source[*, NotUsed], AmazonDynamoDBAsync] = AkkaAws1()
+  override protected implicit val DB: DynamoDB.Aux[Future, Source[*, NotUsed], AmazonDynamoDBAsync] = AkkaAws1()
   override protected def eval[T](f: => Future[T]): T = Await.result(f, 10.seconds)
 
   override type ResourceNotFoundException = model.ResourceNotFoundException

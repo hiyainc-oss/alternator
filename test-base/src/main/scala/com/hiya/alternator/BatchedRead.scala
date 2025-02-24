@@ -1,7 +1,7 @@
 package com.hiya.alternator
 
-import cats.{Id, MonadThrow}
 import cats.syntax.all._
+import cats.{Id, MonadThrow}
 import com.hiya.alternator.util.TableConfig
 import org.scalatest.funspec.AnyFunSpecLike
 import org.scalatest.matchers.should
@@ -16,10 +16,10 @@ trait BatchedRead[ClientT, F[+_], S[_]] {
   this: AnyFunSpecLike with should.Matchers with Inspectors with Inside =>
 
   protected implicit def F: MonadThrow[F]
-  protected implicit def readScheduler: ReadScheduler[ClientT, F]
+  protected implicit def readScheduler: ReadScheduler[F]
   protected def stableClient: ClientT
   protected def lossyClient: ClientT
-  protected implicit def dynamoDB: DynamoDB.Aux[F, S, ClientT]
+  protected implicit def DB: DynamoDB.Aux[F, S, ClientT]
   protected def eval[T](f: => F[T]): T
   protected type ResourceNotFoundException <: Throwable
   protected def resourceNotFoundException: ClassTag[ResourceNotFoundException]
@@ -46,16 +46,16 @@ trait BatchedRead[ClientT, F[+_], S[_]] {
     override def close(): Unit = {}
   }
 
-  def streamRead[Data, Key](implicit tableConfig: TableConfig[Data, Key, TableLike[*, Data, Key]]): Unit = {
-    def writeData(table: TableLike[ClientT, Data, Key], nums: immutable.Iterable[Int]): F[Unit] = {
+  def streamRead[Data, Key](implicit tableConfig: TableConfig[Data, Key, Table[*, Data, Key]]): Unit = {
+    def writeData(table: Table[ClientT, Data, Key], nums: immutable.Iterable[Int]): F[Unit] = {
       nums
         .map(v => tableConfig.createData(v)._2)
         .toList
-        .traverse(table.put[F](_))
+        .traverse(DB.put(table, _))
         .map(_ => ())
     }
 
-    def withData[T](nums: immutable.Iterable[Int])(f: TableLike[ClientT, Data, Key] => F[T]): F[T] = {
+    def withData[T](nums: immutable.Iterable[Int])(f: Table[ClientT, Data, Key] => F[T]): F[T] = {
       tableConfig.withTable(stableClient).eval { table =>
         writeData(table, nums) >> f(table)
       }
@@ -69,7 +69,7 @@ trait BatchedRead[ClientT, F[+_], S[_]] {
           List(1)
             .map(k => tableConfig.createData(k))
             .map(_._1)
-            .traverse(table.batchedGet[F](_))
+            .traverse(readScheduler.get(table.noClient, _))
         }
       }
 
@@ -84,7 +84,7 @@ trait BatchedRead[ClientT, F[+_], S[_]] {
             .shuffle(List.fill(10)(1 to 100).flatten)
             .map(k => tableConfig.createData(k))
             .traverse { case (key, value) =>
-              table.batchedGet[F](key).map(_ -> value)
+              readScheduler.get(table.noClient, key).map(_ -> value)
             }
         }
       }
@@ -107,7 +107,7 @@ trait BatchedRead[ClientT, F[+_], S[_]] {
             .shuffle(List.fill(10)(1 to 100).flatten)
             .map(k => tableConfig.createData(k))
             .traverse { case (key, _) =>
-              table.batchedGet[F](key)
+              readScheduler.get(table.noClient, key)
             }
         }
       }

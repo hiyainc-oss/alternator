@@ -40,9 +40,9 @@ class AkkaAws1WriteTests extends TestKit(ActorSystem())
   override protected implicit val F: MonadThrow[Future] = _root_.cats.instances.future.catsStdInstancesForFuture
   override protected val stableClient: AmazonDynamoDBAsync = LocalDynamoDB.client()
   override protected val lossyClient: AmazonDynamoDBAsync = new DynamoDBLossyClient(stableClient)
-  override protected implicit val writeScheduler: WriteScheduler[AmazonDynamoDBAsync, Future] =
+  override protected implicit val writeScheduler: WriteScheduler[Future] =
     AkkaAws1WriteScheduler("writer", lossyClient, monitoring = monitoring, retryPolicy = retryPolicy)
-  override protected implicit val dynamoDB: DynamoDB.Aux[Future, Source[*, NotUsed], AmazonDynamoDBAsync] = AkkaAws1()
+  override protected implicit val DB: DynamoDB.Aux[Future, Source[*, NotUsed], AmazonDynamoDBAsync] = AkkaAws1()
   override protected def eval[T](f: => Future[T]): T = Await.result(f, 10.seconds)
 
   override type ResourceNotFoundException = model.ResourceNotFoundException

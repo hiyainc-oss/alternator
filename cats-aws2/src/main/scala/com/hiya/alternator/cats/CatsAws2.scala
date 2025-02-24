@@ -4,7 +4,7 @@ import _root_.cats.effect._
 import _root_.cats.syntax.all._
 import com.hiya.alternator._
 import com.hiya.alternator.aws2.internal.Aws2DynamoDB
-import com.hiya.alternator.aws2.{Aws2Table, Aws2TableWithRangeKey}
+import com.hiya.alternator.aws2.{Aws2TableOps, Aws2TableWithRangeKeyOps}
 import com.hiya.alternator.cats.internal.CatsBase
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
@@ -17,6 +17,7 @@ import java.util.concurrent.CompletableFuture
 class CatsAws2[F[+_]](protected override implicit val F: Async[F])
   extends Aws2DynamoDB[F, Stream[F, *]]
   with CatsBase[F] {
+
   override protected def async[T](f: => CompletableFuture[T]): F[T] = {
     Async[F].fromCompletableFuture(Async[F].delay(f))
   }
@@ -43,7 +44,7 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
   }
 
   override def scan[V, PK](
-    table: TableLike[DynamoDbAsyncClient, V, PK],
+    table: Table[DynamoDbAsyncClient, V, PK],
     segment: Option[Segment] = None,
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
@@ -51,10 +52,10 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
   ): Stream[F, Result[V]] =
     scanPaginator(
       table.client.scan,
-      Aws2Table(table).scan(segment, condition, consistent),
+      Aws2TableOps(table).scan(segment, condition, consistent),
       limit
     )
-      .flatMap(data => Stream.emits(Aws2Table(table).deserialize(data)))
+      .flatMap(data => Stream.emits(Aws2TableOps(table).deserialize(data)))
 
   private def queryPaginator(
     f: QueryRequest => CompletableFuture[QueryResponse],
@@ -79,7 +80,7 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
   }
 
   override def query[V, PK, RK](
-    table: TableWithRangeKeyLike[DynamoDbAsyncClient, V, PK, RK],
+    table: TableWithRange[DynamoDbAsyncClient, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[Boolean]] = None,
@@ -88,9 +89,9 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
   ): Stream[F, Result[V]] =
     queryPaginator(
       table.client.query,
-      Aws2TableWithRangeKey(table).query(pk, rk, condition, consistent),
+      Aws2TableWithRangeKeyOps(table).query(pk, rk, condition, consistent),
       limit
-    ).flatMap { data => fs2.Stream.emits(Aws2TableWithRangeKey(table).deserialize(data)) }
+    ).flatMap { data => fs2.Stream.emits(Aws2TableWithRangeKeyOps(table).deserialize(data)) }
 }
 
 object CatsAws2 {

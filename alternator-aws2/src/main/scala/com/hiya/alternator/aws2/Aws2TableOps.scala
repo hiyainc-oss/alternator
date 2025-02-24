@@ -5,7 +5,7 @@ import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
 import com.hiya.alternator.syntax.{ConditionExpression, Segment}
-import com.hiya.alternator.{BatchReadResult, BatchWriteResult, TableLike}
+import com.hiya.alternator.{BatchReadResult, BatchWriteResult, Table}
 import software.amazon.awssdk.services.dynamodb.model._
 
 import java.util
@@ -41,8 +41,8 @@ class Aws2BatchWrite(
   ): Vector[Either[util.Map[String, AttributeValue], util.Map[String, AttributeValue]]] =
     getAVs(unprocessed.getOrDefault(table, java.util.List.of()))
 
-  override def unprocessedItems[V, PK](table: TableLike[_, V, PK]): Vector[Either[Result[PK], Result[V]]] =
-    unprocessedAvFor(table.tableName).map(_.bimap(table.schema.extract(_), Aws2Table(table).deserialize))
+  override def unprocessedItems[V, PK](table: Table[_, V, PK]): Vector[Either[Result[PK], Result[V]]] =
+    unprocessedAvFor(table.tableName).map(_.bimap(table.schema.extract(_), Aws2TableOps(table).deserialize))
 }
 
 object Aws2BatchWrite {
@@ -63,8 +63,8 @@ class Aws2BatchRead(
   override def processedAvFor(table: String): Vector[util.Map[String, AttributeValue]] =
     processed.getOrDefault(table, List.empty.asJava).asScala.toVector
 
-  override def processedItems[V, PK](table: TableLike[_, V, PK]): Vector[Result[V]] =
-    processedAvFor(table.tableName).map(Aws2Table(table).deserialize)
+  override def processedItems[V, PK](table: Table[_, V, PK]): Vector[Result[V]] =
+    processedAvFor(table.tableName).map(Aws2TableOps(table).deserialize)
 
   override def unprocessed: util.Map[String, KeysAndAttributes] =
     response.unprocessedKeys()
@@ -75,7 +75,7 @@ class Aws2BatchRead(
   override def unprocessedAvFor(table: String): Vector[util.Map[String, AttributeValue]] =
     unprocessed.getOrDefault(table, KeysAndAttributes.builder().build()).keys().asScala.toVector
 
-  override def unprocessedKeys[V, PK](table: TableLike[_, V, PK]): Vector[Result[PK]] =
+  override def unprocessedKeys[V, PK](table: Table[_, V, PK]): Vector[Result[PK]] =
     unprocessedAvFor(table.tableName).map(table.schema.extract(_))
 }
 
@@ -83,10 +83,10 @@ object Aws2BatchRead {
   def apply(response: BatchGetItemResponse): Aws2BatchRead = new Aws2BatchRead(response)
 }
 
-class Aws2Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
+class Aws2TableOps[V, PK](val underlying: Table[_, V, PK]) extends AnyVal {
   import underlying._
 
-  final def deserialize(response: Aws2Table.AV): DynamoFormat.Result[V] = {
+  final def deserialize(response: Aws2TableOps.AV): DynamoFormat.Result[V] = {
     schema.serializeValue.readFields(response)
   }
 
@@ -194,10 +194,10 @@ class Aws2Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
   }
 }
 
-object Aws2Table {
+object Aws2TableOps {
   type AV = java.util.Map[String, AttributeValue]
 
-  @inline def apply[V, PK](underlying: TableLike[_, V, PK]) = new Aws2Table(underlying)
+  @inline def apply[V, PK](underlying: Table[_, V, PK]): Aws2TableOps[V, PK] = new Aws2TableOps(underlying)
 
   def dropTable(tableName: String): DeleteTableRequest.Builder =
     DeleteTableRequest.builder().tableName(tableName)

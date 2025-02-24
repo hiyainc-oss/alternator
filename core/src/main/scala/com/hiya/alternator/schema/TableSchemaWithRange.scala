@@ -1,6 +1,6 @@
 package com.hiya.alternator.schema
 
-import com.hiya.alternator.{Client, TableWithRangeKey, TableWithRangeKeyLike}
+import com.hiya.alternator.{Client, TableWithRange}
 
 abstract class TableSchemaWithRange[V](
   serializeValue: RootDynamoFormat[V],
@@ -16,8 +16,8 @@ abstract class TableSchemaWithRange[V](
 
   override type IndexType = (PK, RK)
 
-  override def withName(tableName: String): TableWithRangeKeyLike[Client.Missing, V, PK, RK] =
-    new TableWithRangeKey(tableName, this)
+  override def withName(tableName: String): TableWithRange[Client.Missing, V, PK, RK] =
+    new TableWithRange(Client.Missing, tableName, this)
 }
 
 object TableSchemaWithRange {

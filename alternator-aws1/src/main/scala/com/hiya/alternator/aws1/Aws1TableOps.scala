@@ -6,7 +6,7 @@ import com.hiya.alternator.internal.{ConditionalSupport, OptApp}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
 import com.hiya.alternator.syntax.{ConditionExpression, Segment}
-import com.hiya.alternator.{BatchReadResult, BatchWriteResult, TableLike}
+import com.hiya.alternator.{BatchReadResult, BatchWriteResult, Table}
 
 import java.util
 import scala.jdk.CollectionConverters._
@@ -41,8 +41,10 @@ class Aws1BatchWrite(override val response: BatchWriteItemResult)
   ): Vector[Either[util.Map[String, AttributeValue], util.Map[String, AttributeValue]]] =
     getAVs(unprocessed.getOrDefault(table, java.util.List.of()))
 
-  override def unprocessedItems[V, PK](table: TableLike[_, V, PK]): Vector[Either[Result[PK], Result[V]]] =
-    unprocessedAvFor(table.tableName).map(_.bimap(table.schema.extract(_), Aws1Table(table).deserialize))
+  override def unprocessedItems[V, PK](table: Table[_, V, PK]): Vector[Either[Result[PK], Result[V]]] =
+    unprocessedAvFor(table.tableName).map(
+      _.bimap(table.schema.extract(_), new com.hiya.alternator.aws1.Aws1TableOps(table).deserialize)
+    )
 }
 
 object Aws1BatchWrite {
@@ -63,8 +65,8 @@ class Aws1BatchRead(
   override def processedAvFor(table: String): Vector[util.Map[String, AttributeValue]] =
     processed.getOrDefault(table, List.empty.asJava).asScala.toVector
 
-  override def processedItems[V, PK](table: TableLike[_, V, PK]): Vector[Result[V]] =
-    processedAvFor(table.tableName).map(Aws1Table(table).deserialize)
+  override def processedItems[V, PK](table: Table[_, V, PK]): Vector[Result[V]] =
+    processedAvFor(table.tableName).map(Aws1TableOps(table).deserialize)
 
   override def unprocessed: util.Map[String, KeysAndAttributes] =
     response.getUnprocessedKeys
@@ -75,7 +77,7 @@ class Aws1BatchRead(
   override def unprocessedAvFor(table: String): Vector[util.Map[String, AttributeValue]] =
     unprocessed.getOrDefault(table, new KeysAndAttributes()).getKeys.asScala.toVector
 
-  override def unprocessedKeys[V, PK](table: TableLike[_, V, PK]): Vector[Result[PK]] =
+  override def unprocessedKeys[V, PK](table: Table[_, V, PK]): Vector[Result[PK]] =
     unprocessedAvFor(table.tableName).map(table.schema.extract(_))
 }
 
@@ -83,11 +85,9 @@ object Aws1BatchRead {
   def apply(response: BatchGetItemResult): Aws1BatchRead = new Aws1BatchRead(response)
 }
 
-class Aws1Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
-  import underlying._
-
-  final def deserialize(response: Aws1Table.AV): DynamoFormat.Result[V] = {
-    schema.serializeValue.readFields(response)
+final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, PK]) {
+  final def deserialize(response: Aws1TableOps.AV): DynamoFormat.Result[V] = {
+    underlying.schema.serializeValue.readFields(response)
   }
 
   final def deserialize(response: GetItemResult): Option[DynamoFormat.Result[V]] = {
@@ -99,14 +99,14 @@ class Aws1Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
   }
 
   final def get(pk: PK, consistent: Boolean): GetItemRequest =
-    new GetItemRequest(tableName, schema.serializePK(pk)).withConsistentRead(consistent)
+    new GetItemRequest(underlying.tableName, underlying.schema.serializePK(pk)).withConsistentRead(consistent)
 
   final def scan(
     segment: Option[Segment] = None,
     condition: Option[ConditionExpression[Boolean]],
     consistent: Boolean
   ): ScanRequest = {
-    val request = new ScanRequest(tableName)
+    val request = new ScanRequest(underlying.tableName)
       .optApp(req =>
         (segment: Segment) => {
           req.withSegment(segment.segment).withTotalSegments(segment.totalSegments)
@@ -123,8 +123,8 @@ class Aws1Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
   final def batchGet(items: Seq[PK]): BatchGetItemRequest = {
     new BatchGetItemRequest(
       Map(
-        tableName -> {
-          new KeysAndAttributes().withKeys(items.map(item => schema.serializePK(item)).asJava)
+        underlying.tableName -> {
+          new KeysAndAttributes().withKeys(items.map(item => underlying.schema.serializePK(item)).asJava)
         }
       ).asJava
     )
@@ -133,7 +133,7 @@ class Aws1Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
   final def put(item: V): PutItemRequest = put(item, returnOld = false)
 
   final def put(item: V, returnOld: Boolean): PutItemRequest = {
-    val ret = new PutItemRequest(tableName, schema.serializeValue.writeFields(item))
+    val ret = new PutItemRequest(underlying.tableName, underlying.schema.serializeValue.writeFields(item))
     if (returnOld) ret.withReturnValues(ReturnValue.ALL_OLD) else ret.withReturnValues(ReturnValue.NONE)
   }
 
@@ -145,7 +145,7 @@ class Aws1Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
   final def delete(key: PK): DeleteItemRequest = delete(key, returnOld = false)
 
   final def delete(key: PK, returnOld: Boolean): DeleteItemRequest = {
-    val ret = new DeleteItemRequest(tableName, schema.serializePK(key))
+    val ret = new DeleteItemRequest(underlying.tableName, underlying.schema.serializePK(key))
     if (returnOld) ret.withReturnValues(ReturnValue.ALL_OLD) else ret.withReturnValues(ReturnValue.NONE)
   }
 
@@ -166,15 +166,17 @@ class Aws1Table[V, PK](val underlying: TableLike[_, V, PK]) extends AnyVal {
       .map(deserialize)
   }
 
-  def putRequest(value: V): PutRequest = new PutRequest().withItem(schema.serializeValue.writeFields(value))
+  def putRequest(value: V): PutRequest = new PutRequest().withItem(underlying.schema.serializeValue.writeFields(value))
 
-  def deleteRequest(key: PK): DeleteRequest = new DeleteRequest().withKey(schema.serializePK(key))
+  def deleteRequest(key: PK): DeleteRequest = new DeleteRequest().withKey(underlying.schema.serializePK(key))
 
 }
 
-object Aws1Table {
+object Aws1TableOps {
   type AV = java.util.Map[String, AttributeValue]
-  @inline def apply[V, PK](underlying: TableLike[_, V, PK]) = new Aws1Table(underlying)
+
+  @inline def apply[V, PK](underlying: Table[_, V, PK]): Aws1TableOps[V, PK] =
+    new Aws1TableOps[V, PK](underlying)
 
   def dropTable(tableName: String): DeleteTableRequest =
     new DeleteTableRequest(tableName)

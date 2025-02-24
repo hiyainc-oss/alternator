@@ -39,10 +39,10 @@ import scala.jdk.CollectionConverters._
   * The received requests are deduplicated, only the last write to the key is executed.
   */
 class AkkaAws1WriteScheduler(actorRef: ActorRef[AkkaAws1WriteScheduler.BatchedRequest])(implicit scheduler: Scheduler)
-  extends WriteScheduler[AmazonDynamoDBAsync, Future] {
+  extends WriteScheduler[Future] {
   import JdkCompat.parasitic
 
-  override def put[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], value: V)(implicit
+  override def put[V, PK](table: Table[Client.Missing, V, PK], value: V)(implicit
     timeout: BatchTimeout
   ): Future[Unit] = {
     val key = table.schema.extract(value)
@@ -56,7 +56,7 @@ class AkkaAws1WriteScheduler(actorRef: ActorRef[AkkaAws1WriteScheduler.BatchedRe
       .flatMap(result => Future.fromTry { result })
   }
 
-  override def delete[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], key: PK)(implicit
+  override def delete[V, PK](table: Table[Client.Missing, V, PK], key: PK)(implicit
     timeout: BatchTimeout
   ): Future[Unit] = {
     val pk = table.schema.serializePK[AttributeValue](key)

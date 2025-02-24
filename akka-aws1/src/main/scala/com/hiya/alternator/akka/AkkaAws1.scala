@@ -2,26 +2,23 @@ package com.hiya.alternator.akka
 
 import akka.NotUsed
 import akka.actor.{ActorSystem, ClassicActorSystemProvider}
-import akka.stream.scaladsl.Source
 import com.amazonaws.AmazonWebServiceRequest
 import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
 import com.amazonaws.services.dynamodbv2.model._
 import com.hiya.alternator.akka.internal.AkkaBase
 import com.hiya.alternator.aws1.internal.Aws1DynamoDB
-import com.hiya.alternator.aws1.{Aws1Table, Aws1TableWithRangeKey}
+import com.hiya.alternator.aws1.{Aws1TableOps, Aws1TableWithRangeKeyOps}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
-import com.hiya.alternator.{TableLike, TableWithRangeKeyLike}
+import com.hiya.alternator.{Table, TableWithRange}
 
 import java.util.concurrent.{Future => JFuture}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class AkkaAws1 private (override implicit val system: ActorSystem, override implicit val workerEc: ExecutionContext)
-  extends Aws1DynamoDB[Future]
+  extends Aws1DynamoDB[Future, akka.stream.scaladsl.Source[*, NotUsed]]
   with AkkaBase {
-
-  type S[T] = Source[T, NotUsed]
 
   override protected def async[Req <: AmazonWebServiceRequest, Resp](
     f: AsyncHandler[Req, Resp] => JFuture[Resp]
@@ -31,8 +28,8 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
     f: (ScanRequest, AsyncHandler[ScanRequest, ScanResult]) => JFuture[ScanResult],
     request: ScanRequest,
     limit: Option[Int]
-  ): Source[ScanResult, NotUsed] = {
-    Source.unfoldAsync[Option[(ScanRequest, Option[Int])], ScanResult](Some(request -> limit)) {
+  ): Source[ScanResult] = {
+    akka.stream.scaladsl.Source.unfoldAsync[Option[(ScanRequest, Option[Int])], ScanResult](Some(request -> limit)) {
       case None => Future.successful(None)
       case Some((req, limit)) =>
         async(f(req.withLimit(limit.map(Int.box).orNull), _))
@@ -51,22 +48,22 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
   }
 
   override def scan[V, PK](
-    table: TableLike[AmazonDynamoDBAsync, V, PK],
+    table: Table[AmazonDynamoDBAsync, V, PK],
     segment: Option[Segment],
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
     consistent: Boolean
-  ): Source[Result[V], NotUsed] = {
-    scanPaginator(table.client.scanAsync, Aws1Table(table).scan(segment, condition, consistent), limit)
-      .mapConcat(data => Aws1Table(table).deserialize(data))
+  ): Source[Result[V]] = {
+    scanPaginator(table.client.scanAsync, Aws1TableOps(table).scan(segment, condition, consistent), limit)
+      .mapConcat(data => Aws1TableOps(table).deserialize(data))
   }
 
   private def queryPaginator(
     f: (QueryRequest, AsyncHandler[QueryRequest, QueryResult]) => JFuture[QueryResult],
     request: QueryRequest,
     limit: Option[Int]
-  ): Source[QueryResult, NotUsed] = {
-    Source.unfoldAsync[Option[(QueryRequest, Option[Int])], QueryResult](Some(request -> limit)) {
+  ): Source[QueryResult] = {
+    akka.stream.scaladsl.Source.unfoldAsync[Option[(QueryRequest, Option[Int])], QueryResult](Some(request -> limit)) {
       case None => Future.successful(None)
       case Some((req, limit)) =>
         async(f(req.withLimit(limit.map(Int.box).orNull), _))
@@ -85,15 +82,15 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
   }
 
   override def query[V, PK, RK](
-    table: TableWithRangeKeyLike[AmazonDynamoDBAsync, V, PK, RK],
+    table: TableWithRange[AmazonDynamoDBAsync, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK],
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
     consistent: Boolean
-  ): Source[Result[V], NotUsed] = {
-    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKey(table).query(pk, rk, condition, consistent), limit)
-      .mapConcat { data => Aws1TableWithRangeKey(table).deserialize(data) }
+  ): Source[Result[V]] = {
+    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKeyOps(table).query(pk, rk, condition, consistent), limit)
+      .mapConcat { data => Aws1TableWithRangeKeyOps(table).deserialize(data) }
   }
 }
 
