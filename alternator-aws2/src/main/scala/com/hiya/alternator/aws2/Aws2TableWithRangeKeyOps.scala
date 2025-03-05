@@ -9,6 +9,7 @@ import software.amazon.awssdk.services.dynamodb.model.QueryRequest
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
 
 import scala.jdk.CollectionConverters._
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
 
 class Aws2TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[DynamoDbAsyncClient, V, PK, RK])
   extends AnyVal {
@@ -19,11 +20,13 @@ class Aws2TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[DynamoD
     pk: PK,
     rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[Boolean]],
-    consistent: Boolean = false
+    consistent: Boolean = false,
+    overrides: Option[AwsRequestOverrideConfiguration] = None
   ): model.QueryRequest.Builder = {
     val request: QueryRequest.Builder = model.QueryRequest
       .builder()
       .tableName(tableName)
+      .overrideConfiguration(overrides.getOrElse(null))
       .consistentRead(consistent)
 
     Condition.eval {

@@ -20,6 +20,7 @@ import scala.collection.compat._
 abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override type Source[T] = S[T]
   override type Client = AmazonDynamoDBAsync
+  override type Override = Unit
 
   override type AttributeValue = model.AttributeValue
   override type BatchReadItemRequest = KeysAndAttributes
@@ -37,7 +38,8 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override def doGet[V, PK](
     table: Table[AmazonDynamoDBAsync, V, PK],
     pk: PK,
-    consistent: Boolean
+    consistent: Boolean,
+    overrides: Option[Unit]
   ): F[Option[Result[V]]] =
     async(
       table.client.getItemAsync(Aws1TableOps(table).get(pk, consistent), _: AsyncHandler[GetItemRequest, GetItemResult])
