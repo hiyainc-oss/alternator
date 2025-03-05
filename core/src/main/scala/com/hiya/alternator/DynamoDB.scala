@@ -9,12 +9,12 @@ import scala.jdk.CollectionConverters._
 import scala.collection.compat._
 
 trait ReadScheduler[F[_]] {
-  def get[V, PK](table: Table[Client.Missing, V, PK], key: PK)(implicit timeout: BatchTimeout): F[Option[Result[V]]]
+  def get[V, PK](table: Table[DynamoDBClient.Missing, V, PK], key: PK)(implicit timeout: BatchTimeout): F[Option[Result[V]]]
 }
 
 trait WriteScheduler[F[_]] {
-  def put[V, PK](table: Table[Client.Missing, V, PK], value: V)(implicit timeout: BatchTimeout): F[Unit]
-  def delete[V, PK](table: Table[Client.Missing, V, PK], key: PK)(implicit timeout: BatchTimeout): F[Unit]
+  def put[V, PK](table: Table[DynamoDBClient.Missing, V, PK], value: V)(implicit timeout: BatchTimeout): F[Unit]
+  def delete[V, PK](table: Table[DynamoDBClient.Missing, V, PK], key: PK)(implicit timeout: BatchTimeout): F[Unit]
 }
 
 sealed trait ConditionResult[+T]
@@ -65,9 +65,7 @@ object ItemMagnet {
 }
 
 trait DynamoDBSource {
-  type Types <: DynamoTypes
-  type Client
-  type Override
+  type Client <: DynamoDBClient
   type Source[_]
   type Monad[_]
 
@@ -79,14 +77,14 @@ trait DynamoDBSource {
     consistent: Boolean = false
   ): Source[Result[V]]
 
-  def query[V, PK, RK](
+  def query[V, PK, RK, O: DynamoDBClient.HasOverride[Client, *]](
     table: TableWithRange[Client, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[Boolean]] = None,
     limit: Option[Int] = None,
     consistent: Boolean = false,
-    overrides: Option[Override] = None
+    overrides: Option[O] = None
   ): Source[Result[V]]
 
   def eval[T](f: => Monad[T]): Source[T]
@@ -116,15 +114,15 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
 
   def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue]
 
-  @inline final def get[V, PK](
+  @inline final def get[V, PK, O: DynamoDBClient.HasOverride[Client, *]](
     table: Table[Client, V, PK],
     pk: PK,
     consistent: Boolean = false,
-    overrides: Option[Override] = None
+    overrides: Option[O] = None
   ): F[Option[DynamoFormat.Result[V]]] =
     doGet(table, pk, consistent, overrides)
 
-  protected def doGet[V, PK](table: Table[Client, V, PK], pk: PK, consistent: Boolean, overrides: Option[Override]): F[Option[Result[V]]]
+  protected def doGet[V, PK, O: DynamoDBClient.HasOverride[Client, *]](table: Table[Client, V, PK], pk: PK, consistent: Boolean, overrides: Option[O]): F[Option[Result[V]]]
 
   @inline final def put[V](table: Table[Client, V, _], value: V): F[Unit] =
     doPut(table, value, None).map(_ => ())

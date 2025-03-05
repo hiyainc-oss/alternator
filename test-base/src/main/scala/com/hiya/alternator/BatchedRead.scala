@@ -12,7 +12,7 @@ import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.util.Random
 
-trait BatchedRead[ClientT, F[+_], S[_]] {
+trait BatchedRead[ClientT <: DynamoDBClient, F[+_], S[_]] {
   this: AnyFunSpecLike with should.Matchers with Inspectors with Inside =>
 
   protected implicit def F: MonadThrow[F]

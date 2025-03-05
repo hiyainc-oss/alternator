@@ -1,11 +1,12 @@
 package com.hiya.alternator.testkit
 
 import com.hiya.alternator.schema._
+import com.hiya.alternator.DynamoDBClient
 import com.hiya.alternator.{Table, TableWithRange}
 
 import java.util.UUID
 
-trait LocalDynamoClient[C] {
+trait LocalDynamoClient[C <: DynamoDBClient] {
   type Config
 
   def config(port: Int): Config
@@ -13,7 +14,7 @@ trait LocalDynamoClient[C] {
 }
 
 object LocalDynamoClient {
-  type Aux[C, B] = LocalDynamoClient[C] { type Config = B }
+  type Aux[C <: DynamoDBClient, B] = LocalDynamoClient[C] { type Config = B }
 }
 
 object LocalDynamoDB {
@@ -21,39 +22,39 @@ object LocalDynamoDB {
   val configuredPort: Int =
     Option(System.getProperty("dynamoDBLocalPort")).map(_.toInt).getOrElse(DEFAULT_PORT)
 
-  def config[C](port: Int = configuredPort)(implicit
+  def config[C <: DynamoDBClient](port: Int = configuredPort)(implicit
     localDynamoClient: LocalDynamoClient[C]
   ): localDynamoClient.Config =
     localDynamoClient.config(port)
 
-  def client[C](port: Int = configuredPort)(implicit localDynamoClient: LocalDynamoClient[C]): C =
+  def client[C <: DynamoDBClient](port: Int = configuredPort)(implicit localDynamoClient: LocalDynamoClient[C]): C =
     localDynamoClient.client(port)
 
-  def withTable[C](client: C, tableName: String, magnet: SchemaMagnet): LocalDynamoPartial[String, C] =
+  def withTable[C <: DynamoDBClient](client: C, tableName: String, magnet: SchemaMagnet): LocalDynamoPartial[String, C] =
     new LocalDynamoPartial(client, tableName, magnet, tableName)
 
-  def withTable[C, V, PK](client: C, table: Table[_, V, PK]): LocalDynamoPartial[Table[C, V, PK], C] =
+  def withTable[C <: DynamoDBClient, V, PK](client: C, table: Table[_, V, PK]): LocalDynamoPartial[Table[C, V, PK], C] =
     new LocalDynamoPartial(client, table.tableName, schema(table.schema), table.withClient(client))
 
-  def withTableRK[C, V, PK, RK](
+  def withTableRK[C <: DynamoDBClient, V, PK, RK](
     client: C,
     table: TableWithRange[_, V, PK, RK]
   ): LocalDynamoPartial[TableWithRange[C, V, PK, RK], C] =
     new LocalDynamoPartial(client, table.tableName, schema(table.schema), table.withClient(client))
 
-  def withRandomTable[C](client: C, magnet: SchemaMagnet): LocalDynamoPartial[String, C] = {
+  def withRandomTable[C <: DynamoDBClient](client: C, magnet: SchemaMagnet): LocalDynamoPartial[String, C] = {
     val tableName = UUID.randomUUID().toString
     withTable(client, tableName, magnet)
   }
 
-  def withRandomTable[C, V](
+  def withRandomTable[C <: DynamoDBClient, V](
     client: C
   )(implicit V: TableSchema[V]): LocalDynamoPartial[Table[C, V, V.IndexType], C] = {
     val tableName = UUID.randomUUID().toString
     withTable(client, V.withName(tableName))
   }
 
-  def withRandomTableRK[C, V](
+  def withRandomTableRK[C <: DynamoDBClient, V](
     client: C
   )(implicit V: TableSchemaWithRange[V]): LocalDynamoPartial[TableWithRange[C, V, V.PK, V.RK], C] = {
     val tableName = UUID.randomUUID().toString

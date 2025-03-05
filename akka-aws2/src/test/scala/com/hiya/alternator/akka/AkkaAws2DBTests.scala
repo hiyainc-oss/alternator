@@ -7,16 +7,17 @@ import cats.MonadThrow
 import com.hiya.alternator.{DynamoDB, DynamoDBTestBase}
 import com.hiya.alternator.aws2._
 import com.hiya.alternator.testkit.LocalDynamoDB
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 import scala.concurrent.{Await, Future}
+import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
+import com.hiya.alternator.DynamoDBClient
 
-class AkkaAws2DBTests extends DynamoDBTestBase[Future, Source[*, NotUsed], DynamoDbAsyncClient] {
+class AkkaAws2DBTests extends DynamoDBTestBase[Future, Source[*, NotUsed], Aws2DynamoDBClient] {
   private implicit lazy val system: ActorSystem = ActorSystem()
   import system.dispatcher
 
-  override protected lazy val client: DynamoDbAsyncClient = LocalDynamoDB.client()
-  override protected implicit lazy val DB: DynamoDB.Aux[Future, Source[*, NotUsed], DynamoDbAsyncClient] = AkkaAws2()
+  override protected lazy val client: Aws2DynamoDBClient = LocalDynamoDB.client()
+  override protected implicit lazy val DB: DynamoDB.Aux[Future, Source[*, NotUsed], Aws2DynamoDBClient] = AkkaAws2()
   override protected implicit lazy val monadF: MonadThrow[Future] = cats.instances.future.catsStdInstancesForFuture
   override protected implicit lazy val monadS: MonadThrow[Source[*, NotUsed]] = new MonadThrow[Source[*, NotUsed]] {
     override def pure[A](x: A): Source[A, NotUsed] = Source.single(x)
@@ -29,6 +30,7 @@ class AkkaAws2DBTests extends DynamoDBTestBase[Future, Source[*, NotUsed], Dynam
 
     override def tailRecM[A, B](a: A)(f: A => Source[Either[A, B], NotUsed]): Source[B, NotUsed] = ???
   }
+  override implicit protected def hasOverride: DynamoDBClient.HasOverride[Aws2DynamoDBClient, _] = DynamoDBClient.HasOverride.forNothing
 
   override protected def eval[T](body: Future[T]): T =
     Await.result(body, scala.concurrent.duration.Duration.Inf)

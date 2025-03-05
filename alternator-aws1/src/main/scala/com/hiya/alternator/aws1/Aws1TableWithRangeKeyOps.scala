@@ -1,7 +1,7 @@
 package com.hiya.alternator.aws1
 
 import cats.syntax.all._
-import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, model}
+import com.amazonaws.services.dynamodbv2.model
 import com.hiya.alternator.TableWithRange
 import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat
@@ -9,8 +9,9 @@ import com.hiya.alternator.syntax.{ConditionExpression, RKCondition}
 
 import scala.jdk.CollectionConverters._
 import scala.annotation.unused
+import com.hiya.alternator.aws1.internal.Aws1DynamoDBClient
 
-class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[AmazonDynamoDBAsync, V, PK, RK])
+class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[Aws1DynamoDBClient, V, PK, RK])
   extends AnyVal {
 
   import underlying._
@@ -43,6 +44,6 @@ class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[AmazonD
 }
 
 object Aws1TableWithRangeKeyOps {
-  @inline def apply[V, PK, RK](underlying: TableWithRange[AmazonDynamoDBAsync, V, PK, RK]) =
+  @inline def apply[V, PK, RK](underlying: TableWithRange[Aws1DynamoDBClient, V, PK, RK]) =
     new Aws1TableWithRangeKeyOps(underlying)
 }

@@ -10,6 +10,7 @@ import com.hiya.alternator.testkit.LocalDynamoClient
 import java.nio.ByteBuffer
 import java.util.{Collection => JCollection, List => JList, Map => JMap}
 import scala.jdk.CollectionConverters._
+import com.hiya.alternator.aws1.internal.Aws1DynamoDBClient
 
 package object aws1 {
   type Aws1Table[V, PK] = Table[AmazonDynamoDBAsync, V, PK]
@@ -96,7 +97,7 @@ package object aws1 {
       builder.withExpressionAttributeValues(attributeValues)
   }
 
-  implicit object Aws1LocalDynamoClient extends LocalDynamoClient[AmazonDynamoDBAsync] {
+  implicit object Aws1LocalDynamoClient extends LocalDynamoClient[Aws1DynamoDBClient] {
     type Config = AmazonDynamoDBAsyncClientBuilder
 
     def config(builder: AmazonDynamoDBAsyncClientBuilder, port: Int): AmazonDynamoDBAsyncClientBuilder =
@@ -111,8 +112,10 @@ package object aws1 {
     override def config(port: Int): AmazonDynamoDBAsyncClientBuilder =
       config(AmazonDynamoDBAsyncClientBuilder.standard(), port)
 
-    override def client(port: Int): AmazonDynamoDBAsync =
-      config(AmazonDynamoDBAsyncClientBuilder.standard(), port).build
+    override def client(port: Int): Aws1DynamoDBClient =
+      Aws1DynamoDBClient(
+        config(AmazonDynamoDBAsyncClientBuilder.standard(), port).build
+      )
   }
 
   implicit def typeOf(t: ScalarType): model.ScalarAttributeType = t match {

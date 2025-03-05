@@ -10,6 +10,8 @@ import com.hiya.alternator.{BatchReadResult, BatchWriteResult, Table}
 
 import java.util
 import scala.jdk.CollectionConverters._
+import com.hiya.alternator.aws1.internal.Aws1DynamoDBClient
+import scala.annotation.unused
 
 class Aws1BatchWrite(override val response: BatchWriteItemResult)
   extends AnyVal
@@ -98,8 +100,9 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, 
     Option(response.getItems).toList.flatMap(_.asScala.toList.map(deserialize))
   }
 
-  final def get(pk: PK, consistent: Boolean): GetItemRequest =
+  final def get(pk: PK, consistent: Boolean, @unused overrides: Option[Aws1DynamoDBClient.Override]): GetItemRequest =
     new GetItemRequest(underlying.tableName, underlying.schema.serializePK(pk)).withConsistentRead(consistent)
+  
 
   final def scan(
     segment: Option[Segment] = None,

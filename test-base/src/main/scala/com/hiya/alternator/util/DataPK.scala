@@ -3,6 +3,7 @@ package com.hiya.alternator.util
 import com.hiya.alternator.Table
 import com.hiya.alternator.schema.TableSchema
 import com.hiya.alternator.testkit.{LocalDynamoDB, LocalDynamoPartial}
+import com.hiya.alternator.DynamoDBClient
 
 case class DataPK(key: String, value: Int)
 
@@ -21,7 +22,7 @@ object DataPK {
         i.toString -> DataPK(i.toString, v.getOrElse(i))
       }
 
-      override def withTable[F[_], S[_], C](client: C): LocalDynamoPartial[Table[C, DataPK, String], C] =
+      override def withTable[F[_], S[_], C <: DynamoDBClient](client: C): LocalDynamoPartial[Table[C, DataPK, String], C] =
         LocalDynamoDB.withRandomTable[C, DataPK](client)
     }
 }

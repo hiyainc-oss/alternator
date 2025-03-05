@@ -5,7 +5,7 @@ import cats.syntax.all._
 import com.amazonaws.AmazonWebServiceRequest
 import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.dynamodbv2.model._
-import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, model}
+import com.amazonaws.services.dynamodbv2.model
 import com.hiya.alternator._
 import com.hiya.alternator.aws1._
 import com.hiya.alternator.schema.DynamoFormat.Result
@@ -19,8 +19,7 @@ import scala.collection.compat._
 
 abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override type Source[T] = S[T]
-  override type Client = AmazonDynamoDBAsync
-  override type Override = Unit
+  override type Client = Aws1DynamoDBClient
 
   override type AttributeValue = model.AttributeValue
   override type BatchReadItemRequest = KeysAndAttributes
@@ -35,26 +34,28 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
 
   override def AV: schema.AttributeValue[AttributeValue] = Aws1IsAttributeValues
 
-  override def doGet[V, PK](
-    table: Table[AmazonDynamoDBAsync, V, PK],
+  override def doGet[V, PK, O: DynamoDBClient.HasOverride[Client, *]](
+    table: Table[Aws1DynamoDBClient, V, PK],
     pk: PK,
     consistent: Boolean,
-    overrides: Option[Unit]
-  ): F[Option[Result[V]]] =
+    overrides: Option[O]
+  ): F[Option[Result[V]]] = {
+    val resolvedOverride = overrides.map(ov => DynamoDBClient.HasOverride[Client, O].resolve(ov)(table.client))
     async(
-      table.client.getItemAsync(Aws1TableOps(table).get(pk, consistent), _: AsyncHandler[GetItemRequest, GetItemResult])
+      table.client.underlying.getItemAsync(Aws1TableOps(table).get(pk, consistent, resolvedOverride), _: AsyncHandler[GetItemRequest, GetItemResult])
     )
       .map(Aws1TableOps(table).deserialize)
+  }
 
   override def doPut[V, PK](
-    table: Table[AmazonDynamoDBAsync, V, PK],
+    table: Table[Aws1DynamoDBClient, V, PK],
     item: V,
     condition: Option[ConditionExpression[Boolean]]
   ): F[Boolean] =
     condition match {
       case Some(condition) =>
         async(
-          table.client.putItemAsync(
+          table.client.underlying.putItemAsync(
             Aws1TableOps(table).put(item, condition),
             _: AsyncHandler[PutItemRequest, PutItemResult]
           )
@@ -64,7 +65,7 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
           .recover { case _: model.ConditionalCheckFailedException => false }
       case None =>
         async(
-          table.client
+          table.client.underlying
             .putItemAsync(
               Aws1TableOps(table).put(item, returnOld = false),
               _: AsyncHandler[PutItemRequest, PutItemResult]
@@ -74,7 +75,7 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
     }
 
   override def doPutAndReturn[V, PK](
-    table: Table[AmazonDynamoDBAsync, V, PK],
+    table: Table[Aws1DynamoDBClient, V, PK],
     item: V,
     condition: Option[ConditionExpression[Boolean]]
   ): F[ConditionResult[V]] = {
@@ -85,21 +86,21 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
         Aws1TableOps(table).put(item, returnOld = true)
     }
 
-    async(table.client.putItemAsync(req, _: AsyncHandler[PutItemRequest, PutItemResult]))
+    async(table.client.underlying.putItemAsync(req, _: AsyncHandler[PutItemRequest, PutItemResult]))
       .map[ConditionResult[V]](item => ConditionResult.Success(Aws1TableOps(table).extractItem(item)))
       .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
       .recover { case _: model.ConditionalCheckFailedException => ConditionResult.Failed }
   }
 
   override def doDelete[V, PK](
-    table: Table[AmazonDynamoDBAsync, V, PK],
+    table: Table[Aws1DynamoDBClient, V, PK],
     key: PK,
     condition: Option[ConditionExpression[Boolean]]
   ): F[Boolean] =
     condition match {
       case Some(condition) =>
         async(
-          table.client.deleteItemAsync(
+          table.client.underlying.deleteItemAsync(
             Aws1TableOps(table).delete(key, condition),
             _: AsyncHandler[DeleteItemRequest, DeleteItemResult]
           )
@@ -109,14 +110,14 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
           .recover { case _: model.ConditionalCheckFailedException => false }
       case None =>
         async(
-          table.client
+          table.client.underlying
             .deleteItemAsync(Aws1TableOps(table).delete(key), _: AsyncHandler[DeleteItemRequest, DeleteItemResult])
         )
           .map(_ => true)
     }
 
   override def doDeleteAndReturn[V, PK](
-    table: Table[AmazonDynamoDBAsync, V, PK],
+    table: Table[Aws1DynamoDBClient, V, PK],
     key: PK,
     condition: Option[ConditionExpression[Boolean]]
   ): F[ConditionResult[V]] = {
@@ -127,14 +128,14 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
         Aws1TableOps(table).delete(key, returnOld = true)
     }
 
-    async(table.client.deleteItemAsync(req, _: AsyncHandler[DeleteItemRequest, DeleteItemResult]))
+    async(table.client.underlying.deleteItemAsync(req, _: AsyncHandler[DeleteItemRequest, DeleteItemResult]))
       .map[ConditionResult[V]](item => ConditionResult.Success(Aws1TableOps(table).extractItem(item)))
       .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
       .recover { case _: model.ConditionalCheckFailedException => ConditionResult.Failed }
   }
 
   override def createTable(
-    client: AmazonDynamoDBAsync,
+    client: Aws1DynamoDBClient,
     tableName: String,
     hashKey: String,
     rangeKey: Option[String],
@@ -143,15 +144,15 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
     attributes: List[(String, ScalarType)]
   ): F[Unit] =
     async(
-      client.createTableAsync(
+      client.underlying.createTableAsync(
         Aws1TableOps.createTable(tableName, hashKey, rangeKey, readCapacity, writeCapacity, attributes),
         _: AsyncHandler[CreateTableRequest, CreateTableResult]
       )
     ).map(_ => ())
 
-  override def dropTable(client: AmazonDynamoDBAsync, tableName: String): F[Unit] = {
+  override def dropTable(client: Aws1DynamoDBClient, tableName: String): F[Unit] = {
     async(
-      client.deleteTableAsync(
+      client.underlying.deleteTableAsync(
         Aws1TableOps.dropTable(tableName),
         _: AsyncHandler[DeleteTableRequest, DeleteTableResult]
       )
@@ -159,41 +160,41 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
   }
 
   override def batchGetRequest[V, PK](
-    table: Table[AmazonDynamoDBAsync, V, PK],
+    table: Table[Aws1DynamoDBClient, V, PK],
     key: PK
   ): java.util.Map[String, AttributeValue] =
     table.schema.serializePK(key)
 
   override def batchGet(
-    client: AmazonDynamoDBAsync,
+    client: Aws1DynamoDBClient,
     keys: Map[String, Seq[util.Map[String, AttributeValue]]]
   ): F[BatchReadResult[KeysAndAttributes, BatchGetItemResult, AttributeValue]] = {
     batchGet(client, keys.view.mapValues(v => new KeysAndAttributes().withKeys(v.asJava)).toMap.asJava)
   }
 
   override def batchGet(
-    client: AmazonDynamoDBAsync,
+    client: Aws1DynamoDBClient,
     keys: util.Map[String, KeysAndAttributes]
   ): F[BatchReadResult[KeysAndAttributes, BatchGetItemResult, AttributeValue]] =
     async(
-      client.batchGetItemAsync(
+      client.underlying.batchGetItemAsync(
         new model.BatchGetItemRequest(keys),
         _: AsyncHandler[model.BatchGetItemRequest, model.BatchGetItemResult]
       )
     ).map(Aws1BatchRead(_))
 
-  override def batchPutRequest[V, PK](table: Table[AmazonDynamoDBAsync, V, PK], value: V): model.WriteRequest =
+  override def batchPutRequest[V, PK](table: Table[Aws1DynamoDBClient, V, PK], value: V): model.WriteRequest =
     new model.WriteRequest().withPutRequest(Aws1TableOps(table).putRequest(value))
 
-  override def batchDeleteRequest[V, PK](table: Table[AmazonDynamoDBAsync, V, PK], key: PK): model.WriteRequest =
+  override def batchDeleteRequest[V, PK](table: Table[Aws1DynamoDBClient, V, PK], key: PK): model.WriteRequest =
     new model.WriteRequest().withDeleteRequest(Aws1TableOps(table).deleteRequest(key))
 
   override def batchWrite(
-    client: AmazonDynamoDBAsync,
+    client: Aws1DynamoDBClient,
     values: util.Map[String, util.List[WriteRequest]]
   ): F[BatchWriteResult[WriteRequest, BatchWriteItemResult, AttributeValue]] =
     async(
-      client.batchWriteItemAsync(
+      client.underlying.batchWriteItemAsync(
         new model.BatchWriteItemRequest(values),
         _: AsyncHandler[model.BatchWriteItemRequest, BatchWriteItemResult]
       )

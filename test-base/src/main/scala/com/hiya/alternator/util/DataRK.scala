@@ -3,6 +3,7 @@ package com.hiya.alternator.util
 import com.hiya.alternator.schema.{TableSchema, TableSchemaWithRange}
 import com.hiya.alternator.testkit.{LocalDynamoDB, LocalDynamoPartial}
 import com.hiya.alternator.{Table, TableWithRange}
+import com.hiya.alternator.DynamoDBClient
 
 case class DataRK(key: String, range: String, value: String)
 
@@ -15,7 +16,7 @@ object DataRK {
   implicit val config: TableConfig[DataRK, (String, String), TableWithRange[*, DataRK, String, String]] =
     new TableConfig[DataRK, (String, String), TableWithRange[*, DataRK, String, String]] {
 
-      override def withTable[F[_], S[_], C](
+      override def withTable[F[_], S[_], C <: DynamoDBClient](
         client: C
       ): LocalDynamoPartial[TableWithRange[C, DataRK, String, String], C] =
         LocalDynamoDB.withRandomTableRK[C, DataRK](client)
