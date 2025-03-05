@@ -18,6 +18,7 @@ import java.net.URI
 import java.nio.ByteBuffer
 import java.util.{Collection => JCollection, List => JList, Map => JMap}
 import scala.jdk.CollectionConverters._
+import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
 
 package object aws2 {
   type Aws2Table[V, PK] = Table[DynamoDbAsyncClient, V, PK]
@@ -59,7 +60,7 @@ package object aws2 {
     ): model.DeleteItemRequest.Builder = builder.expressionAttributeValues(attributeValues)
   }
 
-  implicit object Aws2LocalDynamoClient extends LocalDynamoClient[DynamoDbAsyncClient] {
+  implicit object Aws2LocalDynamoClient extends LocalDynamoClient[Aws2DynamoDBClient] {
     type Config = DynamoDbAsyncClientBuilder
 
     def config[B <: DynamoDbBaseClientBuilder[B, _]](builder: B, port: Int): B =
@@ -73,10 +74,12 @@ package object aws2 {
     override def config(port: Int): DynamoDbAsyncClientBuilder =
       config(DynamoDbAsyncClient.builder, port)
 
-    override def client(port: Int): DynamoDbAsyncClient =
-      config(port)
-        .httpClient(NettyNioAsyncHttpClient.builder.build)
-        .build
+    override def client(port: Int): Aws2DynamoDBClient =
+      Aws2DynamoDBClient(
+        config(port)
+          .httpClient(NettyNioAsyncHttpClient.builder.build)
+          .build
+      )
   }
 
   implicit object ScanIsConditional extends ConditionalSupport[model.ScanRequest.Builder, model.AttributeValue] {

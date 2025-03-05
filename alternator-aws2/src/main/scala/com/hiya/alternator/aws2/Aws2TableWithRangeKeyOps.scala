@@ -6,12 +6,12 @@ import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition}
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest
-import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
+import software.amazon.awssdk.services.dynamodb.model
 
 import scala.jdk.CollectionConverters._
-import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
+import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
 
-class Aws2TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[DynamoDbAsyncClient, V, PK, RK])
+class Aws2TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[Aws2DynamoDBClient, V, PK, RK])
   extends AnyVal {
 
   import underlying._
@@ -21,7 +21,7 @@ class Aws2TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[DynamoD
     rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[Boolean]],
     consistent: Boolean = false,
-    overrides: Option[AwsRequestOverrideConfiguration] = None
+    overrides: Option[Aws2DynamoDBClient.Override] = None
   ): model.QueryRequest.Builder = {
     val request: QueryRequest.Builder = model.QueryRequest
       .builder()
@@ -45,6 +45,6 @@ class Aws2TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[DynamoD
 }
 
 object Aws2TableWithRangeKeyOps {
-  @inline def apply[V, PK, RK](underlying: TableWithRange[DynamoDbAsyncClient, V, PK, RK]) =
+  @inline def apply[V, PK, RK](underlying: TableWithRange[Aws2DynamoDBClient, V, PK, RK]) =
     new Aws2TableWithRangeKeyOps(underlying)
 }

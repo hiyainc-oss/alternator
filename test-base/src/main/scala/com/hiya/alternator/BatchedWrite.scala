@@ -11,14 +11,16 @@ import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.util.Random
 
-trait BatchedWrite[ClientT, F[_], S[_]] {
+trait BatchedWrite[ClientT <: DynamoDBClient, F[_], S[_]] {
   this: AnyFunSpecLike with should.Matchers with Inspectors with Inside =>
 
   protected implicit def F: MonadThrow[F]
+  // protected implicit def hasOverride
   protected implicit def writeScheduler: WriteScheduler[F]
   protected def stableClient: ClientT
   protected def lossyClient: ClientT
   protected implicit def DB: DynamoDB.Aux[F, S, ClientT]
+  protected implicit def hasOverride: DynamoDBClient.HasOverride[ClientT, _]
   protected def eval[T](f: => F[T]): T
   protected type ResourceNotFoundException <: Throwable
   protected def resourceNotFoundException: ClassTag[ResourceNotFoundException]

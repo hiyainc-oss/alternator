@@ -29,6 +29,7 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
+import com.hiya.alternator.aws1.internal.Aws1DynamoDBClient
 
 /** DynamoDB batched writer
   *
@@ -42,7 +43,7 @@ class AkkaAws1WriteScheduler(actorRef: ActorRef[AkkaAws1WriteScheduler.BatchedRe
   extends WriteScheduler[Future] {
   import JdkCompat.parasitic
 
-  override def put[V, PK](table: Table[Client.Missing, V, PK], value: V)(implicit
+  override def put[V, PK](table: Table[DynamoDBClient.Missing, V, PK], value: V)(implicit
     timeout: BatchTimeout
   ): Future[Unit] = {
     val key = table.schema.extract(value)
@@ -56,7 +57,7 @@ class AkkaAws1WriteScheduler(actorRef: ActorRef[AkkaAws1WriteScheduler.BatchedRe
       .flatMap(result => Future.fromTry { result })
   }
 
-  override def delete[V, PK](table: Table[Client.Missing, V, PK], key: PK)(implicit
+  override def delete[V, PK](table: Table[DynamoDBClient.Missing, V, PK], key: PK)(implicit
     timeout: BatchTimeout
   ): Future[Unit] = {
     val pk = table.schema.serializePK[AttributeValue](key)
@@ -126,13 +127,13 @@ object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
   }
 
   def behavior(
-    client: AmazonDynamoDBAsync,
+    client: Aws1DynamoDBClient,
     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
     monitoring: BatchMonitoring[Id, PK] = BatchedWriteBehavior.DEFAULT_MONITORING
   ): Behavior[BatchedRequest] = {
     apply(
-      new AwsClientAdapter(client),
+      new AwsClientAdapter(client.underlying),
       maxWait = maxWait,
       retryPolicy = retryPolicy,
       monitoring = monitoring
@@ -145,7 +146,7 @@ object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
 
   def apply(
     name: String,
-    client: AmazonDynamoDBAsync,
+    client: Aws1DynamoDBClient,
     shutdownTimeout: FiniteDuration = 60.seconds,
     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,

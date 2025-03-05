@@ -21,6 +21,7 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
+import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
 
 /** DynamoDB batched reader
   *
@@ -34,7 +35,7 @@ class AkkaAws2ReadScheduler(actorRef: ActorRef[AkkaAws2ReadScheduler.BatchedRequ
   extends ReadScheduler[Future] {
   import JdkCompat.parasitic
 
-  override def get[V, PK](table: Table[Client.Missing, V, PK], key: PK)(implicit
+  override def get[V, PK](table: Table[DynamoDBClient.Missing, V, PK], key: PK)(implicit
     timeout: BatchTimeout
   ): Future[Option[Result[V]]] = {
     actorRef
@@ -91,13 +92,13 @@ object AkkaAws2ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
   }
 
   def behavior(
-    client: DynamoDbAsyncClient,
+    client: Aws2DynamoDBClient,
     maxWait: FiniteDuration = BatchedReadBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedReadBehavior.DEFAULT_RETRY_POLICY,
     monitoring: BatchMonitoring[Id, PK] = BatchedReadBehavior.DEFAULT_MONITORING
   ): Behavior[BatchedRequest] = {
     apply(
-      client = new AwsClientAdapter(client),
+      client = new AwsClientAdapter(client.underlying),
       maxWait = maxWait,
       retryPolicy = retryPolicy,
       monitoring = monitoring
@@ -110,7 +111,7 @@ object AkkaAws2ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
 
   def apply(
     name: String,
-    client: DynamoDbAsyncClient,
+    client: Aws2DynamoDBClient,
     shutdownTimeout: FiniteDuration = 60.seconds,
     maxWait: FiniteDuration = BatchedReadBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedReadBehavior.DEFAULT_RETRY_POLICY,

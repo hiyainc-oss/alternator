@@ -8,7 +8,6 @@ import akka.actor.{ActorSystem, CoordinatedShutdown}
 import akka.util.Timeout
 import cats.Id
 import com.amazonaws.handlers.AsyncHandler
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
 import com.amazonaws.services.dynamodbv2.model._
 import com.hiya.alternator._
 import com.hiya.alternator.akka.internal.BatchedReadBehavior
@@ -22,6 +21,7 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
+import com.hiya.alternator.aws1.internal.Aws1DynamoDBClient
 
 /** DynamoDB batched reader
   *
@@ -35,7 +35,7 @@ class AkkaAws1ReadScheduler(actorRef: ActorRef[AkkaAws1ReadScheduler.BatchedRequ
   extends ReadScheduler[Future] {
   import JdkCompat.parasitic
 
-  override def get[V, PK](table: Table[Client.Missing, V, PK], key: PK)(implicit
+  override def get[V, PK](table: Table[DynamoDBClient.Missing, V, PK], key: PK)(implicit
     timeout: BatchTimeout
   ): Future[Option[Result[V]]] =
     actorRef
@@ -50,7 +50,7 @@ class AkkaAws1ReadScheduler(actorRef: ActorRef[AkkaAws1ReadScheduler.BatchedRequ
 object AkkaAws1ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeValue], BatchGetItemResult] {
   import AkkaAws1.async
 
-  private class AwsClientAdapter(client: AmazonDynamoDBAsync)
+  private class AwsClientAdapter(client: Aws1DynamoDBClient)
     extends Exceptions
     with BatchedReadBehavior.AwsClientAdapter[JMap[String, AttributeValue], BatchGetItemResult] {
     private def isSubMapOf(small: JMap[String, AttributeValue], in: JMap[String, AttributeValue]): Boolean =
@@ -61,7 +61,7 @@ object AkkaAws1ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
         key.groupMap(_._1)(_._2).view.mapValues(x => new KeysAndAttributes().withKeys(x.asJava)).toMap.asJava
       )
 
-      async(client.batchGetItemAsync(request, _: AsyncHandler[BatchGetItemRequest, BatchGetItemResult]))
+      async(client.underlying.batchGetItemAsync(request, _: AsyncHandler[BatchGetItemRequest, BatchGetItemResult]))
     }
 
     override def processResult(keys: List[PK], response: BatchGetItemResult): (List[(PK, Option[AV])], List[PK]) = {
@@ -89,7 +89,7 @@ object AkkaAws1ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
   }
 
   def behavior(
-    client: AmazonDynamoDBAsync,
+    client: Aws1DynamoDBClient,
     maxWait: FiniteDuration = BatchedReadBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedReadBehavior.DEFAULT_RETRY_POLICY,
     monitoring: BatchMonitoring[Id, PK] = BatchedReadBehavior.DEFAULT_MONITORING
@@ -108,7 +108,7 @@ object AkkaAws1ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
 
   def apply(
     name: String,
-    client: AmazonDynamoDBAsync,
+    client: Aws1DynamoDBClient,
     shutdownTimeout: FiniteDuration = 60.seconds,
     maxWait: FiniteDuration = BatchedReadBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedReadBehavior.DEFAULT_RETRY_POLICY,
