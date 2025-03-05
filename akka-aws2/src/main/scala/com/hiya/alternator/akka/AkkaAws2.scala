@@ -93,12 +93,13 @@ class AkkaAws2 private (override implicit val system: ActorSystem, override impl
     rk: RKCondition[RK],
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int] = None,
-    consistent: Boolean = false
+    consistent: Boolean = false,
+    overrides: Option[Override] = None
   ): Source[Result[V]] =
     queryPaginator(
       table.client.query,
       Aws2TableWithRangeKeyOps(table)
-        .query(pk, rk, condition, consistent)
+        .query(pk, rk, condition, consistent, overrides)
         .limit(limit.map(Int.box).orNull),
       limit
     ).mapConcat(data => Aws2TableWithRangeKeyOps(table).deserialize(data))

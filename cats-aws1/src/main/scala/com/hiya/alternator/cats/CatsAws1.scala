@@ -88,10 +88,15 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
     rk: RKCondition[RK],
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
-    consistent: Boolean
+    consistent: Boolean,
+    overrides: Option[Override] = None
   ): Stream[F, Result[V]] =
-    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKeyOps(table).query(pk, rk, condition, consistent), limit)
-      .flatMap { data => fs2.Stream.emits(Aws1TableWithRangeKeyOps(table).deserialize(data)) }
+    queryPaginator(
+      table.client.queryAsync,
+      Aws1TableWithRangeKeyOps(table).query(pk, rk, condition, consistent, overrides),
+      limit
+    )
+    .flatMap { data => fs2.Stream.emits(Aws1TableWithRangeKeyOps(table).deserialize(data)) }
 }
 
 object CatsAws1 {

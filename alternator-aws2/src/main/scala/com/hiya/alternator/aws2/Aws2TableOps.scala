@@ -10,6 +10,7 @@ import software.amazon.awssdk.services.dynamodb.model._
 
 import java.util
 import scala.jdk.CollectionConverters._
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
 
 class Aws2BatchWrite(
   override val response: BatchWriteItemResponse
@@ -100,8 +101,8 @@ class Aws2TableOps[V, PK](val underlying: Table[_, V, PK]) extends AnyVal {
     else Nil
   }
 
-  final def get(pk: PK, consistent: Boolean): GetItemRequest.Builder =
-    GetItemRequest.builder().key(schema.serializePK(pk)).tableName(tableName).consistentRead(consistent)
+  final def get(pk: PK, consistent: Boolean, overrides: Option[AwsRequestOverrideConfiguration]): GetItemRequest.Builder =
+    GetItemRequest.builder().key(schema.serializePK(pk)).tableName(tableName).consistentRead(consistent).overrideConfiguration(overrides.getOrElse(null))
 
   final def scan(
     segment: Option[Segment] = None,

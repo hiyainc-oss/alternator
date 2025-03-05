@@ -87,10 +87,15 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
     rk: RKCondition[RK],
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
-    consistent: Boolean
+    consistent: Boolean,
+    overrdes: Option[Override]
   ): Source[Result[V]] = {
-    queryPaginator(table.client.queryAsync, Aws1TableWithRangeKeyOps(table).query(pk, rk, condition, consistent), limit)
-      .mapConcat { data => Aws1TableWithRangeKeyOps(table).deserialize(data) }
+    queryPaginator(
+      table.client.queryAsync, 
+      Aws1TableWithRangeKeyOps(table).query(pk, rk, condition, consistent, overrdes),
+      limit
+    )
+    .mapConcat { data => Aws1TableWithRangeKeyOps(table).deserialize(data) }
   }
 }
 

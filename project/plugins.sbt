@@ -1,6 +1,6 @@
 resolvers += "github" at "https://maven.pkg.github.com/hiyainc-oss/_"
 
-addSbtPlugin("com.codecommit" % "sbt-github-packages" % "0.5.3")
+// addSbtPlugin("com.codecommit" % "sbt-github-packages" % "0.5.3")
 
 addSbtPlugin("org.typelevel" % "sbt-tpolecat" % "0.5.1")
 

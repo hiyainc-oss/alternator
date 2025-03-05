@@ -19,9 +19,11 @@ import java.util
 import java.util.concurrent.CompletionException
 import scala.jdk.CollectionConverters._
 import scala.collection.compat._
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
 
 abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override type Client = DynamoDbAsyncClient
+  override type Override = AwsRequestOverrideConfiguration
   override type Source[T] = S[T]
 
   override type AttributeValue = model.AttributeValue
@@ -40,9 +42,10 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override protected def doGet[V, PK](
     table: Table[DynamoDbAsyncClient, V, PK],
     pk: PK,
-    consistent: Boolean
+    consistent: Boolean,
+    overrides: Option[Override]
   ): F[Option[Result[V]]] = {
-    async(table.client.getItem(Aws2TableOps(table).get(pk, consistent).build())).map(Aws2TableOps(table).deserialize)
+    async(table.client.getItem(Aws2TableOps(table).get(pk, consistent, overrides).build())).map(Aws2TableOps(table).deserialize)
   }
 
   override protected def doPut[V, PK](

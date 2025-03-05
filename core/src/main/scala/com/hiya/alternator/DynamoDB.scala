@@ -65,7 +65,9 @@ object ItemMagnet {
 }
 
 trait DynamoDBSource {
+  type Types <: DynamoTypes
   type Client
+  type Override
   type Source[_]
   type Monad[_]
 
@@ -83,7 +85,8 @@ trait DynamoDBSource {
     rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[Boolean]] = None,
     limit: Option[Int] = None,
-    consistent: Boolean = false
+    consistent: Boolean = false,
+    overrides: Option[Override] = None
   ): Source[Result[V]]
 
   def eval[T](f: => Monad[T]): Source[T]
@@ -116,11 +119,12 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
   @inline final def get[V, PK](
     table: Table[Client, V, PK],
     pk: PK,
-    consistent: Boolean = false
+    consistent: Boolean = false,
+    overrides: Option[Override] = None
   ): F[Option[DynamoFormat.Result[V]]] =
-    doGet(table, pk, consistent)
+    doGet(table, pk, consistent, overrides)
 
-  protected def doGet[V, PK](table: Table[Client, V, PK], pk: PK, consistent: Boolean): F[Option[Result[V]]]
+  protected def doGet[V, PK](table: Table[Client, V, PK], pk: PK, consistent: Boolean, overrides: Option[Override]): F[Option[Result[V]]]
 
   @inline final def put[V](table: Table[Client, V, _], value: V): F[Unit] =
     doPut(table, value, None).map(_ => ())
@@ -267,6 +271,10 @@ object DynamoDB {
 
   type Client[F[_], C] = DynamoDB[F] {
     type Client = C
+  }
+
+  type Types[F[_], T] = DynamoDB[F] {
+    type Types = T
   }
 
 }

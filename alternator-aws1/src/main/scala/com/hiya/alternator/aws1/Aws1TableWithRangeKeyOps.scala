@@ -8,6 +8,7 @@ import com.hiya.alternator.schema.DynamoFormat
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition}
 
 import scala.jdk.CollectionConverters._
+import scala.annotation.unused
 
 class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[AmazonDynamoDBAsync, V, PK, RK])
   extends AnyVal {
@@ -18,11 +19,13 @@ class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[AmazonD
     pk: PK,
     rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[_]],
-    consistent: Boolean
+    consistent: Boolean,
+    @unused overrides: Option[Unit] = None
   ): model.QueryRequest = {
     val request: model.QueryRequest =
       new model.QueryRequest(tableName)
         .withConsistentRead(consistent)
+        
 
     Condition.eval {
       for {
