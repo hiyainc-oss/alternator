@@ -21,7 +21,7 @@ object DynamoDBTestBase {
   }
 }
 
-abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient, O] extends AnyFunSpecLike with should.Matchers {
+abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient] extends AnyFunSpecLike with should.Matchers {
 
   import DynamoDBTestBase._
 
@@ -29,7 +29,6 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient, O] extends AnyF
   protected implicit def DB: DynamoDB.Aux[F, S, C]
   protected implicit def monadF: MonadThrow[F]
   protected implicit def monadS: MonadThrow[S]
-  protected implicit def hasOverride: DynamoDBClient.HasOverride[C, O]
 
   protected def eval[T](body: F[T]): T
   protected def list[T](body: S[T]): F[List[T]]

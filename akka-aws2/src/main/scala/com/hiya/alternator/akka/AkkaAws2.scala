@@ -14,7 +14,7 @@ import software.amazon.awssdk.services.dynamodb.model.{QueryRequest, QueryRespon
 import java.util.concurrent.{CompletableFuture, CompletionException}
 import scala.concurrent.{ExecutionContext, Future}
 import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
-import com.hiya.alternator.DynamoDBClient
+import com.hiya.alternator.DynamoDBOverride
 
 class AkkaAws2 private (override implicit val system: ActorSystem, override implicit val workerEc: ExecutionContext)
   extends Aws2DynamoDB[Future, akka.stream.scaladsl.Source[*, NotUsed]]
@@ -88,16 +88,16 @@ class AkkaAws2 private (override implicit val system: ActorSystem, override impl
       }
   }
 
-  override def query[V, PK, RK, O: DynamoDBClient.HasOverride[Client, *]](
+  override def query[V, PK, RK, O: DynamoDBOverride[Client, *]](
     table: TableWithRange[Aws2DynamoDBClient, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK],
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int] = None,
     consistent: Boolean = false,
-    overrides: O => O = identity[O]
+    overrides: O = DynamoDBOverride.Empty
   ): Source[Result[V]] = {
-    val resolvedOverride = DynamoDBClient.HasOverride[Client, O].resolve(overrides)(table.client)
+    val resolvedOverride = DynamoDBOverride[Client, O].apply(overrides)(table.client)
     queryPaginator(
       table.client.underlying.query,
       Aws2TableWithRangeKeyOps(table)

@@ -77,14 +77,14 @@ trait DynamoDBSource {
     consistent: Boolean = false
   ): Source[Result[V]]
 
-  def query[V, PK, RK, O: DynamoDBClient.HasOverride[Client, *]](
+  def query[V, PK, RK, O: DynamoDBOverride[Client, *]](
     table: TableWithRange[Client, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[Boolean]] = None,
     limit: Option[Int] = None,
     consistent: Boolean = false,
-    overrides: O => O = identity(_: O)
+    overrides: O = DynamoDBOverride.Empty
   ): Source[Result[V]]
 
   def eval[T](f: => Monad[T]): Source[T]
@@ -114,16 +114,16 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
 
   def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue]
 
-  @inline final def get[V, PK, O: DynamoDBClient.HasOverride[Client, *]](
+  @inline final def get[V, PK, O: DynamoDBOverride[Client, *]](
     table: Table[Client, V, PK],
     pk: PK,
     consistent: Boolean = false,
-    overrides: O => O = identity(_: O)
+    overrides: O = DynamoDBOverride.Empty
   ): F[Option[DynamoFormat.Result[V]]] =
     doGet(table, pk, consistent, overrides)
 
 
-    protected def doGet[V, PK, O: DynamoDBClient.HasOverride[Client, *]](table: Table[Client, V, PK], pk: PK, consistent: Boolean, overrides: O => O): F[Option[Result[V]]]
+    protected def doGet[V, PK, O: DynamoDBOverride[Client, *]](table: Table[Client, V, PK], pk: PK, consistent: Boolean, overrides: O): F[Option[Result[V]]]
 
   @inline final def put[V](table: Table[Client, V, _], value: V): F[Unit] =
     doPut(table, value, None).map(_ => ())

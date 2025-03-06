@@ -12,8 +12,4 @@ object Aws1DynamoDBClient {
   type Client = AmazonDynamoDBAsync
   type Override = Unit
   type OverrideBuilder = Override => Override
-
-  implicit val hasOverride: DynamoDBClient.HasOverride[Aws1DynamoDBClient, Override] = new DynamoDBClient.HasOverride[Aws1DynamoDBClient, Override] {
-    override def resolve(ov: OverrideBuilder)(implicit client: Aws1DynamoDBClient): OverrideBuilder = ov
-  }
 }

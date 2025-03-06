@@ -24,7 +24,7 @@ import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
 
 class AkkaAws2WriteTests extends TestKit(ActorSystem())
   with AnyFunSpecLike with should.Matchers with Inside with Inspectors with BeforeAndAfterAll
-  with BatchedWrite[Aws2DynamoDBClient, Future, Source[*, NotUsed], Aws2DynamoDBClient.Override] {
+  with BatchedWrite[Aws2DynamoDBClient, Future, Source[*, NotUsed]] {
   import system.dispatcher
 
   override protected def afterAll(): Unit = {
@@ -45,7 +45,6 @@ class AkkaAws2WriteTests extends TestKit(ActorSystem())
     AkkaAws2WriteScheduler("writer", lossyClient, monitoring = monitoring, retryPolicy = retryPolicy)
   override protected implicit val DB: DynamoDB.Aux[Future, Source[*, NotUsed], Aws2DynamoDBClient] = AkkaAws2()
   override protected def eval[T](f: => Future[T]): T = Await.result(f, 10.seconds)
-  override implicit protected def hasOverride: DynamoDBClient.HasOverride[Aws2DynamoDBClient, Aws2DynamoDBClient.Override] = Aws2DynamoDBClient.hasOverride
 
   override type ResourceNotFoundException = model.ResourceNotFoundException
   override def resourceNotFoundException: ClassTag[model.ResourceNotFoundException] = classTag[model.ResourceNotFoundException]

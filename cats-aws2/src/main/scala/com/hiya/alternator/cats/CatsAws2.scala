@@ -3,7 +3,7 @@ package com.hiya.alternator.cats
 import _root_.cats.effect._
 import _root_.cats.syntax.all._
 import com.hiya.alternator._
-import com.hiya.alternator.DynamoDBClient
+import com.hiya.alternator.DynamoDBOverride
 import com.hiya.alternator.aws2.internal.Aws2DynamoDB
 import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
 import com.hiya.alternator.aws2.{Aws2TableOps, Aws2TableWithRangeKeyOps}
@@ -80,16 +80,16 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
     }
   }
 
-  override def query[V, PK, RK, O: DynamoDBClient.HasOverride[Client, *]](
+  override def query[V, PK, RK, O: DynamoDBOverride[Client, *]](
     table: TableWithRange[Aws2DynamoDBClient, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[Boolean]] = None,
     limit: Option[Int] = None,
     consistent: Boolean = false,
-    overrides: O => O = identity[O]
+    overrides: O = DynamoDBOverride.Empty
   ): Stream[F, Result[V]] = {
-    val resolvedOverride = DynamoDBClient.HasOverride[Client, O].resolve(overrides)(table.client)
+    val resolvedOverride = DynamoDBOverride[Client, O].apply(overrides)(table.client)
     queryPaginator(
       table.client.underlying.query,
       Aws2TableWithRangeKeyOps(table).query(pk, rk, condition, consistent, resolvedOverride),

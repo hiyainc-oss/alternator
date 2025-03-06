@@ -37,13 +37,13 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override def isRetryable(e: Throwable): Boolean = Exceptions.isRetryable(e)
   override def isThrottling(e: Throwable): Boolean = Exceptions.isThrottle(e)
 
-  override protected def doGet[V, PK, O: DynamoDBClient.HasOverride[Client, *]](
+  override protected def doGet[V, PK, O: DynamoDBOverride[Client, *]](
     table: Table[Aws2DynamoDBClient, V, PK],
     pk: PK,
     consistent: Boolean,
-    overrides: O => O
+    overrides: O
   ): F[Option[Result[V]]] = {
-    val resolvedOverride = DynamoDBClient.HasOverride[Client, O].resolve(overrides)(table.client)
+    val resolvedOverride = DynamoDBOverride[Client, O].apply(overrides)(table.client)
     async(table.client.underlying.getItem(Aws2TableOps(table).get(pk, consistent, resolvedOverride).build())).map(Aws2TableOps(table).deserialize)
   }
 
