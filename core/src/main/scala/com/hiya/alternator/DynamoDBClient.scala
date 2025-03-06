@@ -1,16 +1,20 @@
 package com.hiya.alternator
 
+import cats.Monoid
+
 
 trait DynamoDBClient {
   type Client
   type Override
+  val Override: Monoid[Override]
 } 
 
 object DynamoDBClient {
   
   sealed trait Missing extends DynamoDBClient {
     type Client = Nothing
-    type Override = Nothing
+    type Override = Unit
+    override val Override: Monoid[Unit] = cats.instances.unit.catsKernelStdAlgebraForUnit
   }
   object Missing extends Missing
 
