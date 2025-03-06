@@ -38,9 +38,9 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
     table: Table[Aws1DynamoDBClient, V, PK],
     pk: PK,
     consistent: Boolean,
-    overrides: Option[O]
+    overrides: O => O
   ): F[Option[Result[V]]] = {
-    val resolvedOverride = overrides.map(ov => DynamoDBClient.HasOverride[Client, O].resolve(ov)(table.client))
+    val resolvedOverride = DynamoDBClient.HasOverride[Client, O].resolve(overrides)(table.client)
     async(
       table.client.underlying.getItemAsync(Aws1TableOps(table).get(pk, consistent, resolvedOverride), _: AsyncHandler[GetItemRequest, GetItemResult])
     )

@@ -21,8 +21,8 @@ import scala.jdk.CollectionConverters._
 import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
 
 package object aws2 {
-  type Aws2Table[V, PK] = Table[DynamoDbAsyncClient, V, PK]
-  type Aws2TableWithRange[V, PK, RK] = TableWithRange[DynamoDbAsyncClient, V, PK, RK]
+  type Aws2Table[V, PK] = Table[Aws2DynamoDBClient, V, PK]
+  type Aws2TableWithRange[V, PK, RK] = TableWithRange[Aws2DynamoDBClient, V, PK, RK]
   type Aws2DynamoDB[F[_]] = DynamoDB.Client[F, DynamoDbAsyncClient]
 
   implicit object PutIsConditional extends ConditionalSupport[model.PutItemRequest.Builder, model.AttributeValue] {

@@ -10,5 +10,10 @@ case class Aws1DynamoDBClient(val underlying: AmazonDynamoDBAsync) extends Dynam
 
 object Aws1DynamoDBClient {
   type Client = AmazonDynamoDBAsync
-  type Override = Nothing
+  type Override = Unit
+  type OverrideBuilder = Override => Override
+
+  implicit val hasOverride: DynamoDBClient.HasOverride[Aws1DynamoDBClient, Override] = new DynamoDBClient.HasOverride[Aws1DynamoDBClient, Override] {
+    override def resolve(ov: OverrideBuilder)(implicit client: Aws1DynamoDBClient): OverrideBuilder = ov
+  }
 }

@@ -95,9 +95,9 @@ class AkkaAws2 private (override implicit val system: ActorSystem, override impl
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int] = None,
     consistent: Boolean = false,
-    overrides: Option[O] = None
+    overrides: O => O = identity[O]
   ): Source[Result[V]] = {
-    val resolvedOverride = overrides.map(ov => DynamoDBClient.HasOverride[Client, O].resolve(ov)(table.client))
+    val resolvedOverride = DynamoDBClient.HasOverride[Client, O].resolve(overrides)(table.client)
     queryPaginator(
       table.client.underlying.query,
       Aws2TableWithRangeKeyOps(table)

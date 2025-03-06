@@ -42,7 +42,7 @@ class AkkaAws2ReadScheduler(actorRef: ActorRef[AkkaAws2ReadScheduler.BatchedRequ
       .ask((ref: AkkaAws2ReadScheduler.Ref) =>
         AkkaAws2ReadScheduler.Req(table.tableName -> table.schema.serializePK[AttributeValue](key), ref)
       )(timeout.timeout, scheduler)
-      .flatMap(result => Future.fromTry(result.map(_.map(Aws2TableOps(table).deserialize))))
+      .flatMap(result => Future.fromTry(result.map(_.map(table.schema.serializeValue.readFields(_)))))
   }
 
   def terminate(timeout: FiniteDuration): Future[Done] = AkkaAws2ReadScheduler.terminate(actorRef)(timeout, scheduler)

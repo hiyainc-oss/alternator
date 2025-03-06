@@ -21,7 +21,7 @@ class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[Aws1Dyn
     rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[_]],
     consistent: Boolean,
-    @unused overrides: Option[Unit] = None
+    @unused overrides: Unit => Unit = identity[Unit]
   ): model.QueryRequest = {
     val request: model.QueryRequest =
       new model.QueryRequest(tableName)

@@ -41,9 +41,9 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
     table: Table[Aws2DynamoDBClient, V, PK],
     pk: PK,
     consistent: Boolean,
-    overrides: Option[O]
+    overrides: O => O
   ): F[Option[Result[V]]] = {
-    val resolvedOverride = overrides.map(ov => DynamoDBClient.HasOverride[Client, O].resolve(ov)(table.client))
+    val resolvedOverride = DynamoDBClient.HasOverride[Client, O].resolve(overrides)(table.client)
     async(table.client.underlying.getItem(Aws2TableOps(table).get(pk, consistent, resolvedOverride).build())).map(Aws2TableOps(table).deserialize)
   }
 
