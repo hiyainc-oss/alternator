@@ -5,12 +5,13 @@ import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
 import com.hiya.alternator.syntax.{ConditionExpression, Segment}
-import com.hiya.alternator.{BatchReadResult, BatchWriteResult, Table}
+import com.hiya.alternator.{BatchReadResult, BatchWriteResult, DynamoDBClient, Table}
 import software.amazon.awssdk.services.dynamodb.model._
 
 import java.util
 import scala.jdk.CollectionConverters._
 import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
 
 class Aws2BatchWrite(
   override val response: BatchWriteItemResponse
@@ -42,7 +43,7 @@ class Aws2BatchWrite(
   ): Vector[Either[util.Map[String, AttributeValue], util.Map[String, AttributeValue]]] =
     getAVs(unprocessed.getOrDefault(table, java.util.List.of()))
 
-  override def unprocessedItems[V, PK](table: Table[_, V, PK]): Vector[Either[Result[PK], Result[V]]] =
+  override def unprocessedItems[V, PK](table: Table[Aws2T, V, PK]): Vector[Either[Result[PK], Result[V]]] =
     unprocessedAvFor(table.tableName).map(_.bimap(table.schema.extract(_), Aws2TableOps(table).deserialize))
 }
 
@@ -84,7 +85,7 @@ object Aws2BatchRead {
   def apply(response: BatchGetItemResponse): Aws2BatchRead = new Aws2BatchRead(response)
 }
 
-class Aws2TableOps[V, PK](val underlying: Table[_, V, PK]) extends AnyVal {
+class Aws2TableOps[V, PK](val underlying: Table[Aws2DynamoDBClient, V, PK]) extends AnyVal {
   import underlying._
 
   final def deserialize(response: Aws2TableOps.AV): DynamoFormat.Result[V] = {
@@ -101,8 +102,8 @@ class Aws2TableOps[V, PK](val underlying: Table[_, V, PK]) extends AnyVal {
     else Nil
   }
 
-  final def get(pk: PK, consistent: Boolean, overrides: Option[Aws2DynamoDBClient.Override]): GetItemRequest.Builder =
-    GetItemRequest.builder().key(schema.serializePK(pk)).tableName(tableName).consistentRead(consistent).overrideConfiguration(overrides.getOrElse(null))
+  final def get(pk: PK, consistent: Boolean, overrides: Aws2DynamoDBClient.Override): GetItemRequest.Builder =
+    GetItemRequest.builder().key(schema.serializePK(pk)).tableName(tableName).consistentRead(consistent).overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
 
   final def scan(
     segment: Option[Segment] = None,
@@ -198,7 +199,7 @@ class Aws2TableOps[V, PK](val underlying: Table[_, V, PK]) extends AnyVal {
 object Aws2TableOps {
   type AV = java.util.Map[String, AttributeValue]
 
-  @inline def apply[V, PK](underlying: Table[_, V, PK]): Aws2TableOps[V, PK] = new Aws2TableOps(underlying)
+  @inline def apply[V, PK](underlying: Table[Aws2DynamoDBClient, V, PK]): Aws2TableOps[V, PK] = new Aws2TableOps(underlying)
 
   def dropTable(tableName: String): DeleteTableRequest.Builder =
     DeleteTableRequest.builder().tableName(tableName)

@@ -114,13 +114,21 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
 
   def AV: com.hiya.alternator.schema.AttributeValue[AttributeValue]
 
+  @inline final def get[V, PK](
+    table: Table[Client, V, PK],
+    pk: PK,
+    consistent: Boolean = false
+  ): F[Option[DynamoFormat.Result[V]]] =
+    doGet(table, pk, consistent, None)
+
   @inline final def get[V, PK, O: DynamoDBClient.HasOverride[Client, *]](
     table: Table[Client, V, PK],
     pk: PK,
     consistent: Boolean = false,
-    overrides: Option[O] = None
+    overrides: O
   ): F[Option[DynamoFormat.Result[V]]] =
-    doGet(table, pk, consistent, overrides)
+    doGet(table, pk, consistent, Some(overrides))
+
 
   protected def doGet[V, PK, O: DynamoDBClient.HasOverride[Client, *]](table: Table[Client, V, PK], pk: PK, consistent: Boolean, overrides: Option[O]): F[Option[Result[V]]]
 
