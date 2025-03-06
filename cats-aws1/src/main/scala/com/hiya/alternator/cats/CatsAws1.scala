@@ -14,7 +14,7 @@ import com.hiya.alternator.{Table, TableWithRange}
 import fs2.Stream
 
 import java.util.concurrent.{Future => JFuture}
-import com.hiya.alternator.DynamoDBClient
+import com.hiya.alternator.DynamoDBOverride
 import com.hiya.alternator.aws1.internal.Aws1DynamoDBClient
 
 class CatsAws1[F[+_]](protected override implicit val F: Async[F])
@@ -83,17 +83,17 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
     }
   }
 
-  override def query[V, PK, RK, O: DynamoDBClient.HasOverride[Client, *]](
+  override def query[V, PK, RK, O: DynamoDBOverride[Client, *]](
     table: TableWithRange[Aws1DynamoDBClient, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK],
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
     consistent: Boolean,
-    overrides: O => O = identity[O]
+    overrides: O = DynamoDBOverride.Empty
   ): Stream[F, Result[V]] =
   {
-    val resolvedOverride = DynamoDBClient.HasOverride[Client, O].resolve(overrides)(table.client)
+    val resolvedOverride = DynamoDBOverride[Client, O].apply(overrides)(table.client)
     queryPaginator(
       table.client.underlying.queryAsync,
       Aws1TableWithRangeKeyOps(table).query(pk, rk, condition, consistent, resolvedOverride),

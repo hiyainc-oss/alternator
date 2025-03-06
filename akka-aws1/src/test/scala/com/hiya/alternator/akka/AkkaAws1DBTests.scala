@@ -12,7 +12,7 @@ import scala.concurrent.{Await, Future}
 import com.hiya.alternator.aws1.internal.Aws1DynamoDBClient
 import com.hiya.alternator.DynamoDBClient
 
-class AkkaAws1DBTests extends DynamoDBTestBase[Future, Source[*, NotUsed], Aws1DynamoDBClient, Aws1DynamoDBClient.Override] {
+class AkkaAws1DBTests extends DynamoDBTestBase[Future, Source[*, NotUsed], Aws1DynamoDBClient] {
   private implicit lazy val system: ActorSystem = ActorSystem()
   import system.dispatcher
 
@@ -30,7 +30,6 @@ class AkkaAws1DBTests extends DynamoDBTestBase[Future, Source[*, NotUsed], Aws1D
 
     override def tailRecM[A, B](a: A)(f: A => Source[Either[A, B], NotUsed]): Source[B, NotUsed] = ???
   }
-  override implicit protected def hasOverride: DynamoDBClient.HasOverride[Aws1DynamoDBClient, Aws1DynamoDBClient.Override] = Aws1DynamoDBClient.hasOverride
 
   override protected def eval[T](body: Future[T]): T =
     Await.result(body, scala.concurrent.duration.Duration.Inf)
