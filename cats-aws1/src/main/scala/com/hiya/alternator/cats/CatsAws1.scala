@@ -90,10 +90,10 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
     consistent: Boolean,
-    overrides: Option[O] = None
+    overrides: O => O = identity[O]
   ): Stream[F, Result[V]] =
   {
-    val resolvedOverride = overrides.map(ov => DynamoDBClient.HasOverride[Client, O].resolve(ov)(table.client))
+    val resolvedOverride = DynamoDBClient.HasOverride[Client, O].resolve(overrides)(table.client)
     queryPaginator(
       table.client.underlying.queryAsync,
       Aws1TableWithRangeKeyOps(table).query(pk, rk, condition, consistent, resolvedOverride),

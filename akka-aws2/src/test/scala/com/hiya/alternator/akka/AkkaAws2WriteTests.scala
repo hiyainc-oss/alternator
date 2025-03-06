@@ -24,7 +24,7 @@ import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
 
 class AkkaAws2WriteTests extends TestKit(ActorSystem())
   with AnyFunSpecLike with should.Matchers with Inside with Inspectors with BeforeAndAfterAll
-  with BatchedWrite[Aws2DynamoDBClient, Future, Source[*, NotUsed]] {
+  with BatchedWrite[Aws2DynamoDBClient, Future, Source[*, NotUsed], Aws2DynamoDBClient.Override] {
   import system.dispatcher
 
   override protected def afterAll(): Unit = {
@@ -45,17 +45,17 @@ class AkkaAws2WriteTests extends TestKit(ActorSystem())
     AkkaAws2WriteScheduler("writer", lossyClient, monitoring = monitoring, retryPolicy = retryPolicy)
   override protected implicit val DB: DynamoDB.Aux[Future, Source[*, NotUsed], Aws2DynamoDBClient] = AkkaAws2()
   override protected def eval[T](f: => Future[T]): T = Await.result(f, 10.seconds)
-  override implicit protected def hasOverride: DynamoDBClient.HasOverride[Aws2DynamoDBClient, _] = DynamoDBClient.HasOverride.forNothing
+  override implicit protected def hasOverride: DynamoDBClient.HasOverride[Aws2DynamoDBClient, Aws2DynamoDBClient.Override] = Aws2DynamoDBClient.hasOverride
 
   override type ResourceNotFoundException = model.ResourceNotFoundException
   override def resourceNotFoundException: ClassTag[model.ResourceNotFoundException] = classTag[model.ResourceNotFoundException]
 
   describe("stream with PK table") {
-    it should behave like streamWrite(DataPK.config)
+    it should behave like streamWrite[DataPK, String]()(DataPK.config)
   }
 
   describe("stream with RK table") {
-    it should behave like streamWrite(DataRK.config)
+    it should behave like streamWrite[DataRK, (String, String)]()(DataRK.config)
   }
 
   it("should stop") {

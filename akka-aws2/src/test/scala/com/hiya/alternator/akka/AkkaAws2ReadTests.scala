@@ -49,11 +49,11 @@ class AkkaAws2ReadTests extends TestKit(ActorSystem())
   override def resourceNotFoundException: ClassTag[model.ResourceNotFoundException] = classTag[model.ResourceNotFoundException]
 
   describe("stream with PK table") {
-    it should behave like streamRead[DataPK, String]
+    it should behave like streamRead[DataPK, String]()
   }
 
   describe("stream with RK table") {
-    it should behave like streamRead[DataRK, (String, String)](DataRK.config)
+    it should behave like streamRead[DataRK, (String, String)]()(DataRK.config)
   }
 
   it("should stop") {

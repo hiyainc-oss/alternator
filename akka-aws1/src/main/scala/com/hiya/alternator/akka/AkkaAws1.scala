@@ -89,9 +89,9 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
     consistent: Boolean,
-    overrides: Option[O]
+    overrides: O => O
   ): Source[Result[V]] = {
-    val resolvedOverride = overrides.map(ov => DynamoDBClient.HasOverride[Client, O].resolve(ov)(table.client))
+    val resolvedOverride = DynamoDBClient.HasOverride[Client, O].resolve(overrides)(table.client)
     queryPaginator(
       table.client.underlying.queryAsync, 
       Aws1TableWithRangeKeyOps(table).query(pk, rk, condition, consistent, resolvedOverride),

@@ -100,7 +100,7 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, 
     Option(response.getItems).toList.flatMap(_.asScala.toList.map(deserialize))
   }
 
-  final def get(pk: PK, consistent: Boolean, @unused overrides: Option[Aws1DynamoDBClient.Override]): GetItemRequest =
+  final def get(pk: PK, consistent: Boolean, @unused overrides: Aws1DynamoDBClient.OverrideBuilder): GetItemRequest =
     new GetItemRequest(underlying.tableName, underlying.schema.serializePK(pk)).withConsistentRead(consistent)
   
 

@@ -10,12 +10,14 @@ case class DataPK(key: String, value: Int)
 object DataPK {
   import com.hiya.alternator.generic.auto._
 
+  type T[C <: DynamoDBClient] = Table[C, DataPK, String]
+
   implicit val tableSchemaWithPK: TableSchema.Aux[DataPK, String] =
     TableSchema.schemaWithPK[DataPK, String]("key", _.key)
 
-  implicit val config: TableConfig[DataPK, String, Table[*, DataPK, String]] =
-    new TableConfig[DataPK, String, Table[*, DataPK, String]] {
-      override def table[C](name: String, client: C): Table[C, DataPK, String] =
+  implicit val config: TableConfig[DataPK, String, T] =
+    new TableConfig[DataPK, String, T] {
+      override def table[C <: DynamoDBClient](name: String, client: C): Table[C, DataPK, String] =
         Table.tableWithPK[DataPK](name).withClient(client)
 
       override def createData(i: Int, v: Option[Int]): (String, DataPK) = {
