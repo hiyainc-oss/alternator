@@ -1,4 +1,4 @@
-package com.hiya.alternator.aws2.internal
+package com.hiya.alternator.aws2
 
 import com.hiya.alternator.DynamoDBClient
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
@@ -6,11 +6,10 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 case class Aws2DynamoDBClient(val underlying: DynamoDbAsyncClient) extends DynamoDBClient {
   type Client = Aws2DynamoDBClient.Client
-  type Override = Aws2DynamoDBClient.Override
+  type OverrideBuilder = Aws2DynamoDBClient.OverrideBuilder
 }
 
 object Aws2DynamoDBClient {
   type Client = DynamoDbAsyncClient
-  type Override = AwsRequestOverrideConfiguration.Builder
-  type OverrideBuilder = Override => Override
+  type OverrideBuilder = AwsRequestOverrideConfiguration.Builder
 }

@@ -30,7 +30,11 @@ object LocalDynamoDB {
   def client[C <: DynamoDBClient](port: Int = configuredPort)(implicit localDynamoClient: LocalDynamoClient[C]): C =
     localDynamoClient.client(port)
 
-  def withTable[C <: DynamoDBClient](client: C, tableName: String, magnet: SchemaMagnet): LocalDynamoPartial[String, C] =
+  def withTable[C <: DynamoDBClient](
+    client: C,
+    tableName: String,
+    magnet: SchemaMagnet
+  ): LocalDynamoPartial[String, C] =
     new LocalDynamoPartial(client, tableName, magnet, tableName)
 
   def withTable[C <: DynamoDBClient, V, PK](client: C, table: Table[_, V, PK]): LocalDynamoPartial[Table[C, V, PK], C] =

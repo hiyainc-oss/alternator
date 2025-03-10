@@ -8,12 +8,12 @@ import software.amazon.awssdk.services.dynamodb.model.QueryRequest
 import software.amazon.awssdk.services.dynamodb.model
 
 import scala.jdk.CollectionConverters._
-import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
+import com.hiya.alternator.aws2.Aws2DynamoDBClient
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
 import com.hiya.alternator.aws2.Aws2TableWithRange
+import com.hiya.alternator.DynamoDBOverride
 
-class Aws2TableWithRangeKeyOps[V, PK, RK](val underlying: Aws2TableWithRange[V, PK, RK])
-  extends AnyVal {
+class Aws2TableWithRangeKeyOps[V, PK, RK](val underlying: Aws2TableWithRange[V, PK, RK]) extends AnyVal {
 
   import underlying._
 
@@ -22,7 +22,7 @@ class Aws2TableWithRangeKeyOps[V, PK, RK](val underlying: Aws2TableWithRange[V, 
     rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[Boolean]],
     consistent: Boolean = false,
-    overrides: Aws2DynamoDBClient.OverrideBuilder
+    overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
   ): model.QueryRequest.Builder = {
     val request: QueryRequest.Builder = model.QueryRequest
       .builder()

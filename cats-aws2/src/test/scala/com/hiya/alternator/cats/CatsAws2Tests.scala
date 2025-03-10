@@ -7,9 +7,7 @@ import com.hiya.alternator.{DynamoDB, DynamoDBTestBase}
 import com.hiya.alternator.aws2._
 import com.hiya.alternator.testkit.LocalDynamoDB
 import fs2.Stream
-import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
-import com.hiya.alternator.DynamoDBClient
-
+import com.hiya.alternator.aws2.Aws2DynamoDBClient
 
 class CatsAws2Tests extends DynamoDBTestBase[IO, Stream[IO, *], Aws2DynamoDBClient] {
   override protected val client: Aws2DynamoDBClient = LocalDynamoDB.client[Aws2DynamoDBClient]()

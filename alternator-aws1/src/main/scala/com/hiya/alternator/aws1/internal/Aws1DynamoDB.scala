@@ -16,6 +16,7 @@ import java.util
 import java.util.concurrent.{CompletionException, Future => JFuture}
 import scala.jdk.CollectionConverters._
 import scala.collection.compat._
+import com.hiya.alternator.DynamoDBOverride.OverrideOps
 
 abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override type Source[T] = S[T]
@@ -40,120 +41,124 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
     consistent: Boolean,
     overrides: O
   ): F[Option[Result[V]]] = {
-    val resolvedOverride = DynamoDBOverride[Client, O].apply(overrides)(table.client)
+    val resolvedOverride = (table.overrides |+| overrides.overrides[Aws1DynamoDBClient])(table.client)
     async(
-      table.client.underlying.getItemAsync(Aws1TableOps(table).get(pk, consistent, resolvedOverride), _: AsyncHandler[GetItemRequest, GetItemResult])
+      table.client.underlying.getItemAsync(
+        Aws1TableOps(table).get(pk, consistent, resolvedOverride),
+        _: AsyncHandler[GetItemRequest, GetItemResult]
+      )
     )
       .map(Aws1TableOps(table).deserialize)
   }
 
-  override def doPut[V, PK](
+  override def doPut[V, PK, O: DynamoDBOverride[Client, *]](
     table: Table[Aws1DynamoDBClient, V, PK],
     item: V,
-    condition: Option[ConditionExpression[Boolean]]
-  ): F[Boolean] =
-    condition match {
-      case Some(condition) =>
-        async(
-          table.client.underlying.putItemAsync(
-            Aws1TableOps(table).put(item, condition),
-            _: AsyncHandler[PutItemRequest, PutItemResult]
-          )
-        )
-          .map(_ => true)
-          .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
-          .recover { case _: model.ConditionalCheckFailedException => false }
-      case None =>
-        async(
-          table.client.underlying
-            .putItemAsync(
-              Aws1TableOps(table).put(item, returnOld = false),
-              _: AsyncHandler[PutItemRequest, PutItemResult]
-            )
-        )
-          .map(_ => true)
-    }
+    condition: Option[ConditionExpression[Boolean]],
+    overrides: O
+  ): F[Boolean] = {
+    val resolvedOverride = (table.overrides |+| overrides.overrides[Aws1DynamoDBClient])(table.client)
+    async(
+      table.client.underlying.putItemAsync(
+        resolvedOverride(Aws1TableOps(table).put(item, condition, overrides = resolvedOverride, returnOld = false)),
+        _: AsyncHandler[PutItemRequest, PutItemResult]
+      )
+    )
+      .map(_ => true)
+      .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
+      .recover { case _: model.ConditionalCheckFailedException => false }
+  }
 
-  override def doPutAndReturn[V, PK](
+  override def doPutAndReturn[V, PK, O: DynamoDBOverride[Client, *]](
     table: Table[Aws1DynamoDBClient, V, PK],
     item: V,
-    condition: Option[ConditionExpression[Boolean]]
+    condition: Option[ConditionExpression[Boolean]],
+    overrides: O
   ): F[ConditionResult[V]] = {
-    val req = condition match {
-      case Some(condition) =>
-        Aws1TableOps(table).put(item, condition, returnOld = true)
-      case None =>
-        Aws1TableOps(table).put(item, returnOld = true)
-    }
-
-    async(table.client.underlying.putItemAsync(req, _: AsyncHandler[PutItemRequest, PutItemResult]))
+    val resolvedOverride = (table.overrides |+| overrides.overrides[Aws1DynamoDBClient])(table.client)
+    async(
+      table.client.underlying.putItemAsync(
+        Aws1TableOps(table).put(item, condition, returnOld = true, overrides = resolvedOverride),
+        _: AsyncHandler[PutItemRequest, PutItemResult]
+      )
+    )
       .map[ConditionResult[V]](item => ConditionResult.Success(Aws1TableOps(table).extractItem(item)))
       .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
       .recover { case _: model.ConditionalCheckFailedException => ConditionResult.Failed }
   }
 
-  override def doDelete[V, PK](
+  override def doDelete[V, PK, O: DynamoDBOverride[Client, *]](
     table: Table[Aws1DynamoDBClient, V, PK],
     key: PK,
-    condition: Option[ConditionExpression[Boolean]]
-  ): F[Boolean] =
-    condition match {
-      case Some(condition) =>
-        async(
-          table.client.underlying.deleteItemAsync(
-            Aws1TableOps(table).delete(key, condition),
-            _: AsyncHandler[DeleteItemRequest, DeleteItemResult]
-          )
-        )
-          .map(_ => true)
-          .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
-          .recover { case _: model.ConditionalCheckFailedException => false }
-      case None =>
-        async(
-          table.client.underlying
-            .deleteItemAsync(Aws1TableOps(table).delete(key), _: AsyncHandler[DeleteItemRequest, DeleteItemResult])
-        )
-          .map(_ => true)
-    }
+    condition: Option[ConditionExpression[Boolean]],
+    overrides: O
+  ): F[Boolean] = {
+    val resolvedOverride = (table.overrides |+| overrides.overrides[Aws1DynamoDBClient])(table.client)
+    async(
+      table.client.underlying.deleteItemAsync(
+        Aws1TableOps(table).delete(key, condition, returnOld = false, overrides = resolvedOverride),
+        _: AsyncHandler[DeleteItemRequest, DeleteItemResult]
+      )
+    )
+      .map(_ => true)
+      .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
+      .recover { case _: model.ConditionalCheckFailedException => false }
+  }
 
-  override def doDeleteAndReturn[V, PK](
+  override def doDeleteAndReturn[V, PK, O: DynamoDBOverride[Client, *]](
     table: Table[Aws1DynamoDBClient, V, PK],
     key: PK,
-    condition: Option[ConditionExpression[Boolean]]
+    condition: Option[ConditionExpression[Boolean]],
+    overrides: O
   ): F[ConditionResult[V]] = {
-    val req = condition match {
-      case Some(condition) =>
-        Aws1TableOps(table).delete(key, condition, returnOld = true)
-      case None =>
-        Aws1TableOps(table).delete(key, returnOld = true)
-    }
-
-    async(table.client.underlying.deleteItemAsync(req, _: AsyncHandler[DeleteItemRequest, DeleteItemResult]))
+    val resolvedOverride = (table.overrides |+| overrides.overrides[Aws1DynamoDBClient])(table.client)
+    async(
+      table.client.underlying.deleteItemAsync(
+        Aws1TableOps(table).delete(key, condition, returnOld = true, overrides = resolvedOverride),
+        _: AsyncHandler[DeleteItemRequest, DeleteItemResult]
+      )
+    )
       .map[ConditionResult[V]](item => ConditionResult.Success(Aws1TableOps(table).extractItem(item)))
       .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
       .recover { case _: model.ConditionalCheckFailedException => ConditionResult.Failed }
   }
 
-  override def createTable(
+  override def createTable[O: DynamoDBOverride[Client, *]](
     client: Aws1DynamoDBClient,
     tableName: String,
     hashKey: String,
     rangeKey: Option[String],
     readCapacity: Long,
     writeCapacity: Long,
-    attributes: List[(String, ScalarType)]
-  ): F[Unit] =
+    attributes: List[(String, ScalarType)],
+    overrides: O
+  ): F[Unit] = {
+    val resolvedOverride = overrides.overrides[Aws1DynamoDBClient].apply(client)
     async(
       client.underlying.createTableAsync(
-        Aws1TableOps.createTable(tableName, hashKey, rangeKey, readCapacity, writeCapacity, attributes),
+        Aws1TableOps.createTable(
+          tableName,
+          hashKey,
+          rangeKey,
+          readCapacity,
+          writeCapacity,
+          attributes,
+          resolvedOverride
+        ),
         _: AsyncHandler[CreateTableRequest, CreateTableResult]
       )
     ).map(_ => ())
+  }
 
-  override def dropTable(client: Aws1DynamoDBClient, tableName: String): F[Unit] = {
+  override def dropTable[O: DynamoDBOverride[Client, *]](
+    client: Aws1DynamoDBClient,
+    tableName: String,
+    overrides: O
+  ): F[Unit] = {
+    val resolvedOverride = overrides.overrides[Aws1DynamoDBClient].apply(client)
     async(
       client.underlying.deleteTableAsync(
-        Aws1TableOps.dropTable(tableName),
+        Aws1TableOps.dropTable(tableName, resolvedOverride),
         _: AsyncHandler[DeleteTableRequest, DeleteTableResult]
       )
     ).map(_ => ())

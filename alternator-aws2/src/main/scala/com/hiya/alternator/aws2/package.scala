@@ -18,7 +18,6 @@ import java.net.URI
 import java.nio.ByteBuffer
 import java.util.{Collection => JCollection, List => JList, Map => JMap}
 import scala.jdk.CollectionConverters._
-import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
 
 package object aws2 {
   type Aws2Table[V, PK] = Table[Aws2DynamoDBClient, V, PK]

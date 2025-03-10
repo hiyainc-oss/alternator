@@ -5,8 +5,7 @@ import _root_.cats.syntax.all._
 import com.hiya.alternator._
 import com.hiya.alternator.DynamoDBOverride
 import com.hiya.alternator.aws2.internal.Aws2DynamoDB
-import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
-import com.hiya.alternator.aws2.{Aws2TableOps, Aws2TableWithRangeKeyOps}
+import com.hiya.alternator.aws2.{Aws2DynamoDBClient, Aws2TableOps, Aws2TableWithRangeKeyOps}
 import com.hiya.alternator.cats.internal.CatsBase
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
@@ -44,19 +43,22 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
     }
   }
 
-  override def scan[V, PK](
+  override def scan[V, PK, O: DynamoDBOverride[Client, *]](
     table: Table[Aws2DynamoDBClient, V, PK],
     segment: Option[Segment] = None,
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
-    consistent: Boolean
-  ): Stream[F, Result[V]] =
+    consistent: Boolean,
+    overrides: O
+  ): Stream[F, Result[V]] = {
+    val resolvedOverride = (table.overrides |+| overrides)(table.client)
     scanPaginator(
       table.client.underlying.scan,
-      Aws2TableOps(table).scan(segment, condition, consistent),
+      Aws2TableOps(table).scan(segment, condition, consistent, resolvedOverride),
       limit
     )
       .flatMap(data => Stream.emits(Aws2TableOps(table).deserialize(data)))
+  }
 
   private def queryPaginator(
     f: QueryRequest => CompletableFuture[QueryResponse],
@@ -89,7 +91,7 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
     consistent: Boolean = false,
     overrides: O = DynamoDBOverride.Empty
   ): Stream[F, Result[V]] = {
-    val resolvedOverride = DynamoDBOverride[Client, O].apply(overrides)(table.client)
+    val resolvedOverride = (table.overrides |+| overrides)(table.client)
     queryPaginator(
       table.client.underlying.query,
       Aws2TableWithRangeKeyOps(table).query(pk, rk, condition, consistent, resolvedOverride),

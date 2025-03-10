@@ -24,7 +24,9 @@ object DataPK {
         i.toString -> DataPK(i.toString, v.getOrElse(i))
       }
 
-      override def withTable[F[_], S[_], C <: DynamoDBClient](client: C): LocalDynamoPartial[Table[C, DataPK, String], C] =
+      override def withTable[F[_], S[_], C <: DynamoDBClient](
+        client: C
+      ): LocalDynamoPartial[Table[C, DataPK, String], C] =
         LocalDynamoDB.withRandomTable[C, DataPK](client)
     }
 }

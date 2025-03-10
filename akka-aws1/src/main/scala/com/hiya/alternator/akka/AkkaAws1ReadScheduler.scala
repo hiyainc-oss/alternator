@@ -21,7 +21,7 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
-import com.hiya.alternator.aws1.internal.Aws1DynamoDBClient
+import com.hiya.alternator.aws1.Aws1DynamoDBClient
 
 /** DynamoDB batched reader
   *

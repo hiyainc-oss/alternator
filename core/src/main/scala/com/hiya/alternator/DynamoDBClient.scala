@@ -2,12 +2,11 @@ package com.hiya.alternator
 
 trait DynamoDBClient {
   type Client
-  type Override
-  type OverrideBuilder = Override => Override
-} 
+  type OverrideBuilder
+}
 
 object DynamoDBClient {
-  
+
   sealed trait Missing extends DynamoDBClient {
     type Client = Nothing
     type Override = Unit
@@ -15,9 +14,4 @@ object DynamoDBClient {
 
   object Missing extends Missing
 
-
-
 }
-
-
-

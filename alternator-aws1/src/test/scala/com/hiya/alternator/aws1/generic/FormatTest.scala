@@ -12,7 +12,6 @@ import org.scalatest.matchers.should.Matchers
 import scala.jdk.CollectionConverters._
 import scala.reflect.runtime.universe._
 
-
 class FormatTest extends AnyFunSpec with Matchers {
   private def iso[T](orig: T)(implicit T: DynamoFormat[T]): Assertion = {
     T.read(T.write[AttributeValue](orig)) shouldBe Right(orig)
@@ -54,7 +53,7 @@ class FormatTest extends AnyFunSpec with Matchers {
     case class Refl[T](value: T) extends NullValue[T]
     case class Irrefl[T](value: T) extends NullValue[T]
 
-    def dynamo[T : TypeTag](nullValue: NullValue[T], tests: (T, AttributeValue)*)(implicit T : DynamoFormat[T]): Unit = {
+    def dynamo[T: TypeTag](nullValue: NullValue[T], tests: (T, AttributeValue)*)(implicit T: DynamoFormat[T]): Unit = {
       it(s"should read and write ${typeTag[T].tpe}") {
         nullValue match {
           case Irrefl(value) =>
@@ -104,17 +103,17 @@ class FormatTest extends AnyFunSpec with Matchers {
 
     it should behave like dynamo[Set[String]](
       nullValue = Refl(Set.empty),
-      Set("asd") -> new AttributeValue().withSS("asd"),
+      Set("asd") -> new AttributeValue().withSS("asd")
     )
 
     it should behave like dynamo[Int](
       nullValue = Error,
-      42 -> new AttributeValue().withN("42"),
+      42 -> new AttributeValue().withN("42")
     )
 
     it should behave like dynamo[Double](
       nullValue = Error,
-      137.04 -> new AttributeValue().withN("137.04"), // ℏc/e²
+      137.04 -> new AttributeValue().withN("137.04") // ℏc/e²
     )
 
   }

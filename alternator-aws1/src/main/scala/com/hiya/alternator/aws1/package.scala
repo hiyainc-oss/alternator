@@ -10,7 +10,6 @@ import com.hiya.alternator.testkit.LocalDynamoClient
 import java.nio.ByteBuffer
 import java.util.{Collection => JCollection, List => JList, Map => JMap}
 import scala.jdk.CollectionConverters._
-import com.hiya.alternator.aws1.internal.Aws1DynamoDBClient
 
 package object aws1 {
   type Aws1Table[V, PK] = Table[Aws1DynamoDBClient, V, PK]

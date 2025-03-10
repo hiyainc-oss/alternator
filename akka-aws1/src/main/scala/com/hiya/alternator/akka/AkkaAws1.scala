@@ -2,12 +2,13 @@ package com.hiya.alternator.akka
 
 import akka.NotUsed
 import akka.actor.{ActorSystem, ClassicActorSystemProvider}
+import cats.syntax.all._
 import com.amazonaws.AmazonWebServiceRequest
 import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.dynamodbv2.model._
 import com.hiya.alternator.akka.internal.AkkaBase
 import com.hiya.alternator.aws1.internal.Aws1DynamoDB
-import com.hiya.alternator.aws1.internal.Aws1DynamoDBClient
+import com.hiya.alternator.aws1.Aws1DynamoDBClient
 import com.hiya.alternator.aws1.{Aws1TableOps, Aws1TableWithRangeKeyOps}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
@@ -48,14 +49,20 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
     }
   }
 
-  override def scan[V, PK](
+  override def scan[V, PK, O: DynamoDBOverride[Client, *]](
     table: Table[Aws1DynamoDBClient, V, PK],
     segment: Option[Segment],
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
-    consistent: Boolean
+    consistent: Boolean,
+    overrides: O = DynamoDBOverride.Empty
   ): Source[Result[V]] = {
-    scanPaginator(table.client.underlying.scanAsync, Aws1TableOps(table).scan(segment, condition, consistent), limit)
+    val resolvedOverride = (table.overrides |+| overrides)(table.client)
+    scanPaginator(
+      table.client.underlying.scanAsync,
+      Aws1TableOps(table).scan(segment, condition, consistent, resolvedOverride),
+      limit
+    )
       .mapConcat(data => Aws1TableOps(table).deserialize(data))
   }
 
@@ -91,13 +98,13 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
     consistent: Boolean,
     overrides: O
   ): Source[Result[V]] = {
-    val resolvedOverride = DynamoDBOverride[Client, O].apply(overrides)(table.client)
+    val resolvedOverride = (table.overrides |+| overrides)(table.client)
     queryPaginator(
-      table.client.underlying.queryAsync, 
+      table.client.underlying.queryAsync,
       Aws1TableWithRangeKeyOps(table).query(pk, rk, condition, consistent, resolvedOverride),
       limit
     )
-    .mapConcat { data => Aws1TableWithRangeKeyOps(table).deserialize(data) }
+      .mapConcat { data => Aws1TableWithRangeKeyOps(table).deserialize(data) }
   }
 }
 
