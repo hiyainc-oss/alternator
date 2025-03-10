@@ -2,14 +2,14 @@ package com.hiya.alternator.aws1
 
 import cats.syntax.all._
 import com.amazonaws.services.dynamodbv2.model
+import com.hiya.alternator.DynamoDBOverride
 import com.hiya.alternator.TableWithRange
+import com.hiya.alternator.aws1.Aws1DynamoDBClient
 import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition}
 
 import scala.jdk.CollectionConverters._
-import scala.annotation.unused
-import com.hiya.alternator.aws1.internal.Aws1DynamoDBClient
 
 class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[Aws1DynamoDBClient, V, PK, RK])
   extends AnyVal {
@@ -21,12 +21,12 @@ class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[Aws1Dyn
     rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[_]],
     consistent: Boolean,
-    @unused overrides: Unit => Unit = identity[Unit]
+    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
   ): model.QueryRequest = {
-    val request: model.QueryRequest =
+    val request = overrides(
       new model.QueryRequest(tableName)
         .withConsistentRead(consistent)
-        
+    )
 
     Condition.eval {
       for {

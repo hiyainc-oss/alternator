@@ -18,11 +18,15 @@ import org.scalatest.{BeforeAndAfterAll, Inside, Inspectors}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.reflect.{ClassTag, classTag}
-import com.hiya.alternator.aws1.internal.Aws1DynamoDBClient
+import com.hiya.alternator.aws1.Aws1DynamoDBClient
 
-
-class AkkaAws1ReadTests extends TestKit(ActorSystem())
-  with AnyFunSpecLike with should.Matchers with Inside with Inspectors with BeforeAndAfterAll
+class AkkaAws1ReadTests
+  extends TestKit(ActorSystem())
+  with AnyFunSpecLike
+  with should.Matchers
+  with Inside
+  with Inspectors
+  with BeforeAndAfterAll
   with BatchedRead[Aws1DynamoDBClient, Future, Source[*, NotUsed]] {
   import system.dispatcher
 
@@ -46,7 +50,8 @@ class AkkaAws1ReadTests extends TestKit(ActorSystem())
   override protected def eval[T](f: => Future[T]): T = Await.result(f, 10.seconds)
 
   override type ResourceNotFoundException = model.ResourceNotFoundException
-  override def resourceNotFoundException: ClassTag[model.ResourceNotFoundException] = classTag[model.ResourceNotFoundException]
+  override def resourceNotFoundException: ClassTag[model.ResourceNotFoundException] =
+    classTag[model.ResourceNotFoundException]
 
   describe("stream with PK table") {
     it should behave like streamRead[DataPK, String]()

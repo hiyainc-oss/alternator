@@ -15,7 +15,6 @@ object DataRK {
   private implicit val tableSchemaWithRK: TableSchemaWithRange.Aux[DataRK, String, String] =
     TableSchema.schemaWithRK[DataRK, String, String]("key", "range", x => x.key -> x.range)
 
-
   implicit val config: TableConfig[DataRK, (String, String), T] =
     new TableConfig[DataRK, (String, String), T] {
 

@@ -9,7 +9,9 @@ import scala.jdk.CollectionConverters._
 import scala.collection.compat._
 
 trait ReadScheduler[F[_]] {
-  def get[V, PK](table: Table[DynamoDBClient.Missing, V, PK], key: PK)(implicit timeout: BatchTimeout): F[Option[Result[V]]]
+  def get[V, PK](table: Table[DynamoDBClient.Missing, V, PK], key: PK)(implicit
+    timeout: BatchTimeout
+  ): F[Option[Result[V]]]
 }
 
 trait WriteScheduler[F[_]] {
@@ -69,12 +71,13 @@ trait DynamoDBSource {
   type Source[_]
   type Monad[_]
 
-  def scan[V, PK](
+  def scan[V, PK, O: DynamoDBOverride[Client, *]](
     table: Table[Client, V, PK],
     segment: Option[Segment] = None,
     condition: Option[ConditionExpression[Boolean]] = None,
     limit: Option[Int] = None,
-    consistent: Boolean = false
+    consistent: Boolean = false,
+    overrides: O = DynamoDBOverride.Empty
   ): Source[Result[V]]
 
   def query[V, PK, RK, O: DynamoDBOverride[Client, *]](
@@ -122,23 +125,50 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
   ): F[Option[DynamoFormat.Result[V]]] =
     doGet(table, pk, consistent, overrides)
 
+  protected def doGet[V, PK, O: DynamoDBOverride[Client, *]](
+    table: Table[Client, V, PK],
+    pk: PK,
+    consistent: Boolean,
+    overrides: O
+  ): F[Option[Result[V]]]
 
-    protected def doGet[V, PK, O: DynamoDBOverride[Client, *]](table: Table[Client, V, PK], pk: PK, consistent: Boolean, overrides: O): F[Option[Result[V]]]
+  @inline final def put[V](
+    table: Table[Client, V, _],
+    value: V
+  ): F[Unit] =
+    doPut(table, value, None, DynamoDBOverride.Empty).map(_ => ())
 
-  @inline final def put[V](table: Table[Client, V, _], value: V): F[Unit] =
-    doPut(table, value, None).map(_ => ())
+  @inline final def put[V, O](
+    table: Table[Client, V, _],
+    value: V,
+    condition: ConditionExpression[Boolean]
+  ): F[Boolean] =
+    doPut(table, value, condition = Some(condition), DynamoDBOverride.Empty)
 
-  @inline final def put[V](table: Table[Client, V, _], value: V, condition: ConditionExpression[Boolean]): F[Boolean] =
-    doPut(table, value, condition = Some(condition))
+  @inline final def put[V, O: DynamoDBOverride[Client, *]](
+    table: Table[Client, V, _],
+    value: V,
+    overrides: O
+  ): F[Unit] =
+    doPut(table, value, None, overrides).map(_ => ())
 
-  protected def doPut[V, PK](
+  @inline final def put[V, O: DynamoDBOverride[Client, *]](
+    table: Table[Client, V, _],
+    value: V,
+    condition: ConditionExpression[Boolean],
+    overrides: O
+  ): F[Boolean] =
+    doPut(table, value, condition = Some(condition), overrides)
+
+  protected def doPut[V, PK, O: DynamoDBOverride[Client, *]](
     table: Table[Client, V, PK],
     item: V,
-    condition: Option[ConditionExpression[Boolean]]
+    condition: Option[ConditionExpression[Boolean]],
+    overrides: O
   ): F[Boolean]
 
   @inline final def putAndReturn[V](table: Table[Client, V, _], value: V): F[Option[DynamoFormat.Result[V]]] =
-    doPutAndReturn(table, value, None).flatMap {
+    doPutAndReturn(table, value, None, DynamoDBOverride.Empty).flatMap {
       case ConditionResult.Success(oldValue) => MonadThrow[F].pure(oldValue)
       case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
     }
@@ -148,34 +178,67 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
     value: V,
     condition: ConditionExpression[Boolean]
   ): F[ConditionResult[V]] =
-    doPutAndReturn(table, value, condition = Some(condition))
+    doPutAndReturn(table, value, condition = Some(condition), overrides = DynamoDBOverride.Empty)
 
-  protected def doPutAndReturn[V, PK](
+  @inline final def putAndReturn[V, O: DynamoDBOverride[Client, *]](
+    table: Table[Client, V, _],
+    value: V,
+    overrides: O
+  ): F[Option[DynamoFormat.Result[V]]] =
+    doPutAndReturn(table, value, None, overrides).flatMap {
+      case ConditionResult.Success(oldValue) => MonadThrow[F].pure(oldValue)
+      case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
+    }
+
+  @inline final def putAndReturn[V, O: DynamoDBOverride[Client, *]](
+    table: Table[Client, V, _],
+    value: V,
+    condition: ConditionExpression[Boolean],
+    overrides: O
+  ): F[ConditionResult[V]] =
+    doPutAndReturn(table, value, condition = Some(condition), overrides = overrides)
+
+  protected def doPutAndReturn[V, PK, O: DynamoDBOverride[Client, *]](
     table: Table[Client, V, PK],
     item: V,
-    condition: Option[ConditionExpression[Boolean]]
+    condition: Option[ConditionExpression[Boolean]],
+    overrides: O
   ): F[ConditionResult[V]]
 
   @inline final def delete[V, PK, T](table: Table[Client, V, PK], key: T)(implicit T: ItemMagnet[T, V, PK]): F[Unit] =
-    doDelete(table, T.key(key)(table.schema), None).map(_ => ())
+    doDelete(table, T.key(key)(table.schema), None, DynamoDBOverride.Empty).map(_ => ())
 
   @inline final def delete[PK](
     table: Table[Client, _, PK],
     key: PK,
     condition: ConditionExpression[Boolean]
   ): F[Boolean] =
-    doDelete(table, key, Some(condition))
+    doDelete(table, key, Some(condition), DynamoDBOverride.Empty)
 
-  protected def doDelete[V, PK](
+  @inline final def delete[V, PK, T, O: DynamoDBOverride[Client, *]](table: Table[Client, V, PK], key: T, overrides: O)(
+    implicit T: ItemMagnet[T, V, PK]
+  ): F[Unit] =
+    doDelete(table, T.key(key)(table.schema), None, overrides).map(_ => ())
+
+  @inline final def delete[PK, O: DynamoDBOverride[Client, *]](
+    table: Table[Client, _, PK],
+    key: PK,
+    condition: ConditionExpression[Boolean],
+    overrides: O
+  ): F[Boolean] =
+    doDelete(table, key, Some(condition), overrides)
+
+  protected def doDelete[V, PK, O: DynamoDBOverride[Client, *]](
     table: Table[Client, V, PK],
     key: PK,
-    condition: Option[ConditionExpression[Boolean]]
+    condition: Option[ConditionExpression[Boolean]],
+    overrides: O
   ): F[Boolean]
 
   @inline final def deleteAndReturn[T, V, PK](table: Table[Client, V, PK], key: T)(implicit
     T: ItemMagnet[T, V, PK]
   ): F[Option[DynamoFormat.Result[V]]] =
-    doDeleteAndReturn(table, T.key(key)(table.schema), None).flatMap {
+    doDeleteAndReturn(table, T.key(key)(table.schema), None, DynamoDBOverride.Empty).flatMap {
       case ConditionResult.Success(oldValue) => MonadThrow[F].pure(oldValue)
       case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
     }
@@ -185,12 +248,33 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
     key: T,
     condition: ConditionExpression[Boolean]
   )(implicit T: ItemMagnet[T, V, PK]): F[ConditionResult[V]] =
-    doDeleteAndReturn(table, T.key(key)(table.schema), Some(condition))
+    doDeleteAndReturn(table, T.key(key)(table.schema), Some(condition), DynamoDBOverride.Empty)
 
-  protected def doDeleteAndReturn[V, PK](
+  @inline final def deleteAndReturn[T, V, PK, O: DynamoDBOverride[Client, *]](
+    table: Table[Client, V, PK],
+    key: T,
+    overrides: O
+  )(implicit
+    T: ItemMagnet[T, V, PK]
+  ): F[Option[DynamoFormat.Result[V]]] =
+    doDeleteAndReturn(table, T.key(key)(table.schema), None, overrides).flatMap {
+      case ConditionResult.Success(oldValue) => MonadThrow[F].pure(oldValue)
+      case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
+    }
+
+  @inline final def deleteAndReturn[T, V, PK, O: DynamoDBOverride[Client, *]](
+    table: Table[Client, V, PK],
+    key: T,
+    condition: ConditionExpression[Boolean],
+    overrides: O
+  )(implicit T: ItemMagnet[T, V, PK]): F[ConditionResult[V]] =
+    doDeleteAndReturn(table, T.key(key)(table.schema), Some(condition), overrides)
+
+  protected def doDeleteAndReturn[V, PK, O: DynamoDBOverride[Client, *]](
     value: Table[Client, V, PK],
     key: PK,
-    condition: Option[ConditionExpression[Boolean]]
+    condition: Option[ConditionExpression[Boolean]],
+    overrides: O
   ): F[ConditionResult[V]]
 
   @inline final def batchWrite(
@@ -238,17 +322,22 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
   def batchDeleteRequest[V, PK](table: Table[Client, V, PK], key: PK): BatchWriteItemRequest
   def batchGetRequest[V, PK](table: Table[Client, V, PK], key: PK): java.util.Map[String, AttributeValue]
 
-  def createTable(
+  def createTable[O: DynamoDBOverride[Client, *]](
     client: Client,
     tableName: String,
     hashKey: String,
     rangeKey: Option[String] = None,
     readCapacity: Long = 1L,
     writeCapacity: Long = 1L,
-    attributes: List[(String, ScalarType)] = Nil
+    attributes: List[(String, ScalarType)] = Nil,
+    overrides: O = DynamoDBOverride.Empty
   ): F[Unit]
 
-  def dropTable(client: Client, tableName: String): F[Unit]
+  def dropTable[O: DynamoDBOverride[Client, *]](
+    client: Client,
+    tableName: String,
+    overrides: O = DynamoDBOverride.Empty
+  ): F[Unit]
 
   def isRetryable(e: Throwable): Boolean
   def isThrottling(e: Throwable): Boolean

@@ -17,12 +17,16 @@ import software.amazon.awssdk.services.dynamodb.model
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.reflect.{ClassTag, classTag}
-import com.hiya.alternator.aws2.internal.Aws2DynamoDBClient
+import com.hiya.alternator.aws2.Aws2DynamoDBClient
 import com.hiya.alternator.testkit.LocalDynamoDB
 
-
-class AkkaAws2ReadTests extends TestKit(ActorSystem())
-  with AnyFunSpecLike with should.Matchers with Inside with Inspectors with BeforeAndAfterAll
+class AkkaAws2ReadTests
+  extends TestKit(ActorSystem())
+  with AnyFunSpecLike
+  with should.Matchers
+  with Inside
+  with Inspectors
+  with BeforeAndAfterAll
   with BatchedRead[Aws2DynamoDBClient, Future, Source[*, NotUsed]] {
   import system.dispatcher
 
@@ -39,14 +43,17 @@ class AkkaAws2ReadTests extends TestKit(ActorSystem())
 
   override protected implicit val F: MonadThrow[Future] = _root_.cats.instances.future.catsStdInstancesForFuture
   override protected val stableClient: Aws2DynamoDBClient = LocalDynamoDB.client[Aws2DynamoDBClient]()
-  override protected val lossyClient: Aws2DynamoDBClient = Aws2DynamoDBClient(new DynamoDBLossyClient(stableClient.underlying))
+  override protected val lossyClient: Aws2DynamoDBClient = Aws2DynamoDBClient(
+    new DynamoDBLossyClient(stableClient.underlying)
+  )
   override protected implicit val readScheduler: ReadScheduler[Future] =
     AkkaAws2ReadScheduler("reader", lossyClient, monitoring = monitoring, retryPolicy = retryPolicy)
   override protected implicit val DB: DynamoDB.Aux[Future, Source[*, NotUsed], Aws2DynamoDBClient] = AkkaAws2()
   override protected def eval[T](f: => Future[T]): T = Await.result(f, 10.seconds)
 
   override type ResourceNotFoundException = model.ResourceNotFoundException
-  override def resourceNotFoundException: ClassTag[model.ResourceNotFoundException] = classTag[model.ResourceNotFoundException]
+  override def resourceNotFoundException: ClassTag[model.ResourceNotFoundException] =
+    classTag[model.ResourceNotFoundException]
 
   describe("stream with PK table") {
     it should behave like streamRead[DataPK, String]()

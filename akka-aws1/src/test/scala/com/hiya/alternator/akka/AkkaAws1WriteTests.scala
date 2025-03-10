@@ -19,11 +19,15 @@ import org.scalatest.{BeforeAndAfterAll, Inside, Inspectors}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.reflect.{ClassTag, classTag}
-import com.hiya.alternator.aws1.internal.Aws1DynamoDBClient
+import com.hiya.alternator.aws1.Aws1DynamoDBClient
 
-
-class AkkaAws1WriteTests extends TestKit(ActorSystem())
-  with AnyFunSpecLike with should.Matchers with Inside with Inspectors with BeforeAndAfterAll
+class AkkaAws1WriteTests
+  extends TestKit(ActorSystem())
+  with AnyFunSpecLike
+  with should.Matchers
+  with Inside
+  with Inspectors
+  with BeforeAndAfterAll
   with BatchedWrite[Aws1DynamoDBClient, Future, Source[*, NotUsed]] {
   import system.dispatcher
 
@@ -40,14 +44,17 @@ class AkkaAws1WriteTests extends TestKit(ActorSystem())
 
   override protected implicit val F: MonadThrow[Future] = _root_.cats.instances.future.catsStdInstancesForFuture
   override protected val stableClient: Aws1DynamoDBClient = LocalDynamoDB.client()
-  override protected val lossyClient: Aws1DynamoDBClient = Aws1DynamoDBClient(new DynamoDBLossyClient(stableClient.underlying))
+  override protected val lossyClient: Aws1DynamoDBClient = Aws1DynamoDBClient(
+    new DynamoDBLossyClient(stableClient.underlying)
+  )
   override protected implicit val writeScheduler: WriteScheduler[Future] =
     AkkaAws1WriteScheduler("writer", lossyClient, monitoring = monitoring, retryPolicy = retryPolicy)
   override protected implicit val DB: DynamoDB.Aux[Future, Source[*, NotUsed], Aws1DynamoDBClient] = AkkaAws1()
   override protected def eval[T](f: => Future[T]): T = Await.result(f, 10.seconds)
 
   override type ResourceNotFoundException = model.ResourceNotFoundException
-  override def resourceNotFoundException: ClassTag[model.ResourceNotFoundException] = classTag[model.ResourceNotFoundException]
+  override def resourceNotFoundException: ClassTag[model.ResourceNotFoundException] =
+    classTag[model.ResourceNotFoundException]
 
   describe("stream with PK table") {
     it should behave like streamWrite[DataPK, String]()(DataPK.config)

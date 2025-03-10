@@ -9,8 +9,7 @@ import com.hiya.alternator.testkit.LocalDynamoDB
 import com.hiya.alternator.{DynamoDB, DynamoDBTestBase}
 
 import scala.concurrent.{Await, Future}
-import com.hiya.alternator.aws1.internal.Aws1DynamoDBClient
-import com.hiya.alternator.DynamoDBClient
+import com.hiya.alternator.aws1.Aws1DynamoDBClient
 
 class AkkaAws1DBTests extends DynamoDBTestBase[Future, Source[*, NotUsed], Aws1DynamoDBClient] {
   private implicit lazy val system: ActorSystem = ActorSystem()

@@ -47,7 +47,7 @@ trait BatchedRead[ClientT <: DynamoDBClient, F[+_], S[_]] {
   }
 
   trait StreamReadPartiallyApplied[Data, Key] {
-    type TTable[C <: DynamoDBClient] = Table[C, Data, Key] 
+    type TTable[C <: DynamoDBClient] = Table[C, Data, Key]
     def apply()(implicit tableConfig: TableConfig[Data, Key, TTable]): Unit
   }
 
@@ -128,6 +128,5 @@ trait BatchedRead[ClientT <: DynamoDBClient, F[+_], S[_]] {
       }
     }
   }
-
 
 }
