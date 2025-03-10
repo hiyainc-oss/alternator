@@ -1,6 +1,7 @@
 package com.hiya.alternator
 
 import com.hiya.alternator.schema._
+import com.hiya.alternator.DynamoDBOverride._
 
 import scala.util.{Failure, Success, Try}
 
@@ -15,6 +16,9 @@ sealed class Table[C <: DynamoDBClient, V, PK](
     overrides: O = DynamoDBOverride.Empty
   ): Table[C1, V, PK] =
     new Table[C1, V, PK](client, tableName, schema, overrides)
+
+  def withOverrides[O: DynamoDBOverride[C, *]](overrides: O): Table[C, V, PK] =
+    new Table[C, V, PK](client, tableName, schema, overrides.overrides[C])
 
   def noClient: Table[DynamoDBClient.Missing, V, PK] =
     new Table[DynamoDBClient.Missing, V, PK](DynamoDBClient.Missing, tableName, schema)
@@ -31,6 +35,9 @@ class TableWithRange[C <: DynamoDBClient, V, PK, RK](
     overrides: O = DynamoDBOverride.Empty
   ): TableWithRange[C1, V, PK, RK] =
     new TableWithRange[C1, V, PK, RK](client, name, schema, overrides)
+
+  override def withOverrides[O: DynamoDBOverride[C, *]](overrides: O): TableWithRange[C, V, PK, RK] =
+    new TableWithRange[C, V, PK, RK](client, name, schema, overrides.overrides[C])
 
   override def noClient: TableWithRange[DynamoDBClient.Missing, V, PK, RK] =
     new TableWithRange[DynamoDBClient.Missing, V, PK, RK](DynamoDBClient.Missing, tableName, schema)

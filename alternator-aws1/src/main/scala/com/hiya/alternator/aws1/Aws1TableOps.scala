@@ -107,7 +107,7 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, 
   ): GetItemRequest =
     overrides(
       new GetItemRequest(underlying.tableName, underlying.schema.serializePK(pk)).withConsistentRead(consistent)
-    )
+    ).asInstanceOf[GetItemRequest]
 
   final def scan(
     segment: Option[Segment] = None,
@@ -124,7 +124,7 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, 
       .withConsistentRead(consistent)
       .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
 
-    overrides(request)
+    overrides(request).asInstanceOf[ScanRequest]
   }
 
   final def batchGet(
@@ -139,7 +139,7 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, 
       ).asJava
     )
 
-    overrides(req)
+    overrides(req).asInstanceOf[BatchGetItemRequest]
   }
 
   final def put(
@@ -152,7 +152,7 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, 
       .withReturnValues(if (returnOld) ReturnValue.ALL_OLD else ReturnValue.NONE)
       .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
 
-    overrides(req)
+    overrides(req).asInstanceOf[PutItemRequest]
   }
 
   final def delete(
@@ -165,7 +165,7 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, 
       .withReturnValues(if (returnOld) ReturnValue.ALL_OLD else ReturnValue.NONE)
       .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
 
-    overrides(req)
+    overrides(req).asInstanceOf[DeleteItemRequest]
   }
 
   final def extractItem(item: DeleteItemResult): Option[Result[V]] = {
@@ -196,7 +196,7 @@ object Aws1TableOps {
     tableName: String,
     overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
   ): DeleteTableRequest =
-    overrides(new DeleteTableRequest(tableName))
+    overrides(new DeleteTableRequest(tableName)).asInstanceOf[DeleteTableRequest]
 
   def createTable(
     tableName: String,
@@ -221,6 +221,6 @@ object Aws1TableOps {
       new ProvisionedThroughput(readCapacity, writeCapacity)
     )
 
-    overrides(req)
+    overrides(req).asInstanceOf[CreateTableRequest]
   }
 }

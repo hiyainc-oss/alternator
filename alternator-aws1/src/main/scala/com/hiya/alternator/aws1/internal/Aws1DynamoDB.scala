@@ -60,7 +60,7 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
     val resolvedOverride = (table.overrides |+| overrides.overrides[Aws1DynamoDBClient])(table.client)
     async(
       table.client.underlying.putItemAsync(
-        resolvedOverride(Aws1TableOps(table).put(item, condition, overrides = resolvedOverride, returnOld = false)),
+        resolvedOverride(Aws1TableOps(table).put(item, condition, overrides = resolvedOverride, returnOld = false)).asInstanceOf[PutItemRequest],
         _: AsyncHandler[PutItemRequest, PutItemResult]
       )
     )
