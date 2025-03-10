@@ -2,13 +2,12 @@ package com.hiya.alternator.cats
 
 import _root_.cats.effect._
 import _root_.cats.syntax.all._
-import com.hiya.alternator._
-import com.hiya.alternator.DynamoDBOverride
 import com.hiya.alternator.aws2.internal.Aws2DynamoDB
 import com.hiya.alternator.aws2.{Aws2DynamoDBClient, Aws2TableOps, Aws2TableWithRangeKeyOps}
 import com.hiya.alternator.cats.internal.CatsBase
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
+import com.hiya.alternator.{DynamoDBOverride, _}
 import fs2.Stream
 import software.amazon.awssdk.services.dynamodb.model.{QueryRequest, QueryResponse, ScanRequest, ScanResponse}
 

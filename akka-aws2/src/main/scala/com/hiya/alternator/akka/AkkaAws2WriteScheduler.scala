@@ -9,18 +9,17 @@ import akka.util.Timeout
 import cats.Id
 import com.hiya.alternator._
 import com.hiya.alternator.akka.internal.BatchedWriteBehavior
-import com.hiya.alternator.aws2._
 import com.hiya.alternator.aws2.internal.Exceptions
+import com.hiya.alternator.aws2.{Aws2DynamoDBClient, _}
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import software.amazon.awssdk.services.dynamodb.model._
 
 import java.util.{Map => JMap}
+import scala.collection.compat._
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
-import scala.collection.compat._
-import com.hiya.alternator.aws2.Aws2DynamoDBClient
 
 /** DynamoDB batched writer
   *

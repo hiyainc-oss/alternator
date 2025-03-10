@@ -1,10 +1,8 @@
 package com.hiya.alternator.util
 
 import cats.Monad
-import com.hiya.alternator.DynamoDB
 import com.hiya.alternator.testkit.LocalDynamoPartial
-import com.hiya.alternator.DynamoDBClient
-import com.hiya.alternator.Table
+import com.hiya.alternator.{DynamoDB, DynamoDBClient, Table}
 
 abstract class TableConfig[Data, Key, +TableType[_ <: DynamoDBClient] <: Table[_, Data, Key]] {
   def createData(i: Int, v: Option[Int] = None): (Key, Data)

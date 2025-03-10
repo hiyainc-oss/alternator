@@ -1,8 +1,8 @@
 package com.hiya.alternator.aws1
 
+import com.amazonaws.AmazonWebServiceRequest
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
 import com.hiya.alternator._
-import com.amazonaws.AmazonWebServiceRequest
 
 case class Aws1DynamoDBClient(val underlying: AmazonDynamoDBAsync) extends DynamoDBClient {
   type Client = Aws1DynamoDBClient.Client

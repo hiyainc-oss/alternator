@@ -5,8 +5,8 @@ import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{AttributeValue, DynamoFormat, ScalarType, TableSchema}
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
 
-import scala.jdk.CollectionConverters._
 import scala.collection.compat._
+import scala.jdk.CollectionConverters._
 
 trait ReadScheduler[F[_]] {
   def get[V, PK](table: Table[DynamoDBClient.Missing, V, PK], key: PK)(implicit

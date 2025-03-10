@@ -2,25 +2,25 @@ package com.hiya.alternator.aws2.internal
 
 import cats.MonadThrow
 import cats.syntax.all._
+import com.hiya.alternator.DynamoDBOverride.OverrideOps
 import com.hiya.alternator._
-import com.hiya.alternator.internal._
 import com.hiya.alternator.aws2._
+import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.ScalarType
 import com.hiya.alternator.syntax.ConditionExpression
+import software.amazon.awssdk.services.dynamodb.model
 import software.amazon.awssdk.services.dynamodb.model.{
   BatchGetItemResponse,
   BatchWriteItemRequest,
   KeysAndAttributes,
   WriteRequest
 }
-import software.amazon.awssdk.services.dynamodb.model
 
 import java.util
 import java.util.concurrent.CompletionException
-import scala.jdk.CollectionConverters._
 import scala.collection.compat._
-import com.hiya.alternator.DynamoDBOverride.OverrideOps
+import scala.jdk.CollectionConverters._
 
 abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override type Client = Aws2DynamoDBClient

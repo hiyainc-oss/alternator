@@ -2,12 +2,11 @@ package com.hiya.alternator.aws1
 
 import cats.syntax.all._
 import com.amazonaws.services.dynamodbv2.model
-import com.hiya.alternator.DynamoDBOverride
-import com.hiya.alternator.TableWithRange
 import com.hiya.alternator.aws1.Aws1DynamoDBClient
 import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition}
+import com.hiya.alternator.{DynamoDBOverride, TableWithRange}
 
 import scala.jdk.CollectionConverters._
 

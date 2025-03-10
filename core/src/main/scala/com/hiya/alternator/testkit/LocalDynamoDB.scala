@@ -1,8 +1,7 @@
 package com.hiya.alternator.testkit
 
 import com.hiya.alternator.schema._
-import com.hiya.alternator.DynamoDBClient
-import com.hiya.alternator.{Table, TableWithRange}
+import com.hiya.alternator.{DynamoDBClient, Table, TableWithRange}
 
 import java.util.UUID
 

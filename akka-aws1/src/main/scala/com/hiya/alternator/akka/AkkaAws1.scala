@@ -8,15 +8,13 @@ import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.dynamodbv2.model._
 import com.hiya.alternator.akka.internal.AkkaBase
 import com.hiya.alternator.aws1.internal.Aws1DynamoDB
-import com.hiya.alternator.aws1.Aws1DynamoDBClient
-import com.hiya.alternator.aws1.{Aws1TableOps, Aws1TableWithRangeKeyOps}
+import com.hiya.alternator.aws1.{Aws1DynamoDBClient, Aws1TableOps, Aws1TableWithRangeKeyOps}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
-import com.hiya.alternator.{Table, TableWithRange}
+import com.hiya.alternator.{DynamoDBOverride, Table, TableWithRange}
 
 import java.util.concurrent.{Future => JFuture}
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import com.hiya.alternator.DynamoDBOverride
 
 class AkkaAws1 private (override implicit val system: ActorSystem, override implicit val workerEc: ExecutionContext)
   extends Aws1DynamoDB[Future, akka.stream.scaladsl.Source[*, NotUsed]]
