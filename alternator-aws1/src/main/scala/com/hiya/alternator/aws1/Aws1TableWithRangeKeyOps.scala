@@ -26,7 +26,7 @@ class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[Aws1Dyn
     val request = overrides(
       new model.QueryRequest(tableName)
         .withConsistentRead(consistent)
-    )
+    ).asInstanceOf[model.QueryRequest]
 
     Condition.eval {
       for {

@@ -11,7 +11,7 @@ object DynamoDBOverride {
   def apply[C <: DynamoDBClient, T](implicit ev: DynamoDBOverride[C, T]): DynamoDBOverride[C, T] = ev
 
   trait Configure[B] {
-    def apply[B1 <: B](builder: B1): B1
+    def apply(builder: B): B
   }
 
   trait Applicator[C <: DynamoDBClient] {
@@ -24,7 +24,7 @@ object DynamoDBOverride {
     implicit def applicatorMonoid[C <: DynamoDBClient]: Monoid[Applicator[C]] = new Monoid[Applicator[C]] {
       override def combine(x: Applicator[C], y: Applicator[C]): Applicator[C] = new Applicator[C] {
         override def apply(client: C) = new Configure[client.OverrideBuilder] {
-          override def apply[B1 <: client.OverrideBuilder](builder: B1) = {
+          override def apply(builder: client.OverrideBuilder) = {
             val b1 = x(client).apply(builder)
             y(client).apply(b1)
           }
@@ -33,7 +33,7 @@ object DynamoDBOverride {
 
       override val empty: Applicator[C] = new Applicator[C] {
         override def apply(client: C) = new Configure[client.OverrideBuilder] {
-          override def apply[B1 <: client.OverrideBuilder](builder: B1) = builder
+          override def apply(builder: client.OverrideBuilder) = builder
         }
       }
     }
