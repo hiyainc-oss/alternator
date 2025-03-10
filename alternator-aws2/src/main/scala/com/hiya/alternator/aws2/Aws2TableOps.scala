@@ -1,19 +1,17 @@
 package com.hiya.alternator.aws2
 
 import cats.syntax.all._
+import com.hiya.alternator.aws2.{Aws2DynamoDBClient, Aws2Table}
 import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
 import com.hiya.alternator.syntax.{ConditionExpression, Segment}
-import com.hiya.alternator.{BatchReadResult, BatchWriteResult, Table}
+import com.hiya.alternator.{BatchReadResult, BatchWriteResult, DynamoDBOverride, Table}
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
 import software.amazon.awssdk.services.dynamodb.model._
 
 import java.util
 import scala.jdk.CollectionConverters._
-import com.hiya.alternator.aws2.Aws2DynamoDBClient
-import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
-import com.hiya.alternator.aws2.Aws2Table
-import com.hiya.alternator.DynamoDBOverride
 
 class Aws2BatchWrite(
   override val response: BatchWriteItemResponse

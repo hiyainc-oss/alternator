@@ -2,16 +2,15 @@ package com.hiya.alternator.aws1
 
 import cats.syntax.all._
 import com.amazonaws.services.dynamodbv2.model._
+import com.hiya.alternator.aws1.Aws1DynamoDBClient
 import com.hiya.alternator.internal.{ConditionalSupport, OptApp}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
 import com.hiya.alternator.syntax.{ConditionExpression, Segment}
-import com.hiya.alternator.{BatchReadResult, BatchWriteResult, Table}
+import com.hiya.alternator.{BatchReadResult, BatchWriteResult, DynamoDBOverride, Table}
 
 import java.util
 import scala.jdk.CollectionConverters._
-import com.hiya.alternator.aws1.Aws1DynamoDBClient
-import com.hiya.alternator.DynamoDBOverride
 
 class Aws1BatchWrite(override val response: BatchWriteItemResult)
   extends AnyVal

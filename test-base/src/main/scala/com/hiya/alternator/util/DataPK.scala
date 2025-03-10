@@ -1,9 +1,8 @@
 package com.hiya.alternator.util
 
-import com.hiya.alternator.Table
 import com.hiya.alternator.schema.TableSchema
 import com.hiya.alternator.testkit.{LocalDynamoDB, LocalDynamoPartial}
-import com.hiya.alternator.DynamoDBClient
+import com.hiya.alternator.{DynamoDBClient, Table}
 
 case class DataPK(key: String, value: Int)
 

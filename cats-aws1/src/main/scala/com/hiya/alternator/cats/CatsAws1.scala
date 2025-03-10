@@ -10,11 +10,10 @@ import com.hiya.alternator.aws1.{Aws1DynamoDBClient, Aws1TableOps, Aws1TableWith
 import com.hiya.alternator.cats.internal.CatsBase
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
-import com.hiya.alternator.{Table, TableWithRange}
+import com.hiya.alternator.{DynamoDBOverride, Table, TableWithRange}
 import fs2.Stream
 
 import java.util.concurrent.{Future => JFuture}
-import com.hiya.alternator.DynamoDBOverride
 
 class CatsAws1[F[+_]](protected override implicit val F: Async[F])
   extends Aws1DynamoDB[F, Stream[F, *]]

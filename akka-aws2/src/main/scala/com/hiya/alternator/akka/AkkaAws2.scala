@@ -2,20 +2,18 @@ package com.hiya.alternator.akka
 
 import akka.NotUsed
 import akka.actor.{ActorSystem, ClassicActorSystemProvider}
-import cats.syntax.all._
 import cats.instances.future._
+import cats.syntax.all._
 import com.hiya.alternator.akka.internal.AkkaBase
 import com.hiya.alternator.aws2.internal.Aws2DynamoDB
-import com.hiya.alternator.aws2.{Aws2TableOps, Aws2TableWithRangeKeyOps}
+import com.hiya.alternator.aws2.{Aws2DynamoDBClient, Aws2TableOps, Aws2TableWithRangeKeyOps}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
-import com.hiya.alternator.{Table, TableWithRange}
+import com.hiya.alternator.{DynamoDBOverride, Table, TableWithRange}
 import software.amazon.awssdk.services.dynamodb.model.{QueryRequest, QueryResponse, ScanRequest, ScanResponse}
 
 import java.util.concurrent.{CompletableFuture, CompletionException}
 import scala.concurrent.{ExecutionContext, Future}
-import com.hiya.alternator.DynamoDBOverride
-import com.hiya.alternator.aws2.Aws2DynamoDBClient
 
 class AkkaAws2 private (override implicit val system: ActorSystem, override implicit val workerEc: ExecutionContext)
   extends Aws2DynamoDB[Future, akka.stream.scaladsl.Source[*, NotUsed]]

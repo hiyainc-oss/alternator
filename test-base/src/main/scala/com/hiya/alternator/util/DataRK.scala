@@ -2,8 +2,7 @@ package com.hiya.alternator.util
 
 import com.hiya.alternator.schema.{TableSchema, TableSchemaWithRange}
 import com.hiya.alternator.testkit.{LocalDynamoDB, LocalDynamoPartial}
-import com.hiya.alternator.{Table, TableWithRange}
-import com.hiya.alternator.DynamoDBClient
+import com.hiya.alternator.{DynamoDBClient, Table, TableWithRange}
 
 case class DataRK(key: String, range: String, value: String)
 

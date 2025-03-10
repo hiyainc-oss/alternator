@@ -1,7 +1,7 @@
 package com.hiya.alternator
 
-import com.hiya.alternator.schema._
 import com.hiya.alternator.DynamoDBOverride._
+import com.hiya.alternator.schema._
 
 import scala.util.{Failure, Success, Try}
 

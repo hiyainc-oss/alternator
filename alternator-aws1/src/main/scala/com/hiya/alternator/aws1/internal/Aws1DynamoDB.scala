@@ -4,8 +4,9 @@ import cats.MonadThrow
 import cats.syntax.all._
 import com.amazonaws.AmazonWebServiceRequest
 import com.amazonaws.handlers.AsyncHandler
-import com.amazonaws.services.dynamodbv2.model._
 import com.amazonaws.services.dynamodbv2.model
+import com.amazonaws.services.dynamodbv2.model._
+import com.hiya.alternator.DynamoDBOverride.OverrideOps
 import com.hiya.alternator._
 import com.hiya.alternator.aws1._
 import com.hiya.alternator.schema.DynamoFormat.Result
@@ -14,9 +15,8 @@ import com.hiya.alternator.syntax.ConditionExpression
 
 import java.util
 import java.util.concurrent.{CompletionException, Future => JFuture}
-import scala.jdk.CollectionConverters._
 import scala.collection.compat._
-import com.hiya.alternator.DynamoDBOverride.OverrideOps
+import scala.jdk.CollectionConverters._
 
 abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override type Source[T] = S[T]

@@ -12,7 +12,9 @@ ThisBuild / tpolecatDefaultOptionsMode := DevMode
 // ThisBuild / githubRepository := "alternator"
 ThisBuild / Test / fork := true
 ThisBuild / run / fork := true
-
+ThisBuild / semanticdbEnabled := true
+ThisBuild / semanticdbVersion := scalafixSemanticdb.revision
+  
 
 def dynamoDBPort(base: Int, name: String, scalaVersion: String): Int =
   Math.abs(base + 31 * Objects.hash(name, scalaVersion)) % 512 + 8484

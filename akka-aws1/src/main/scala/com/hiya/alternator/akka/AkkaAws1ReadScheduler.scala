@@ -11,8 +11,8 @@ import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.dynamodbv2.model._
 import com.hiya.alternator._
 import com.hiya.alternator.akka.internal.BatchedReadBehavior
-import com.hiya.alternator.aws1._
 import com.hiya.alternator.aws1.internal.Exceptions
+import com.hiya.alternator.aws1.{Aws1DynamoDBClient, _}
 import com.hiya.alternator.schema.DynamoFormat.Result
 
 import java.util.{Map => JMap}
@@ -21,7 +21,6 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
-import com.hiya.alternator.aws1.Aws1DynamoDBClient
 
 /** DynamoDB batched reader
   *
