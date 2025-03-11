@@ -4,12 +4,11 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Sink, Source}
 import cats.MonadThrow
-import com.hiya.alternator.aws1._
+import com.hiya.alternator.aws1.{Aws1DynamoDBClient, _}
 import com.hiya.alternator.testkit.LocalDynamoDB
 import com.hiya.alternator.{DynamoDB, DynamoDBTestBase}
 
 import scala.concurrent.{Await, Future}
-import com.hiya.alternator.aws1.Aws1DynamoDBClient
 
 class AkkaAws1DBTests extends DynamoDBTestBase[Future, Source[*, NotUsed], Aws1DynamoDBClient] {
   private implicit lazy val system: ActorSystem = ActorSystem()
