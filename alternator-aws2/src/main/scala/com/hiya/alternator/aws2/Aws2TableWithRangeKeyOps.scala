@@ -2,7 +2,6 @@ package com.hiya.alternator.aws2
 
 import cats.syntax.all._
 import com.hiya.alternator.DynamoDBOverride
-import com.hiya.alternator.aws2.{Aws2DynamoDBClient, Aws2TableWithRange}
 import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition}
