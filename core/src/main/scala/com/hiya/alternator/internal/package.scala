@@ -4,7 +4,7 @@ import cats.FlatMap
 import cats.data.State
 import cats.syntax.all._
 import com.hiya.alternator.schema.{AttributeValue, TableSchemaWithRange}
-import com.hiya.alternator.syntax.ConditionExpression.{ArrayIndex, Attr, BinOp, FunCall, Literal, MapIndex}
+import com.hiya.alternator.syntax.ConditionExpression._
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition}
 
 package object internal {
