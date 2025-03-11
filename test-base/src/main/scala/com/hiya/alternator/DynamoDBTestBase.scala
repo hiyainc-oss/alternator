@@ -240,9 +240,9 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient] extends AnyFunS
       eval {
         DataPK.config.withTable(client).eval { table =>
           DB.put(table, DataPK("new", 1)) >>
-            DB.delete(table, "new", attr("value") === 2).map(_ shouldBe false) >>
-            DB.delete(table, "new", attr("value") === 1).map(_ shouldBe true) >>
-            DB.delete(table, "new", attr("value") === 1).map(_ shouldBe false)
+            DB.delete(table, "new", condition = attr("value") === 2).map(_ shouldBe false) >>
+            DB.delete(table, "new", condition = attr("value") === 1).map(_ shouldBe true) >>
+            DB.delete(table, "new", condition = attr("value") === 1).map(_ shouldBe false)
         }
       }
     }
@@ -251,10 +251,10 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient] extends AnyFunS
       eval {
         DataPK.config.withTable(client).eval { table =>
           DB.put(table, DataPK("new", 1)) >>
-            DB.deleteAndReturn(table, "new", attr("value") === 2).map(_ shouldBe ConditionResult.Failed) >>
-            DB.deleteAndReturn(table, "new", attr("value") === 1)
+            DB.deleteAndReturn(table, "new", condition = attr("value") === 2).map(_ shouldBe ConditionResult.Failed) >>
+            DB.deleteAndReturn(table, "new", condition = attr("value") === 1)
               .map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("new", 1))))) >>
-            DB.deleteAndReturn(table, "new", attr("value") === 1).map(_ shouldBe ConditionResult.Failed)
+            DB.deleteAndReturn(table, "new", condition = attr("value") === 1).map(_ shouldBe ConditionResult.Failed)
         }
       }
     }
