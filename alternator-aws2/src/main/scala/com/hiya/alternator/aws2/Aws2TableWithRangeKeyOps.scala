@@ -1,7 +1,7 @@
 package com.hiya.alternator.aws2
 
 import cats.syntax.all._
-import com.hiya.alternator.TableWithRangeKeyLike
+import com.hiya.alternator.TableWithRange
 import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition}
@@ -10,7 +10,7 @@ import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
 
 import scala.jdk.CollectionConverters._
 
-class Aws2TableWithRangeKey[V, PK, RK](val underlying: TableWithRangeKeyLike[DynamoDbAsyncClient, V, PK, RK])
+class Aws2TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[DynamoDbAsyncClient, V, PK, RK])
   extends AnyVal {
 
   import underlying._
@@ -36,12 +36,12 @@ class Aws2TableWithRangeKey[V, PK, RK](val underlying: TableWithRangeKeyLike[Dyn
   }
 
   final def deserialize(response: model.QueryResponse): List[DynamoFormat.Result[V]] = {
-    if (response.hasItems) response.items().asScala.toList.map(Aws2Table(underlying).deserialize)
+    if (response.hasItems) response.items().asScala.toList.map(Aws2TableOps(underlying).deserialize)
     else Nil
   }
 }
 
-object Aws2TableWithRangeKey {
-  @inline def apply[V, PK, RK](underlying: TableWithRangeKeyLike[DynamoDbAsyncClient, V, PK, RK]) =
-    new Aws2TableWithRangeKey(underlying)
+object Aws2TableWithRangeKeyOps {
+  @inline def apply[V, PK, RK](underlying: TableWithRange[DynamoDbAsyncClient, V, PK, RK]) =
+    new Aws2TableWithRangeKeyOps(underlying)
 }

@@ -1,7 +1,7 @@
 package com.hiya.alternator
 
-import cats.{Id, MonadThrow}
 import cats.syntax.all._
+import cats.{Id, MonadThrow}
 import com.hiya.alternator.util.TableConfig
 import org.scalatest.funspec.AnyFunSpecLike
 import org.scalatest.matchers.should
@@ -15,10 +15,10 @@ trait BatchedWrite[ClientT, F[_], S[_]] {
   this: AnyFunSpecLike with should.Matchers with Inspectors with Inside =>
 
   protected implicit def F: MonadThrow[F]
-  protected implicit def writeScheduler: WriteScheduler[ClientT, F]
+  protected implicit def writeScheduler: WriteScheduler[F]
   protected def stableClient: ClientT
   protected def lossyClient: ClientT
-  protected implicit def dynamoDB: DynamoDB.Aux[F, S, ClientT]
+  protected implicit def DB: DynamoDB.Aux[F, S, ClientT]
   protected def eval[T](f: => F[T]): T
   protected type ResourceNotFoundException <: Throwable
   protected def resourceNotFoundException: ClassTag[ResourceNotFoundException]
@@ -45,7 +45,7 @@ trait BatchedWrite[ClientT, F[_], S[_]] {
     override def close(): Unit = {}
   }
 
-  def streamWrite[Data, Key](implicit tableConfig: TableConfig[Data, Key, TableLike[*, Data, Key]]): Unit = {
+  def streamWrite[Data, Key](implicit tableConfig: TableConfig[Data, Key, Table[*, Data, Key]]): Unit = {
     def generateData(nums: Int, writes: Int): List[Data] = {
       val state = (0 until nums).map {
         _ -> 0
@@ -78,7 +78,7 @@ trait BatchedWrite[ClientT, F[_], S[_]] {
         eval {
           List(1)
             .map(k => tableConfig.createData(k))
-            .traverse { case (k, _) => table.batchedDelete(k) }
+            .traverse { case (k, _) => writeScheduler.delete(table.noClient, k) }
         }
       }
     }
@@ -91,12 +91,12 @@ trait BatchedWrite[ClientT, F[_], S[_]] {
         tableConfig.withTable(stableClient).eval { table =>
           val q = generateData(nums, writes)
           for {
-            result <- q.traverse(table.batchedPut[F](_))
+            result <- q.traverse(writeScheduler.put(table.noClient, _))
             data <- (0 until nums)
               .map(k => tableConfig.createData(k))
               .toList
               .traverse { case (key, value) =>
-                table.get[F](key).map(_ -> value)
+                DB.get(table, key).map(_ -> value)
               }
           } yield result -> data
         }

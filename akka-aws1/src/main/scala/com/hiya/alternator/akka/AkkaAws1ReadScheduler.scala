@@ -32,18 +32,17 @@ import scala.jdk.CollectionConverters._
   * The received requests are deduplicated.
   */
 class AkkaAws1ReadScheduler(actorRef: ActorRef[AkkaAws1ReadScheduler.BatchedRequest])(implicit scheduler: Scheduler)
-  extends ReadScheduler[AmazonDynamoDBAsync, Future] {
+  extends ReadScheduler[Future] {
   import JdkCompat.parasitic
 
-  override def get[V, PK](table: TableLike[AmazonDynamoDBAsync, V, PK], key: PK)(implicit
+  override def get[V, PK](table: Table[Client.Missing, V, PK], key: PK)(implicit
     timeout: BatchTimeout
-  ): Future[Option[Result[V]]] = {
+  ): Future[Option[Result[V]]] =
     actorRef
       .ask((ref: AkkaAws1ReadScheduler.Ref) =>
         AkkaAws1ReadScheduler.Req(table.tableName -> table.schema.serializePK[AttributeValue](key), ref)
       )(timeout.timeout, scheduler)
-      .flatMap(result => Future.fromTry(result.map(_.map(Aws1Table(table).deserialize))))
-  }
+      .flatMap(result => Future.fromTry(result.map(_.map(Aws1TableOps(table).deserialize))))
 
   def terminate(timeout: FiniteDuration): Future[Done] = AkkaAws1ReadScheduler.terminate(actorRef)(timeout, scheduler)
 }

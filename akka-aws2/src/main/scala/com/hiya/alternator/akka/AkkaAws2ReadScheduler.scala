@@ -31,17 +31,17 @@ import scala.jdk.CollectionConverters._
   * The received requests are deduplicated.
   */
 class AkkaAws2ReadScheduler(actorRef: ActorRef[AkkaAws2ReadScheduler.BatchedRequest])(implicit scheduler: Scheduler)
-  extends ReadScheduler[DynamoDbAsyncClient, Future] {
+  extends ReadScheduler[Future] {
   import JdkCompat.parasitic
 
-  override def get[V, PK](table: TableLike[DynamoDbAsyncClient, V, PK], key: PK)(implicit
+  override def get[V, PK](table: Table[Client.Missing, V, PK], key: PK)(implicit
     timeout: BatchTimeout
   ): Future[Option[Result[V]]] = {
     actorRef
       .ask((ref: AkkaAws2ReadScheduler.Ref) =>
         AkkaAws2ReadScheduler.Req(table.tableName -> table.schema.serializePK[AttributeValue](key), ref)
       )(timeout.timeout, scheduler)
-      .flatMap(result => Future.fromTry(result.map(_.map(Aws2Table(table).deserialize))))
+      .flatMap(result => Future.fromTry(result.map(_.map(Aws2TableOps(table).deserialize))))
   }
 
   def terminate(timeout: FiniteDuration): Future[Done] = AkkaAws2ReadScheduler.terminate(actorRef)(timeout, scheduler)

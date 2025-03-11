@@ -2,7 +2,7 @@ package com.hiya.alternator.schema
 
 import cats.instances.either._
 import cats.syntax.apply._
-import com.hiya.alternator.{Client, Table, TableLike}
+import com.hiya.alternator.{Client, Table}
 
 import java.util.{Map => JMap}
 import scala.jdk.CollectionConverters._
@@ -15,8 +15,8 @@ abstract class TableSchema[V](val serializeValue: RootDynamoFormat[V]) {
   def extract(value: V): IndexType
   def schema: List[(String, ScalarType)]
 
-  def withName(tableName: String): TableLike[Client.Missing, V, IndexType] =
-    new Table[V, IndexType](tableName, this)
+  def withName(tableName: String): Table[Client.Missing, V, IndexType] =
+    new Table[Client.Missing, V, IndexType](Client.Missing, tableName, this)
 
 }
 

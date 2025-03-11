@@ -40,9 +40,9 @@ class AkkaAws2ReadTests extends TestKit(ActorSystem())
   override protected implicit val F: MonadThrow[Future] = _root_.cats.instances.future.catsStdInstancesForFuture
   override protected val stableClient: DynamoDbAsyncClient = LocalDynamoDB.client()
   override protected val lossyClient: DynamoDbAsyncClient = new DynamoDBLossyClient(stableClient)
-  override protected implicit val readScheduler: ReadScheduler[DynamoDbAsyncClient, Future] =
+  override protected implicit val readScheduler: ReadScheduler[Future] =
     AkkaAws2ReadScheduler("reader", lossyClient, monitoring = monitoring, retryPolicy = retryPolicy)
-  override protected implicit val dynamoDB: DynamoDB.Aux[Future, Source[*, NotUsed], DynamoDbAsyncClient] = AkkaAws2()
+  override protected implicit val DB: DynamoDB.Aux[Future, Source[*, NotUsed], DynamoDbAsyncClient] = AkkaAws2()
   override protected def eval[T](f: => Future[T]): T = Await.result(f, 10.seconds)
 
   override type ResourceNotFoundException = model.ResourceNotFoundException
