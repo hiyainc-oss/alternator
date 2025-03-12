@@ -35,11 +35,11 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
 
   override def AV: schema.AttributeValue[AttributeValue] = Aws1IsAttributeValues
 
-  override def doGet[V, PK, O: DynamoDBOverride[Client, *]](
+  override def doGet[V, PK](
     table: Table[Aws1DynamoDBClient, V, PK],
     pk: PK,
     consistent: Boolean,
-    overrides: O
+    overrides: DynamoDBOverride.Applicator[Client]
   ): F[Option[Result[V]]] = {
     val resolvedOverride = (table.overrides |+| overrides.overrides[Aws1DynamoDBClient])(table.client)
     async(
@@ -51,11 +51,11 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
       .map(Aws1TableOps(table).deserialize)
   }
 
-  override def doPut[V, PK, O: DynamoDBOverride[Client, *]](
+  override def doPut[V, PK](
     table: Table[Aws1DynamoDBClient, V, PK],
     item: V,
     condition: Option[ConditionExpression[Boolean]],
-    overrides: O
+    overrides: DynamoDBOverride.Applicator[Client]
   ): F[Boolean] = {
     val resolvedOverride = (table.overrides |+| overrides.overrides[Aws1DynamoDBClient])(table.client)
     async(
@@ -69,11 +69,11 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
       .recover { case _: model.ConditionalCheckFailedException => false }
   }
 
-  override def doPutAndReturn[V, PK, O: DynamoDBOverride[Client, *]](
+  override def doPutAndReturn[V, PK](
     table: Table[Aws1DynamoDBClient, V, PK],
     item: V,
     condition: Option[ConditionExpression[Boolean]],
-    overrides: O
+    overrides: DynamoDBOverride.Applicator[Client]
   ): F[ConditionResult[V]] = {
     val resolvedOverride = (table.overrides |+| overrides.overrides[Aws1DynamoDBClient])(table.client)
     async(
@@ -87,11 +87,11 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
       .recover { case _: model.ConditionalCheckFailedException => ConditionResult.Failed }
   }
 
-  override def doDelete[V, PK, O: DynamoDBOverride[Client, *]](
+  override def doDelete[V, PK](
     table: Table[Aws1DynamoDBClient, V, PK],
     key: PK,
     condition: Option[ConditionExpression[Boolean]],
-    overrides: O
+    overrides: DynamoDBOverride.Applicator[Client]
   ): F[Boolean] = {
     val resolvedOverride = (table.overrides |+| overrides.overrides[Aws1DynamoDBClient])(table.client)
     async(
@@ -105,11 +105,11 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
       .recover { case _: model.ConditionalCheckFailedException => false }
   }
 
-  override def doDeleteAndReturn[V, PK, O: DynamoDBOverride[Client, *]](
+  override def doDeleteAndReturn[V, PK](
     table: Table[Aws1DynamoDBClient, V, PK],
     key: PK,
     condition: Option[ConditionExpression[Boolean]],
-    overrides: O
+    overrides: DynamoDBOverride.Applicator[Client]
   ): F[ConditionResult[V]] = {
     val resolvedOverride = (table.overrides |+| overrides.overrides[Aws1DynamoDBClient])(table.client)
     async(
@@ -123,7 +123,7 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
       .recover { case _: model.ConditionalCheckFailedException => ConditionResult.Failed }
   }
 
-  override def createTable[O: DynamoDBOverride[Client, *]](
+  override def createTable(
     client: Aws1DynamoDBClient,
     tableName: String,
     hashKey: String,
@@ -131,7 +131,7 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
     readCapacity: Long,
     writeCapacity: Long,
     attributes: List[(String, ScalarType)],
-    overrides: O
+    overrides: DynamoDBOverride.Applicator[Client]
   ): F[Unit] = {
     val resolvedOverride = overrides.overrides[Aws1DynamoDBClient].apply(client)
     async(
@@ -150,10 +150,10 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
     ).map(_ => ())
   }
 
-  override def dropTable[O: DynamoDBOverride[Client, *]](
+  override def dropTable(
     client: Aws1DynamoDBClient,
     tableName: String,
-    overrides: O
+    overrides: DynamoDBOverride.Applicator[Client]
   ): F[Unit] = {
     val resolvedOverride = overrides.overrides[Aws1DynamoDBClient].apply(client)
     async(

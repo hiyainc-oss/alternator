@@ -11,14 +11,14 @@ sealed class Table[C <: DynamoDBClient, V, PK](
   val schema: TableSchema.Aux[V, PK],
   val overrides: DynamoDBOverride.Applicator[C] = DynamoDBOverride.Empty.overrides[C]
 ) {
-  def withClient[C1 <: DynamoDBClient, O: DynamoDBOverride[C1, *]](
+  def withClient[C1 <: DynamoDBClient](
     client: C1,
-    overrides: O = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride.Applicator[C1] = DynamoDBOverride.Empty.overrides[C1]
   ): Table[C1, V, PK] =
     new Table[C1, V, PK](client, tableName, schema, overrides)
 
-  def withOverrides[O: DynamoDBOverride[C, *]](overrides: O): Table[C, V, PK] =
-    new Table[C, V, PK](client, tableName, schema, overrides.overrides[C])
+  def withOverrides(overrides: DynamoDBOverride.Applicator[C]): Table[C, V, PK] =
+    new Table[C, V, PK](client, tableName, schema, overrides)
 
   def noClient: Table[DynamoDBClient.Missing, V, PK] =
     new Table[DynamoDBClient.Missing, V, PK](DynamoDBClient.Missing, tableName, schema)
@@ -30,14 +30,14 @@ class TableWithRange[C <: DynamoDBClient, V, PK, RK](
   override val schema: TableSchemaWithRange.Aux[V, PK, RK],
   overrides: DynamoDBOverride.Applicator[C] = DynamoDBOverride.Empty.overrides[C]
 ) extends Table[C, V, (PK, RK)](c, name, schema, overrides) {
-  override def withClient[C1 <: DynamoDBClient, O: DynamoDBOverride[C1, *]](
+  override def withClient[C1 <: DynamoDBClient](
     client: C1,
-    overrides: O = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride.Applicator[C1] = DynamoDBOverride.Empty.overrides[C1]
   ): TableWithRange[C1, V, PK, RK] =
     new TableWithRange[C1, V, PK, RK](client, name, schema, overrides)
 
-  override def withOverrides[O: DynamoDBOverride[C, *]](overrides: O): TableWithRange[C, V, PK, RK] =
-    new TableWithRange[C, V, PK, RK](client, name, schema, overrides.overrides[C])
+  override def withOverrides(overrides: DynamoDBOverride.Applicator[C]): TableWithRange[C, V, PK, RK] =
+    new TableWithRange[C, V, PK, RK](client, name, schema, overrides)
 
   override def noClient: TableWithRange[DynamoDBClient.Missing, V, PK, RK] =
     new TableWithRange[DynamoDBClient.Missing, V, PK, RK](DynamoDBClient.Missing, tableName, schema)
