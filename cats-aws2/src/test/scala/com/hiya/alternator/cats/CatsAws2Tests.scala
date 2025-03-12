@@ -3,7 +3,7 @@ package com.hiya.alternator.cats
 import cats.MonadThrow
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import com.hiya.alternator.aws2.{Aws2DynamoDBClient, _}
+import com.hiya.alternator.aws2._
 import com.hiya.alternator.testkit.LocalDynamoDB
 import com.hiya.alternator.{DynamoDB, DynamoDBTestBase}
 import fs2.Stream

@@ -7,8 +7,8 @@ import akka.stream.scaladsl.Source
 import akka.testkit.TestKit
 import cats.MonadThrow
 import com.hiya.alternator._
+import com.hiya.alternator.aws2._
 import com.hiya.alternator.aws2.testkit.DynamoDBLossyClient
-import com.hiya.alternator.aws2.{Aws2DynamoDBClient, _}
 import com.hiya.alternator.testkit.LocalDynamoDB
 import com.hiya.alternator.util.{DataPK, DataRK}
 import org.scalatest.funspec.AnyFunSpecLike
