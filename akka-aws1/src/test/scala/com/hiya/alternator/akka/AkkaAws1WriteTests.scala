@@ -8,8 +8,8 @@ import akka.testkit.TestKit
 import cats.MonadThrow
 import com.amazonaws.services.dynamodbv2.model
 import com.hiya.alternator._
+import com.hiya.alternator.aws1._
 import com.hiya.alternator.aws1.testkit.DynamoDBLossyClient
-import com.hiya.alternator.aws1.{Aws1DynamoDBClient, _}
 import com.hiya.alternator.testkit.LocalDynamoDB
 import com.hiya.alternator.util.{DataPK, DataRK}
 import org.scalatest.funspec.AnyFunSpecLike
