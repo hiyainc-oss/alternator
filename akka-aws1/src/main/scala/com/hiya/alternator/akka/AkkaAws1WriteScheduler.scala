@@ -126,7 +126,7 @@ object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
     monitoring: BatchMonitoring[Id, PK] = BatchedWriteBehavior.DEFAULT_MONITORING,
-    overrides: DynamoDBOverride.Applicator[Aws1DynamoDBClient] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride.Applicator[Aws1DynamoDBClient] = DynamoDBOverride.Empty.overrides[Aws1DynamoDBClient]
   ): Behavior[BatchedRequest] = {
     apply(
       new AwsClientAdapter(
@@ -150,7 +150,7 @@ object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
     monitoring: BatchMonitoring[Id, PK] = BatchedWriteBehavior.DEFAULT_MONITORING,
-    overrides: DynamoDBOverride.Applicator[Aws1DynamoDBClient] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride.Applicator[Aws1DynamoDBClient] = DynamoDBOverride.Empty.overrides[Aws1DynamoDBClient]
   )(implicit system: ActorSystem): AkkaAws1WriteScheduler = {
     implicit val scheduler: Scheduler = system.scheduler.toTyped
     val ret = apply(system.spawn(behavior(client, maxWait, retryPolicy, monitoring, overrides), name))

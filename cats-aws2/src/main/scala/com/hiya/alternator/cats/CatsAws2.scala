@@ -42,13 +42,13 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
     }
   }
 
-  override def scan[V, PK, O: DynamoDBOverride[Client, *]](
+  override def scan[V, PK](
     table: Table[Aws2DynamoDBClient, V, PK],
     segment: Option[Segment] = None,
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
     consistent: Boolean,
-    overrides: O
+    overrides: DynamoDBOverride.Applicator[Client]
   ): Stream[F, Result[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     scanPaginator(
@@ -81,14 +81,14 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
     }
   }
 
-  override def query[V, PK, RK, O: DynamoDBOverride[Client, *]](
+  override def query[V, PK, RK](
     table: TableWithRange[Aws2DynamoDBClient, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[Boolean]] = None,
     limit: Option[Int] = None,
     consistent: Boolean = false,
-    overrides: O = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride.Applicator[Client] = DynamoDBOverride.Empty.overrides[Client]
   ): Stream[F, Result[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     queryPaginator(

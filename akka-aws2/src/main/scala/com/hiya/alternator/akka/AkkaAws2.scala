@@ -50,13 +50,13 @@ class AkkaAws2 private (override implicit val system: ActorSystem, override impl
       }
   }
 
-  override def scan[V, PK, O: DynamoDBOverride[Client, *]](
+  override def scan[V, PK](
     table: Table[Aws2DynamoDBClient, V, PK],
     segment: Option[Segment],
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int] = None,
     consistent: Boolean = false,
-    overrides: O = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride.Applicator[Client] = DynamoDBOverride.Empty.overrides[Client]
   ): Source[Result[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     scanPaginator(
@@ -90,14 +90,14 @@ class AkkaAws2 private (override implicit val system: ActorSystem, override impl
       }
   }
 
-  override def query[V, PK, RK, O: DynamoDBOverride[Client, *]](
+  override def query[V, PK, RK](
     table: TableWithRange[Aws2DynamoDBClient, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK],
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int] = None,
     consistent: Boolean = false,
-    overrides: O = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride.Applicator[Client] = DynamoDBOverride.Empty.overrides[Client]
   ): Source[Result[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     queryPaginator(
