@@ -8,8 +8,7 @@ trait DynamoDBOverride[C <: DynamoDBClient] {
 }
 
 object DynamoDBOverride {
-
-  // def apply[C <: DynamoDBClient, T](implicit ev: DynamoDBOverride[C, T]): DynamoDBOverride[C, T] = ev
+  def apply[C <: DynamoDBClient, O](ov: O)(implicit ev: (O => DynamoDBOverride[C])): DynamoDBOverride[C] = ev(ov)
 
   trait Configure[B] { def apply(builder: B): B }
 
