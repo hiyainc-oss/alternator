@@ -50,8 +50,10 @@ class AkkaAws2ReadScheduler(actorRef: ActorRef[AkkaAws2ReadScheduler.BatchedRequ
 object AkkaAws2ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeValue], BatchGetItemResponse] {
   import JdkCompat.CompletionStage
 
-  private class AwsClientAdapter(client: Aws2DynamoDBClient, overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder])
-    extends Exceptions
+  private class AwsClientAdapter(
+    client: Aws2DynamoDBClient,
+    overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
+  ) extends Exceptions
     with BatchedReadBehavior.AwsClientAdapter[JMap[String, AttributeValue], BatchGetItemResponse] {
     private def isSubMapOf(small: JMap[String, AttributeValue], in: JMap[String, AttributeValue]): Boolean =
       in.entrySet().containsAll(small.entrySet())
@@ -65,7 +67,7 @@ object AkkaAws2ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
         .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
         .build()
 
-      client.underlying.batchGetItem(request).asScala
+      client.client.batchGetItem(request).asScala
     }
     override def processResult(keys: List[PK], response: BatchGetItemResponse): (List[(PK, Option[AV])], List[PK]) = {
       val allKeys = mutable.HashSet.from(keys)
@@ -96,7 +98,7 @@ object AkkaAws2ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
     maxWait: FiniteDuration = BatchedReadBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedReadBehavior.DEFAULT_RETRY_POLICY,
     monitoring: BatchMonitoring[Id, PK] = BatchedReadBehavior.DEFAULT_MONITORING,
-    overrides: DynamoDBOverride[Aws2DynamoDBClient] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride[Aws2DynamoDBClient] = DynamoDBOverride.empty
   ): Behavior[BatchedRequest] = {
     apply(
       client = new AwsClientAdapter(
@@ -120,7 +122,7 @@ object AkkaAws2ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
     maxWait: FiniteDuration = BatchedReadBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedReadBehavior.DEFAULT_RETRY_POLICY,
     monitoring: BatchMonitoring[Id, PK] = BatchedReadBehavior.DEFAULT_MONITORING,
-    overrides: DynamoDBOverride[Aws2DynamoDBClient] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride[Aws2DynamoDBClient] = DynamoDBOverride.empty
   )(implicit system: ActorSystem): AkkaAws2ReadScheduler = {
     implicit val scheduler: Scheduler = system.scheduler.toTyped
     val ret = apply(system.spawn(behavior(client, maxWait, retryPolicy, monitoring, overrides), name))

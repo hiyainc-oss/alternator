@@ -65,8 +65,10 @@ class AkkaAws1WriteScheduler(actorRef: ActorRef[AkkaAws1WriteScheduler.BatchedRe
 
 object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, AttributeValue], BatchWriteItemResult] {
 
-  private class AwsClientAdapter(client: Aws1DynamoDBClient, overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder])
-    extends Exceptions
+  private class AwsClientAdapter(
+    client: Aws1DynamoDBClient,
+    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
+  ) extends Exceptions
     with BatchedWriteBehavior.AwsClientAdapter[JMap[String, AttributeValue], BatchWriteItemResult] {
 
     private def isSubMapOf(small: JMap[String, AttributeValue], in: JMap[String, AttributeValue]): Boolean =
@@ -126,7 +128,7 @@ object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
     monitoring: BatchMonitoring[Id, PK] = BatchedWriteBehavior.DEFAULT_MONITORING,
-    overrides: DynamoDBOverride[Aws1DynamoDBClient] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride[Aws1DynamoDBClient] = DynamoDBOverride.empty
   ): Behavior[BatchedRequest] = {
     apply(
       new AwsClientAdapter(
@@ -150,7 +152,7 @@ object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
     monitoring: BatchMonitoring[Id, PK] = BatchedWriteBehavior.DEFAULT_MONITORING,
-    overrides: DynamoDBOverride[Aws1DynamoDBClient] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride[Aws1DynamoDBClient] = DynamoDBOverride.empty
   )(implicit system: ActorSystem): AkkaAws1WriteScheduler = {
     implicit val scheduler: Scheduler = system.scheduler.toTyped
     val ret = apply(system.spawn(behavior(client, maxWait, retryPolicy, monitoring, overrides), name))

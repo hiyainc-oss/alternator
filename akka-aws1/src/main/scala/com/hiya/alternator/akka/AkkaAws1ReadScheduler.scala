@@ -49,8 +49,10 @@ class AkkaAws1ReadScheduler(actorRef: ActorRef[AkkaAws1ReadScheduler.BatchedRequ
 object AkkaAws1ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeValue], BatchGetItemResult] {
   import AkkaAws1.async
 
-  private class AwsClientAdapter(client: Aws1DynamoDBClient, overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder])
-    extends Exceptions
+  private class AwsClientAdapter(
+    client: Aws1DynamoDBClient,
+    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
+  ) extends Exceptions
     with BatchedReadBehavior.AwsClientAdapter[JMap[String, AttributeValue], BatchGetItemResult] {
     private def isSubMapOf(small: JMap[String, AttributeValue], in: JMap[String, AttributeValue]): Boolean =
       in.entrySet().containsAll(small.entrySet())
@@ -96,7 +98,7 @@ object AkkaAws1ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
     maxWait: FiniteDuration = BatchedReadBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedReadBehavior.DEFAULT_RETRY_POLICY,
     monitoring: BatchMonitoring[Id, PK] = BatchedReadBehavior.DEFAULT_MONITORING,
-    overrides: DynamoDBOverride[Aws1DynamoDBClient] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride[Aws1DynamoDBClient] = DynamoDBOverride.empty
   ): Behavior[BatchedRequest] = {
     apply(
       client = new AwsClientAdapter(
@@ -120,7 +122,7 @@ object AkkaAws1ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
     maxWait: FiniteDuration = BatchedReadBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedReadBehavior.DEFAULT_RETRY_POLICY,
     monitoring: BatchMonitoring[Id, PK] = BatchedReadBehavior.DEFAULT_MONITORING,
-    overrides: DynamoDBOverride[Aws1DynamoDBClient] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride[Aws1DynamoDBClient] = DynamoDBOverride.empty
   )(implicit system: ActorSystem): AkkaAws1ReadScheduler = {
     implicit val scheduler: Scheduler = system.scheduler.toTyped
     val ret = apply(system.spawn(behavior(client, maxWait, retryPolicy, monitoring, overrides), name))
