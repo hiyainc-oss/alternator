@@ -53,7 +53,7 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
     consistent: Boolean,
-    overrides: DynamoDBOverride.Applicator[Client] = DynamoDBOverride.Empty.overrides[Client]
+    overrides: DynamoDBOverride[Client] = DynamoDBOverride.Empty
   ): Source[Result[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     scanPaginator(
@@ -94,7 +94,7 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
     consistent: Boolean,
-    overrides: DynamoDBOverride.Applicator[Client]
+    overrides: DynamoDBOverride[Client]
   ): Source[Result[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     queryPaginator(
