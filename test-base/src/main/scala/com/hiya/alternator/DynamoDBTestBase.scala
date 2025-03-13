@@ -39,8 +39,8 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient] extends AnyFunS
       val key = "primaryKey"
       val data = ExampleData(key, 12, "string value")
 
-      val exampleDBInstance = Table.tableWithPK[ExampleData](tableName).withClient(client)
-      val exampleDBInstance2 = Table.tableWithPK[ExampleData](tableName).withClient(client)
+      val exampleDBInstance = Table.tableWithPK[ExampleData](tableName).withClient[C](client)
+      val exampleDBInstance2 = Table.tableWithPK[ExampleData](tableName).withClient[C](client)
 
       eval {
         LocalDynamoDB.withTable(client, tableName, LocalDynamoDB.schema[ExampleData]).eval { _ =>

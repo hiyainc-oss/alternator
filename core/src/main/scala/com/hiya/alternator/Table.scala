@@ -1,6 +1,5 @@
 package com.hiya.alternator
 
-import com.hiya.alternator.DynamoDBOverride._
 import com.hiya.alternator.schema._
 
 import scala.util.{Failure, Success, Try}
@@ -9,15 +8,15 @@ sealed class Table[C <: DynamoDBClient, V, PK](
   val client: C,
   val tableName: String,
   val schema: TableSchema.Aux[V, PK],
-  val overrides: DynamoDBOverride.Applicator[C] = DynamoDBOverride.Empty.overrides[C]
+  val overrides: DynamoDBOverride[C] = DynamoDBOverride.Empty
 ) {
   def withClient[C1 <: DynamoDBClient](
     client: C1,
-    overrides: DynamoDBOverride.Applicator[C1] = DynamoDBOverride.Empty.overrides[C1]
+    overrides: DynamoDBOverride[C1] = DynamoDBOverride.Empty
   ): Table[C1, V, PK] =
     new Table[C1, V, PK](client, tableName, schema, overrides)
 
-  def withOverrides(overrides: DynamoDBOverride.Applicator[C]): Table[C, V, PK] =
+  def withOverrides(overrides: DynamoDBOverride[C]): Table[C, V, PK] =
     new Table[C, V, PK](client, tableName, schema, overrides)
 
   def noClient: Table[DynamoDBClient.Missing, V, PK] =
@@ -28,15 +27,15 @@ class TableWithRange[C <: DynamoDBClient, V, PK, RK](
   c: C,
   name: String,
   override val schema: TableSchemaWithRange.Aux[V, PK, RK],
-  overrides: DynamoDBOverride.Applicator[C] = DynamoDBOverride.Empty.overrides[C]
+  overrides: DynamoDBOverride[C] = DynamoDBOverride.Empty
 ) extends Table[C, V, (PK, RK)](c, name, schema, overrides) {
   override def withClient[C1 <: DynamoDBClient](
     client: C1,
-    overrides: DynamoDBOverride.Applicator[C1] = DynamoDBOverride.Empty.overrides[C1]
+    overrides: DynamoDBOverride[C1] = DynamoDBOverride.Empty
   ): TableWithRange[C1, V, PK, RK] =
     new TableWithRange[C1, V, PK, RK](client, name, schema, overrides)
 
-  override def withOverrides(overrides: DynamoDBOverride.Applicator[C]): TableWithRange[C, V, PK, RK] =
+  override def withOverrides(overrides: DynamoDBOverride[C]): TableWithRange[C, V, PK, RK] =
     new TableWithRange[C, V, PK, RK](client, name, schema, overrides)
 
   override def noClient: TableWithRange[DynamoDBClient.Missing, V, PK, RK] =

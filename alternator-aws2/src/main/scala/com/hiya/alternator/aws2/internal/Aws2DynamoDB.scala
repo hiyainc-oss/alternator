@@ -2,7 +2,6 @@ package com.hiya.alternator.aws2.internal
 
 import cats.MonadThrow
 import cats.syntax.all._
-import com.hiya.alternator.DynamoDBOverride.OverrideOps
 import com.hiya.alternator._
 import com.hiya.alternator.aws2._
 import com.hiya.alternator.internal._
@@ -43,7 +42,7 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
     table: Table[Aws2DynamoDBClient, V, PK],
     pk: PK,
     consistent: Boolean,
-    overrides: DynamoDBOverride.Applicator[Client]
+    overrides: DynamoDBOverride[Client]
   ): F[Option[Result[V]]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     async(table.client.underlying.getItem(Aws2TableOps(table).get(pk, consistent, resolvedOverride).build()))
@@ -54,7 +53,7 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
     table: Table[Aws2DynamoDBClient, V, PK],
     item: V,
     condition: Option[ConditionExpression[Boolean]],
-    overrides: DynamoDBOverride.Applicator[Client]
+    overrides: DynamoDBOverride[Client]
   ): F[Boolean] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     val req = Aws2TableOps(table).put(item, condition, returnOld = false, overrides = resolvedOverride).build()
@@ -69,7 +68,7 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
     table: Table[Aws2DynamoDBClient, V, PK],
     item: V,
     condition: Option[ConditionExpression[Boolean]],
-    overrides: DynamoDBOverride.Applicator[Client]
+    overrides: DynamoDBOverride[Client]
   ): F[ConditionResult[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     val req = Aws2TableOps(table).put(item, condition, returnOld = true, overrides = resolvedOverride).build()
@@ -84,7 +83,7 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
     table: Table[Aws2DynamoDBClient, V, PK],
     key: PK,
     condition: Option[ConditionExpression[Boolean]],
-    overrides: DynamoDBOverride.Applicator[Client]
+    overrides: DynamoDBOverride[Client]
   ): F[Boolean] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     val req = Aws2TableOps(table).delete(key, condition, returnOld = false, resolvedOverride).build()
@@ -102,7 +101,7 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
     table: Table[Aws2DynamoDBClient, V, PK],
     key: PK,
     condition: Option[ConditionExpression[Boolean]],
-    overrides: DynamoDBOverride.Applicator[Client]
+    overrides: DynamoDBOverride[Client]
   ): F[ConditionResult[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     val req = Aws2TableOps(table).delete(key, condition, returnOld = true, overrides = resolvedOverride).build()
@@ -121,9 +120,9 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
     readCapacity: Long,
     writeCapacity: Long,
     attributes: List[(String, ScalarType)],
-    overrides: DynamoDBOverride.Applicator[Client] = DynamoDBOverride.Empty.overrides[Client]
+    overrides: DynamoDBOverride[Client] = DynamoDBOverride.Empty
   ): F[Unit] = {
-    val resolvedOverride = overrides.overrides[Client].apply(client)
+    val resolvedOverride = overrides(client)
     val req = Aws2TableOps
       .createTable(tableName, hashKey, rangeKey, readCapacity, writeCapacity, attributes, resolvedOverride)
       .build()
@@ -133,9 +132,9 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override def dropTable(
     client: Aws2DynamoDBClient,
     tableName: String,
-    overrides: DynamoDBOverride.Applicator[Client]
+    overrides: DynamoDBOverride[Client]
   ): F[Unit] = {
-    val resolvedOverride = overrides.overrides[Aws2DynamoDBClient].apply(client)
+    val resolvedOverride = overrides(client)
     val req = Aws2TableOps.dropTable(tableName, resolvedOverride).build()
     async(client.underlying.deleteTable(req)).map(_ => ())
   }
