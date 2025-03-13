@@ -56,11 +56,11 @@ class AkkaAws2 private (override implicit val system: ActorSystem, override impl
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int] = None,
     consistent: Boolean = false,
-    overrides: DynamoDBOverride[Client] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
   ): Source[Result[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     scanPaginator(
-      table.client.underlying.scan,
+      table.client.client.scan,
       Aws2TableOps(table).scan(segment, condition, consistent, resolvedOverride),
       limit
     ).mapConcat(data => Aws2TableOps(table).deserialize(data))
@@ -97,11 +97,11 @@ class AkkaAws2 private (override implicit val system: ActorSystem, override impl
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int] = None,
     consistent: Boolean = false,
-    overrides: DynamoDBOverride[Client] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
   ): Source[Result[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     queryPaginator(
-      table.client.underlying.query,
+      table.client.client.query,
       Aws2TableWithRangeKeyOps(table)
         .query(pk, rk, condition, consistent, resolvedOverride)
         .limit(limit.map(Int.box).orNull),

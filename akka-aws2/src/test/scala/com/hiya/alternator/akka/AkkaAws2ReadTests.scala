@@ -44,7 +44,7 @@ class AkkaAws2ReadTests
   override protected implicit val F: MonadThrow[Future] = _root_.cats.instances.future.catsStdInstancesForFuture
   override protected val stableClient: Aws2DynamoDBClient = LocalDynamoDB.client[Aws2DynamoDBClient]()
   override protected val lossyClient: Aws2DynamoDBClient = Aws2DynamoDBClient(
-    new DynamoDBLossyClient(stableClient.underlying)
+    new DynamoDBLossyClient(stableClient.client)
   )
   override protected implicit val readScheduler: ReadScheduler[Future] =
     AkkaAws2ReadScheduler("reader", lossyClient, monitoring = monitoring, retryPolicy = retryPolicy)
