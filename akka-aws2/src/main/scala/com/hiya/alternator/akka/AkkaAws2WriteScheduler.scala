@@ -66,8 +66,10 @@ class AkkaAws2WriteScheduler(val actorRef: ActorRef[AkkaAws2WriteScheduler.Batch
 object AkkaAws2WriteScheduler extends BatchedWriteBehavior[JMap[String, AttributeValue], BatchWriteItemResponse] {
   import JdkCompat.CompletionStage
 
-  private class AwsClientAdapter(client: Aws2DynamoDBClient, overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder])
-    extends Exceptions
+  private class AwsClientAdapter(
+    client: Aws2DynamoDBClient,
+    overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
+  ) extends Exceptions
     with BatchedWriteBehavior.AwsClientAdapter[JMap[String, AttributeValue], BatchWriteItemResponse] {
 
     private def isSubMapOf(small: JMap[String, AttributeValue], in: JMap[String, AttributeValue]): Boolean =
@@ -113,7 +115,7 @@ object AkkaAws2WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
         .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
         .build()
 
-      client.underlying.batchWriteItem(request).asScala
+      client.client.batchWriteItem(request).asScala
     }
   }
 
@@ -122,7 +124,7 @@ object AkkaAws2WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
     monitoring: BatchMonitoring[Id, PK] = BatchedWriteBehavior.DEFAULT_MONITORING,
-    overrides: DynamoDBOverride[Aws2DynamoDBClient] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride[Aws2DynamoDBClient] = DynamoDBOverride.empty
   ): Behavior[BatchedRequest] = {
     apply(
       new AwsClientAdapter(
@@ -146,7 +148,7 @@ object AkkaAws2WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
     monitoring: BatchMonitoring[Id, PK] = BatchedWriteBehavior.DEFAULT_MONITORING,
-    overrides: DynamoDBOverride[Aws2DynamoDBClient] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride[Aws2DynamoDBClient] = DynamoDBOverride.empty
   )(implicit system: ActorSystem): AkkaAws2WriteScheduler = {
     implicit val scheduler: Scheduler = system.scheduler.toTyped
     val ret = apply(system.spawn(behavior(client, maxWait, retryPolicy, monitoring, overrides), name))

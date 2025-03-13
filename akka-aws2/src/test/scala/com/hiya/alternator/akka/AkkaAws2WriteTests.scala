@@ -44,7 +44,7 @@ class AkkaAws2WriteTests
   override protected implicit val F: MonadThrow[Future] = _root_.cats.instances.future.catsStdInstancesForFuture
   override protected val stableClient: Aws2DynamoDBClient = LocalDynamoDB.client()
   override protected val lossyClient: Aws2DynamoDBClient = Aws2DynamoDBClient(
-    new DynamoDBLossyClient(stableClient.underlying)
+    new DynamoDBLossyClient(stableClient.client)
   )
   override protected implicit val writeScheduler: WriteScheduler[Future] =
     AkkaAws2WriteScheduler("writer", lossyClient, monitoring = monitoring, retryPolicy = retryPolicy)

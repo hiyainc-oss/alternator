@@ -8,11 +8,11 @@ sealed class Table[C <: DynamoDBClient, V, PK](
   val client: C,
   val tableName: String,
   val schema: TableSchema.Aux[V, PK],
-  val overrides: DynamoDBOverride[C] = DynamoDBOverride.Empty
+  val overrides: DynamoDBOverride[C] = DynamoDBOverride.empty[C]
 ) {
   def withClient[C1 <: DynamoDBClient](
     client: C1,
-    overrides: DynamoDBOverride[C1] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride[C1] = DynamoDBOverride.empty[C1]
   ): Table[C1, V, PK] =
     new Table[C1, V, PK](client, tableName, schema, overrides)
 
@@ -27,11 +27,12 @@ class TableWithRange[C <: DynamoDBClient, V, PK, RK](
   c: C,
   name: String,
   override val schema: TableSchemaWithRange.Aux[V, PK, RK],
-  overrides: DynamoDBOverride[C] = DynamoDBOverride.Empty
+  overrides: DynamoDBOverride[C] = DynamoDBOverride.empty[C]
 ) extends Table[C, V, (PK, RK)](c, name, schema, overrides) {
+
   override def withClient[C1 <: DynamoDBClient](
     client: C1,
-    overrides: DynamoDBOverride[C1] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride[C1] = DynamoDBOverride.empty[C1]
   ): TableWithRange[C1, V, PK, RK] =
     new TableWithRange[C1, V, PK, RK](client, name, schema, overrides)
 

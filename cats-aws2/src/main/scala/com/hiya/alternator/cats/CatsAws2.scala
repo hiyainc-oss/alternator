@@ -52,7 +52,7 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
   ): Stream[F, Result[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     scanPaginator(
-      table.client.underlying.scan,
+      table.client.client.scan,
       Aws2TableOps(table).scan(segment, condition, consistent, resolvedOverride),
       limit
     )
@@ -88,11 +88,11 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
     condition: Option[ConditionExpression[Boolean]] = None,
     limit: Option[Int] = None,
     consistent: Boolean = false,
-    overrides: DynamoDBOverride[Client] = DynamoDBOverride.Empty
+    overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
   ): Stream[F, Result[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     queryPaginator(
-      table.client.underlying.query,
+      table.client.client.query,
       Aws2TableWithRangeKeyOps(table).query(pk, rk, condition, consistent, resolvedOverride),
       limit
     ).flatMap { data => fs2.Stream.emits(Aws2TableWithRangeKeyOps(table).deserialize(data)) }
