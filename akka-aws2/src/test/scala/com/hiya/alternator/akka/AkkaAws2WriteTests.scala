@@ -14,16 +14,20 @@ import com.hiya.alternator.util.{DataPK, DataRK}
 import org.scalatest.funspec.AnyFunSpecLike
 import org.scalatest.matchers.should
 import org.scalatest.{BeforeAndAfterAll, Inside, Inspectors}
-import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, model}
+import software.amazon.awssdk.services.dynamodb.model
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.reflect.{ClassTag, classTag}
 
-
-class AkkaAws2WriteTests extends TestKit(ActorSystem())
-  with AnyFunSpecLike with should.Matchers with Inside with Inspectors with BeforeAndAfterAll
-  with BatchedWrite[DynamoDbAsyncClient, Future, Source[*, NotUsed]] {
+class AkkaAws2WriteTests
+  extends TestKit(ActorSystem())
+  with AnyFunSpecLike
+  with should.Matchers
+  with Inside
+  with Inspectors
+  with BeforeAndAfterAll
+  with BatchedWrite[Aws2DynamoDBClient, Future, Source[*, NotUsed]] {
   import system.dispatcher
 
   override protected def afterAll(): Unit = {
@@ -38,22 +42,25 @@ class AkkaAws2WriteTests extends TestKit(ActorSystem())
   )
 
   override protected implicit val F: MonadThrow[Future] = _root_.cats.instances.future.catsStdInstancesForFuture
-  override protected val stableClient: DynamoDbAsyncClient = LocalDynamoDB.client()
-  override protected val lossyClient: DynamoDbAsyncClient = new DynamoDBLossyClient(stableClient)
+  override protected val stableClient: Aws2DynamoDBClient = LocalDynamoDB.client()
+  override protected val lossyClient: Aws2DynamoDBClient = Aws2DynamoDBClient(
+    new DynamoDBLossyClient(stableClient.client)
+  )
   override protected implicit val writeScheduler: WriteScheduler[Future] =
     AkkaAws2WriteScheduler("writer", lossyClient, monitoring = monitoring, retryPolicy = retryPolicy)
-  override protected implicit val DB: DynamoDB.Aux[Future, Source[*, NotUsed], DynamoDbAsyncClient] = AkkaAws2()
+  override protected implicit val DB: DynamoDB.Aux[Future, Source[*, NotUsed], Aws2DynamoDBClient] = AkkaAws2()
   override protected def eval[T](f: => Future[T]): T = Await.result(f, 10.seconds)
 
   override type ResourceNotFoundException = model.ResourceNotFoundException
-  override def resourceNotFoundException: ClassTag[model.ResourceNotFoundException] = classTag[model.ResourceNotFoundException]
+  override def resourceNotFoundException: ClassTag[model.ResourceNotFoundException] =
+    classTag[model.ResourceNotFoundException]
 
   describe("stream with PK table") {
-    it should behave like streamWrite(DataPK.config)
+    it should behave like streamWrite[DataPK, String]()(DataPK.config)
   }
 
   describe("stream with RK table") {
-    it should behave like streamWrite(DataRK.config)
+    it should behave like streamWrite[DataRK, (String, String)]()(DataRK.config)
   }
 
   it("should stop") {

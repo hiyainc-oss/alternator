@@ -12,8 +12,8 @@ import java.util.{Collection => JCollection, List => JList, Map => JMap}
 import scala.jdk.CollectionConverters._
 
 package object aws1 {
-  type Aws1Table[V, PK] = Table[AmazonDynamoDBAsync, V, PK]
-  type Aws1TableWithRange[V, PK, RK] = TableWithRange[AmazonDynamoDBAsync, V, PK, RK]
+  type Aws1Table[V, PK] = Table[Aws1DynamoDBClient, V, PK]
+  type Aws1TableWithRange[V, PK, RK] = TableWithRange[Aws1DynamoDBClient, V, PK, RK]
   type Aws1DynamoDB[F[_]] = DynamoDB.Client[F, AmazonDynamoDBAsync]
 
   implicit object PutIsConditional extends ConditionalSupport[model.PutItemRequest, model.AttributeValue] {
@@ -96,7 +96,7 @@ package object aws1 {
       builder.withExpressionAttributeValues(attributeValues)
   }
 
-  implicit object Aws1LocalDynamoClient extends LocalDynamoClient[AmazonDynamoDBAsync] {
+  implicit object Aws1LocalDynamoClient extends LocalDynamoClient[Aws1DynamoDBClient] {
     type Config = AmazonDynamoDBAsyncClientBuilder
 
     def config(builder: AmazonDynamoDBAsyncClientBuilder, port: Int): AmazonDynamoDBAsyncClientBuilder =
@@ -111,8 +111,10 @@ package object aws1 {
     override def config(port: Int): AmazonDynamoDBAsyncClientBuilder =
       config(AmazonDynamoDBAsyncClientBuilder.standard(), port)
 
-    override def client(port: Int): AmazonDynamoDBAsync =
-      config(AmazonDynamoDBAsyncClientBuilder.standard(), port).build
+    override def client(port: Int): Aws1DynamoDBClient =
+      Aws1DynamoDBClient(
+        config(AmazonDynamoDBAsyncClientBuilder.standard(), port).build
+      )
   }
 
   implicit def typeOf(t: ScalarType): model.ScalarAttributeType = t match {

@@ -8,12 +8,11 @@ import akka.actor.{ActorSystem, CoordinatedShutdown}
 import akka.util.Timeout
 import cats.Id
 import com.amazonaws.handlers.AsyncHandler
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
 import com.amazonaws.services.dynamodbv2.model._
 import com.hiya.alternator._
 import com.hiya.alternator.akka.internal.BatchedReadBehavior
-import com.hiya.alternator.aws1._
 import com.hiya.alternator.aws1.internal.Exceptions
+import com.hiya.alternator.aws1._
 import com.hiya.alternator.schema.DynamoFormat.Result
 
 import java.util.{Map => JMap}
@@ -35,7 +34,7 @@ class AkkaAws1ReadScheduler(actorRef: ActorRef[AkkaAws1ReadScheduler.BatchedRequ
   extends ReadScheduler[Future] {
   import JdkCompat.parasitic
 
-  override def get[V, PK](table: Table[Client.Missing, V, PK], key: PK)(implicit
+  override def get[V, PK](table: Table[DynamoDBClient.Missing, V, PK], key: PK)(implicit
     timeout: BatchTimeout
   ): Future[Option[Result[V]]] =
     actorRef
@@ -50,8 +49,10 @@ class AkkaAws1ReadScheduler(actorRef: ActorRef[AkkaAws1ReadScheduler.BatchedRequ
 object AkkaAws1ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeValue], BatchGetItemResult] {
   import AkkaAws1.async
 
-  private class AwsClientAdapter(client: AmazonDynamoDBAsync)
-    extends Exceptions
+  private class AwsClientAdapter(
+    client: Aws1DynamoDBClient,
+    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
+  ) extends Exceptions
     with BatchedReadBehavior.AwsClientAdapter[JMap[String, AttributeValue], BatchGetItemResult] {
     private def isSubMapOf(small: JMap[String, AttributeValue], in: JMap[String, AttributeValue]): Boolean =
       in.entrySet().containsAll(small.entrySet())
@@ -61,7 +62,11 @@ object AkkaAws1ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
         key.groupMap(_._1)(_._2).view.mapValues(x => new KeysAndAttributes().withKeys(x.asJava)).toMap.asJava
       )
 
-      async(client.batchGetItemAsync(request, _: AsyncHandler[BatchGetItemRequest, BatchGetItemResult]))
+      val requestWithOverrides = overrides.apply(request).asInstanceOf[BatchGetItemRequest]
+      async(
+        client.underlying
+          .batchGetItemAsync(requestWithOverrides, _: AsyncHandler[BatchGetItemRequest, BatchGetItemResult])
+      )
     }
 
     override def processResult(keys: List[PK], response: BatchGetItemResult): (List[(PK, Option[AV])], List[PK]) = {
@@ -89,13 +94,17 @@ object AkkaAws1ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
   }
 
   def behavior(
-    client: AmazonDynamoDBAsync,
+    client: Aws1DynamoDBClient,
     maxWait: FiniteDuration = BatchedReadBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedReadBehavior.DEFAULT_RETRY_POLICY,
-    monitoring: BatchMonitoring[Id, PK] = BatchedReadBehavior.DEFAULT_MONITORING
+    monitoring: BatchMonitoring[Id, PK] = BatchedReadBehavior.DEFAULT_MONITORING,
+    overrides: DynamoDBOverride[Aws1DynamoDBClient] = DynamoDBOverride.empty
   ): Behavior[BatchedRequest] = {
     apply(
-      client = new AwsClientAdapter(client),
+      client = new AwsClientAdapter(
+        client,
+        overrides = overrides(client)
+      ),
       maxWait = maxWait,
       retryPolicy = retryPolicy,
       monitoring = monitoring
@@ -108,14 +117,15 @@ object AkkaAws1ReadScheduler extends BatchedReadBehavior[JMap[String, AttributeV
 
   def apply(
     name: String,
-    client: AmazonDynamoDBAsync,
+    client: Aws1DynamoDBClient,
     shutdownTimeout: FiniteDuration = 60.seconds,
     maxWait: FiniteDuration = BatchedReadBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedReadBehavior.DEFAULT_RETRY_POLICY,
-    monitoring: BatchMonitoring[Id, PK] = BatchedReadBehavior.DEFAULT_MONITORING
+    monitoring: BatchMonitoring[Id, PK] = BatchedReadBehavior.DEFAULT_MONITORING,
+    overrides: DynamoDBOverride[Aws1DynamoDBClient] = DynamoDBOverride.empty
   )(implicit system: ActorSystem): AkkaAws1ReadScheduler = {
     implicit val scheduler: Scheduler = system.scheduler.toTyped
-    val ret = apply(system.spawn(behavior(client, maxWait, retryPolicy, monitoring), name))
+    val ret = apply(system.spawn(behavior(client, maxWait, retryPolicy, monitoring, overrides), name))
 
     CoordinatedShutdown(system).addTask(CoordinatedShutdown.PhaseBeforeActorSystemTerminate, s"shutdown $name") { () =>
       ret.terminate(shutdownTimeout)

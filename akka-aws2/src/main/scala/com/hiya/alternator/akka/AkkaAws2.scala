@@ -3,13 +3,13 @@ package com.hiya.alternator.akka
 import akka.NotUsed
 import akka.actor.{ActorSystem, ClassicActorSystemProvider}
 import cats.instances.future._
+import cats.syntax.all._
 import com.hiya.alternator.akka.internal.AkkaBase
 import com.hiya.alternator.aws2.internal.Aws2DynamoDB
-import com.hiya.alternator.aws2.{Aws2TableOps, Aws2TableWithRangeKeyOps}
+import com.hiya.alternator.aws2.{Aws2DynamoDBClient, Aws2TableOps, Aws2TableWithRangeKeyOps}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
-import com.hiya.alternator.{Table, TableWithRange}
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
+import com.hiya.alternator.{DynamoDBOverride, Table, TableWithRange}
 import software.amazon.awssdk.services.dynamodb.model.{QueryRequest, QueryResponse, ScanRequest, ScanResponse}
 
 import java.util.concurrent.{CompletableFuture, CompletionException}
@@ -51,17 +51,20 @@ class AkkaAws2 private (override implicit val system: ActorSystem, override impl
   }
 
   override def scan[V, PK](
-    table: Table[DynamoDbAsyncClient, V, PK],
+    table: Table[Aws2DynamoDBClient, V, PK],
     segment: Option[Segment],
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int] = None,
-    consistent: Boolean = false
-  ): Source[Result[V]] =
+    consistent: Boolean = false,
+    overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
+  ): Source[Result[V]] = {
+    val resolvedOverride = (table.overrides |+| overrides)(table.client)
     scanPaginator(
-      table.client.scan,
-      Aws2TableOps(table).scan(segment, condition, consistent),
+      table.client.client.scan,
+      Aws2TableOps(table).scan(segment, condition, consistent, resolvedOverride),
       limit
     ).mapConcat(data => Aws2TableOps(table).deserialize(data))
+  }
 
   private def queryPaginator(
     f: QueryRequest => CompletableFuture[QueryResponse],
@@ -88,20 +91,23 @@ class AkkaAws2 private (override implicit val system: ActorSystem, override impl
   }
 
   override def query[V, PK, RK](
-    table: TableWithRange[DynamoDbAsyncClient, V, PK, RK],
+    table: TableWithRange[Aws2DynamoDBClient, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK],
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int] = None,
-    consistent: Boolean = false
-  ): Source[Result[V]] =
+    consistent: Boolean = false,
+    overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
+  ): Source[Result[V]] = {
+    val resolvedOverride = (table.overrides |+| overrides)(table.client)
     queryPaginator(
-      table.client.query,
+      table.client.client.query,
       Aws2TableWithRangeKeyOps(table)
-        .query(pk, rk, condition, consistent)
+        .query(pk, rk, condition, consistent, resolvedOverride)
         .limit(limit.map(Int.box).orNull),
       limit
     ).mapConcat(data => Aws2TableWithRangeKeyOps(table).deserialize(data))
+  }
 }
 
 object AkkaAws2 {

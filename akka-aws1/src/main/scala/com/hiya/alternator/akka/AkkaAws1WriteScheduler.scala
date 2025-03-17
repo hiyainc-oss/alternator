@@ -8,20 +8,12 @@ import akka.actor.{ActorSystem, CoordinatedShutdown}
 import akka.util.Timeout
 import cats.Id
 import com.amazonaws.handlers.AsyncHandler
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
-import com.amazonaws.services.dynamodbv2.model.{
-  AttributeValue,
-  BatchWriteItemRequest,
-  BatchWriteItemResult,
-  DeleteRequest,
-  PutRequest,
-  WriteRequest
-}
+import com.amazonaws.services.dynamodbv2.model._
 import com.hiya.alternator._
 import com.hiya.alternator.akka.AkkaAws1.async
 import com.hiya.alternator.akka.internal.BatchedWriteBehavior
-import com.hiya.alternator.aws1._
 import com.hiya.alternator.aws1.internal.Exceptions
+import com.hiya.alternator.aws1._
 
 import java.util.{Map => JMap}
 import scala.collection.compat._
@@ -42,7 +34,7 @@ class AkkaAws1WriteScheduler(actorRef: ActorRef[AkkaAws1WriteScheduler.BatchedRe
   extends WriteScheduler[Future] {
   import JdkCompat.parasitic
 
-  override def put[V, PK](table: Table[Client.Missing, V, PK], value: V)(implicit
+  override def put[V, PK](table: Table[DynamoDBClient.Missing, V, PK], value: V)(implicit
     timeout: BatchTimeout
   ): Future[Unit] = {
     val key = table.schema.extract(value)
@@ -56,7 +48,7 @@ class AkkaAws1WriteScheduler(actorRef: ActorRef[AkkaAws1WriteScheduler.BatchedRe
       .flatMap(result => Future.fromTry { result })
   }
 
-  override def delete[V, PK](table: Table[Client.Missing, V, PK], key: PK)(implicit
+  override def delete[V, PK](table: Table[DynamoDBClient.Missing, V, PK], key: PK)(implicit
     timeout: BatchTimeout
   ): Future[Unit] = {
     val pk = table.schema.serializePK[AttributeValue](key)
@@ -73,8 +65,10 @@ class AkkaAws1WriteScheduler(actorRef: ActorRef[AkkaAws1WriteScheduler.BatchedRe
 
 object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, AttributeValue], BatchWriteItemResult] {
 
-  private class AwsClientAdapter(client: AmazonDynamoDBAsync)
-    extends Exceptions
+  private class AwsClientAdapter(
+    client: Aws1DynamoDBClient,
+    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
+  ) extends Exceptions
     with BatchedWriteBehavior.AwsClientAdapter[JMap[String, AttributeValue], BatchWriteItemResult] {
 
     private def isSubMapOf(small: JMap[String, AttributeValue], in: JMap[String, AttributeValue]): Boolean =
@@ -121,18 +115,26 @@ object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
           .asJava
       )
 
-      async(client.batchWriteItemAsync(request, _: AsyncHandler[BatchWriteItemRequest, BatchWriteItemResult]))
+      val requestWithOverrides = overrides(request).asInstanceOf[BatchWriteItemRequest]
+      async(
+        client.underlying
+          .batchWriteItemAsync(requestWithOverrides, _: AsyncHandler[BatchWriteItemRequest, BatchWriteItemResult])
+      )
     }
   }
 
   def behavior(
-    client: AmazonDynamoDBAsync,
+    client: Aws1DynamoDBClient,
     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
-    monitoring: BatchMonitoring[Id, PK] = BatchedWriteBehavior.DEFAULT_MONITORING
+    monitoring: BatchMonitoring[Id, PK] = BatchedWriteBehavior.DEFAULT_MONITORING,
+    overrides: DynamoDBOverride[Aws1DynamoDBClient] = DynamoDBOverride.empty
   ): Behavior[BatchedRequest] = {
     apply(
-      new AwsClientAdapter(client),
+      new AwsClientAdapter(
+        client,
+        overrides = overrides(client)
+      ),
       maxWait = maxWait,
       retryPolicy = retryPolicy,
       monitoring = monitoring
@@ -145,14 +147,15 @@ object AkkaAws1WriteScheduler extends BatchedWriteBehavior[JMap[String, Attribut
 
   def apply(
     name: String,
-    client: AmazonDynamoDBAsync,
+    client: Aws1DynamoDBClient,
     shutdownTimeout: FiniteDuration = 60.seconds,
     maxWait: FiniteDuration = BatchedWriteBehavior.DEFAULT_MAX_WAIT,
     retryPolicy: BatchRetryPolicy = BatchedWriteBehavior.DEFAULT_RETRY_POLICY,
-    monitoring: BatchMonitoring[Id, PK] = BatchedWriteBehavior.DEFAULT_MONITORING
+    monitoring: BatchMonitoring[Id, PK] = BatchedWriteBehavior.DEFAULT_MONITORING,
+    overrides: DynamoDBOverride[Aws1DynamoDBClient] = DynamoDBOverride.empty
   )(implicit system: ActorSystem): AkkaAws1WriteScheduler = {
     implicit val scheduler: Scheduler = system.scheduler.toTyped
-    val ret = apply(system.spawn(behavior(client, maxWait, retryPolicy, monitoring), name))
+    val ret = apply(system.spawn(behavior(client, maxWait, retryPolicy, monitoring, overrides), name))
 
     CoordinatedShutdown(system).addTask(CoordinatedShutdown.PhaseBeforeActorSystemTerminate, s"shutdown $name") { () =>
       ret.terminate(shutdownTimeout)

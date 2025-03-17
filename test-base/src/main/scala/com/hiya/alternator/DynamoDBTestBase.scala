@@ -21,7 +21,7 @@ object DynamoDBTestBase {
   }
 }
 
-abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with should.Matchers {
+abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient] extends AnyFunSpecLike with should.Matchers {
 
   import DynamoDBTestBase._
 
@@ -39,8 +39,8 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
       val key = "primaryKey"
       val data = ExampleData(key, 12, "string value")
 
-      val exampleDBInstance = Table.tableWithPK[ExampleData](tableName).withClient(client)
-      val exampleDBInstance2 = Table.tableWithPK[ExampleData](tableName).withClient(client)
+      val exampleDBInstance = Table.tableWithPK[ExampleData](tableName).withClient[C](client)
+      val exampleDBInstance2 = Table.tableWithPK[ExampleData](tableName).withClient[C](client)
 
       eval {
         LocalDynamoDB.withTable(client, tableName, LocalDynamoDB.schema[ExampleData]).eval { _ =>
@@ -240,9 +240,9 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
       eval {
         DataPK.config.withTable(client).eval { table =>
           DB.put(table, DataPK("new", 1)) >>
-            DB.delete(table, "new", attr("value") === 2).map(_ shouldBe false) >>
-            DB.delete(table, "new", attr("value") === 1).map(_ shouldBe true) >>
-            DB.delete(table, "new", attr("value") === 1).map(_ shouldBe false)
+            DB.delete(table, "new", condition = attr("value") === 2).map(_ shouldBe false) >>
+            DB.delete(table, "new", condition = attr("value") === 1).map(_ shouldBe true) >>
+            DB.delete(table, "new", condition = attr("value") === 1).map(_ shouldBe false)
         }
       }
     }
@@ -251,10 +251,10 @@ abstract class DynamoDBTestBase[F[_], S[_], C] extends AnyFunSpecLike with shoul
       eval {
         DataPK.config.withTable(client).eval { table =>
           DB.put(table, DataPK("new", 1)) >>
-            DB.deleteAndReturn(table, "new", attr("value") === 2).map(_ shouldBe ConditionResult.Failed) >>
-            DB.deleteAndReturn(table, "new", attr("value") === 1)
+            DB.deleteAndReturn(table, "new", condition = attr("value") === 2).map(_ shouldBe ConditionResult.Failed) >>
+            DB.deleteAndReturn(table, "new", condition = attr("value") === 1)
               .map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("new", 1))))) >>
-            DB.deleteAndReturn(table, "new", attr("value") === 1).map(_ shouldBe ConditionResult.Failed)
+            DB.deleteAndReturn(table, "new", condition = attr("value") === 1).map(_ shouldBe ConditionResult.Failed)
         }
       }
     }

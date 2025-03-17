@@ -3,7 +3,7 @@ package com.hiya.alternator.aws2.generic
 import com.hiya.alternator.aws2._
 import com.hiya.alternator.generic.semiauto
 import com.hiya.alternator.schema.DynamoAttributeError.AttributeIsNull
-import com.hiya.alternator.schema.{RootDynamoFormat, DynamoFormat}
+import com.hiya.alternator.schema.{DynamoFormat, RootDynamoFormat}
 import org.scalatest.Assertion
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -11,7 +11,6 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 import scala.jdk.CollectionConverters._
 import scala.reflect.runtime.universe._
-
 
 class FormatTest extends AnyFunSpec with Matchers {
   private def iso[T](orig: T)(implicit T: DynamoFormat[T]): Assertion = {
@@ -54,7 +53,7 @@ class FormatTest extends AnyFunSpec with Matchers {
     case class Refl[T](value: T) extends NullValue[T]
     case class Irrefl[T](value: T) extends NullValue[T]
 
-    def dynamo[T : TypeTag](nullValue: NullValue[T], tests: (T, AttributeValue)*)(implicit T : DynamoFormat[T]): Unit = {
+    def dynamo[T: TypeTag](nullValue: NullValue[T], tests: (T, AttributeValue)*)(implicit T: DynamoFormat[T]): Unit = {
       it(s"should read and write ${typeTag[T].tpe}") {
         nullValue match {
           case Irrefl(value) =>
@@ -104,17 +103,17 @@ class FormatTest extends AnyFunSpec with Matchers {
 
     it should behave like dynamo[Set[String]](
       nullValue = Refl(Set.empty),
-      Set("asd") -> AttributeValue.builder().ss("asd").build(),
+      Set("asd") -> AttributeValue.builder().ss("asd").build()
     )
 
     it should behave like dynamo[Int](
       nullValue = Error,
-      42 -> AttributeValue.builder().n("42").build(),
+      42 -> AttributeValue.builder().n("42").build()
     )
 
     it should behave like dynamo[Double](
       nullValue = Error,
-      137.04 -> AttributeValue.builder().n("137.04").build(), // ℏc/e²
+      137.04 -> AttributeValue.builder().n("137.04").build() // ℏc/e²
     )
 
   }

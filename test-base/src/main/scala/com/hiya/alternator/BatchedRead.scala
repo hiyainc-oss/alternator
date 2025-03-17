@@ -12,7 +12,7 @@ import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.util.Random
 
-trait BatchedRead[ClientT, F[+_], S[_]] {
+trait BatchedRead[ClientT <: DynamoDBClient, F[+_], S[_]] {
   this: AnyFunSpecLike with should.Matchers with Inspectors with Inside =>
 
   protected implicit def F: MonadThrow[F]
@@ -46,79 +46,87 @@ trait BatchedRead[ClientT, F[+_], S[_]] {
     override def close(): Unit = {}
   }
 
-  def streamRead[Data, Key](implicit tableConfig: TableConfig[Data, Key, Table[*, Data, Key]]): Unit = {
-    def writeData(table: Table[ClientT, Data, Key], nums: immutable.Iterable[Int]): F[Unit] = {
-      nums
-        .map(v => tableConfig.createData(v)._2)
-        .toList
-        .traverse(DB.put(table, _))
-        .map(_ => ())
-    }
+  trait StreamReadPartiallyApplied[Data, Key] {
+    type TTable[C <: DynamoDBClient] = Table[C, Data, Key]
+    def apply()(implicit tableConfig: TableConfig[Data, Key, TTable]): Unit
+  }
 
-    def withData[T](nums: immutable.Iterable[Int])(f: Table[ClientT, Data, Key] => F[T]): F[T] = {
-      tableConfig.withTable(stableClient).eval { table =>
-        writeData(table, nums) >> f(table)
-      }
-    }
-
-    it("should report if table not exists") {
-      val table = tableConfig.table("doesnotexists", stableClient)
-      implicit val classTag: ClassTag[ResourceNotFoundException] = resourceNotFoundException
-      val _ = intercept[ResourceNotFoundException] {
-        eval {
-          List(1)
-            .map(k => tableConfig.createData(k))
-            .map(_._1)
-            .traverse(readScheduler.get(table.noClient, _))
-        }
+  def streamRead[Data, Key]: StreamReadPartiallyApplied[Data, Key] = new StreamReadPartiallyApplied[Data, Key] {
+    def apply()(implicit tableConfig: TableConfig[Data, Key, TTable]) = {
+      def writeData(table: Table[ClientT, Data, Key], nums: immutable.Iterable[Int]): F[Unit] = {
+        nums
+          .map(v => tableConfig.createData(v)._2)
+          .toList
+          .traverse(DB.put(table, _))
+          .map(_ => ())
       }
 
-      monitoring.inflight() shouldBe 0
-      monitoring.queueSize() shouldBe 0
-    }
-
-    it("should read data") {
-      val result = eval {
-        withData(1 to 100) { table =>
-          Random
-            .shuffle(List.fill(10)(1 to 100).flatten)
-            .map(k => tableConfig.createData(k))
-            .traverse { case (key, value) =>
-              readScheduler.get(table.noClient, key).map(_ -> value)
-            }
-        }
-      }
-
-      result.size shouldBe 1000
-      monitoring.inflight() shouldBe 0
-      monitoring.queueSize() shouldBe 0
-
-      forAll(result) { case (data, pt) =>
-        inside(data) { case Some(Right(p)) =>
-          p shouldBe pt
-        }
-      }
-    }
-
-    it("should read empty table") {
-      val result = eval {
+      def withData[T](nums: immutable.Iterable[Int])(f: Table[ClientT, Data, Key] => F[T]): F[T] = {
         tableConfig.withTable(stableClient).eval { table =>
-          Random
-            .shuffle(List.fill(10)(1 to 100).flatten)
-            .map(k => tableConfig.createData(k))
-            .traverse { case (key, _) =>
-              readScheduler.get(table.noClient, key)
-            }
+          writeData(table, nums) >> f(table)
         }
       }
 
-      result.size shouldBe 1000
-      monitoring.inflight() shouldBe 0
-      monitoring.queueSize() shouldBe 0
+      it("should report if table not exists") {
+        val table = tableConfig.table("doesnotexists", stableClient)
+        implicit val classTag: ClassTag[ResourceNotFoundException] = resourceNotFoundException
+        val _ = intercept[ResourceNotFoundException] {
+          eval {
+            List(1)
+              .map(k => tableConfig.createData(k))
+              .map(_._1)
+              .traverse(readScheduler.get(table.noClient, _))
+          }
+        }
 
-      forAll(result) { data =>
-        inside(data) { case None => }
+        monitoring.inflight() shouldBe 0
+        monitoring.queueSize() shouldBe 0
+      }
+
+      it("should read data") {
+        val result = eval {
+          withData(1 to 100) { table =>
+            Random
+              .shuffle(List.fill(10)(1 to 100).flatten)
+              .map(k => tableConfig.createData(k))
+              .traverse { case (key, value) =>
+                readScheduler.get(table.noClient, key).map(_ -> value)
+              }
+          }
+        }
+
+        result.size shouldBe 1000
+        monitoring.inflight() shouldBe 0
+        monitoring.queueSize() shouldBe 0
+
+        forAll(result) { case (data, pt) =>
+          inside(data) { case Some(Right(p)) =>
+            p shouldBe pt
+          }
+        }
+      }
+
+      it("should read empty table") {
+        val result = eval {
+          tableConfig.withTable(stableClient).eval { table =>
+            Random
+              .shuffle(List.fill(10)(1 to 100).flatten)
+              .map(k => tableConfig.createData(k))
+              .traverse { case (key, _) =>
+                readScheduler.get(table.noClient, key)
+              }
+          }
+        }
+
+        result.size shouldBe 1000
+        monitoring.inflight() shouldBe 0
+        monitoring.queueSize() shouldBe 0
+
+        forAll(result) { data =>
+          inside(data) { case None => }
+        }
       }
     }
   }
+
 }
