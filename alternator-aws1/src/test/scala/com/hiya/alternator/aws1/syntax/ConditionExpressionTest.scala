@@ -18,7 +18,6 @@ class ConditionExpressionTest extends AnyFunSpec with Matchers {
     RenderedConditional(exp, params.names, params.values)
   }
 
-
   describe("render") {
 
     it("should render 'exists'") {

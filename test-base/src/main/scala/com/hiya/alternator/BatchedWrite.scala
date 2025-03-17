@@ -11,7 +11,7 @@ import scala.concurrent.duration._
 import scala.reflect.ClassTag
 import scala.util.Random
 
-trait BatchedWrite[ClientT, F[_], S[_]] {
+trait BatchedWrite[ClientT <: DynamoDBClient, F[_], S[_]] {
   this: AnyFunSpecLike with should.Matchers with Inspectors with Inside =>
 
   protected implicit def F: MonadThrow[F]
@@ -45,69 +45,76 @@ trait BatchedWrite[ClientT, F[_], S[_]] {
     override def close(): Unit = {}
   }
 
-  def streamWrite[Data, Key](implicit tableConfig: TableConfig[Data, Key, Table[*, Data, Key]]): Unit = {
-    def generateData(nums: Int, writes: Int): List[Data] = {
-      val state = (0 until nums).map {
-        _ -> 0
-      }.toArray
-      var stateSize = state.length
-      val result = List.newBuilder[Data]
+  trait StreamWritePartiallyApplied[Data, Key] {
+    type TTable[C <: DynamoDBClient] = Table[C, Data, Key]
+    def apply()(implicit tableConfig: TableConfig[Data, Key, TTable]): Unit
+  }
 
-      while (stateSize > 0) {
-        val i = Random.nextInt(stateSize)
-        val (idx, len) = state(i)
+  def streamWrite[Data, Key] = new StreamWritePartiallyApplied[Data, Key] {
+    def apply()(implicit tableConfig: TableConfig[Data, Key, TTable]): Unit = {
+      def generateData(nums: Int, writes: Int): List[Data] = {
+        val state = (0 until nums).map {
+          _ -> 0
+        }.toArray
+        var stateSize = state.length
+        val result = List.newBuilder[Data]
 
-        if (len == writes - 1) {
-          result += tableConfig.createData(idx)._2
-          stateSize -= 1
-          state(i) = state(stateSize)
-        } else {
-          result += tableConfig.createData(idx, Some(idx + Random.nextInt(100)))._2
-          state(i) = idx -> (len + 1)
+        while (stateSize > 0) {
+          val i = Random.nextInt(stateSize)
+          val (idx, len) = state(i)
+
+          if (len == writes - 1) {
+            result += tableConfig.createData(idx)._2
+            stateSize -= 1
+            state(i) = state(stateSize)
+          } else {
+            result += tableConfig.createData(idx, Some(idx + Random.nextInt(100)))._2
+            state(i) = idx -> (len + 1)
+          }
         }
+
+        result.result()
       }
 
-      result.result()
-    }
+      it("should report if table not exists") {
+        val table = tableConfig.table("doesnotexists", stableClient)
+        implicit val classTag: ClassTag[ResourceNotFoundException] = resourceNotFoundException
 
-    it("should report if table not exists") {
-      val table = tableConfig.table("doesnotexists", stableClient)
-      implicit val classTag: ClassTag[ResourceNotFoundException] = resourceNotFoundException
-
-      intercept[ResourceNotFoundException] {
-        eval {
-          List(1)
-            .map(k => tableConfig.createData(k))
-            .traverse { case (k, _) => writeScheduler.delete(table.noClient, k) }
-        }
-      }
-    }
-
-    it("should write data") {
-      val nums = 100
-      val writes = 10
-
-      val (result, data) = eval {
-        tableConfig.withTable(stableClient).eval { table =>
-          val q = generateData(nums, writes)
-          for {
-            result <- q.traverse(writeScheduler.put(table.noClient, _))
-            data <- (0 until nums)
+        intercept[ResourceNotFoundException] {
+          eval {
+            List(1)
               .map(k => tableConfig.createData(k))
-              .toList
-              .traverse { case (key, value) =>
-                DB.get(table, key).map(_ -> value)
-              }
-          } yield result -> data
+              .traverse { case (k, _) => writeScheduler.delete(table.noClient, k) }
+          }
         }
       }
 
-      result.size shouldBe nums * writes
-      data.size shouldBe nums
+      it("should write data") {
+        val nums = 100
+        val writes = 10
 
-      forAll(data) { case (data, pt) =>
-        inside(data) { case Some(Right(p)) =>
-          p shouldBe pt
+        val (result, data) = eval {
+          tableConfig.withTable(stableClient).eval { table =>
+            val q = generateData(nums, writes)
+            for {
+              result <- q.traverse(writeScheduler.put(table.noClient, _))
+              data <- (0 until nums)
+                .map(k => tableConfig.createData(k))
+                .toList
+                .traverse { case (key, value) =>
+                  DB.get(table, key).map(_ -> value)
+                }
+            } yield result -> data
+          }
+        }
+
+        result.size shouldBe nums * writes
+        data.size shouldBe nums
+
+        forAll(data) { case (data, pt) =>
+          inside(data) { case Some(Right(p)) =>
+            p shouldBe pt
+          }
         }
       }
     }

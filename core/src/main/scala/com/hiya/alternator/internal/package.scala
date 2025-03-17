@@ -4,7 +4,7 @@ import cats.FlatMap
 import cats.data.State
 import cats.syntax.all._
 import com.hiya.alternator.schema.{AttributeValue, TableSchemaWithRange}
-import com.hiya.alternator.syntax.ConditionExpression.{ArrayIndex, Attr, BinOp, FunCall, Literal, MapIndex}
+import com.hiya.alternator.syntax.ConditionExpression._
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition}
 
 package object internal {
@@ -119,12 +119,12 @@ package object internal {
 
   implicit class OptAppF[F[_]: FlatMap, T](underlying: F[T]) {
 
-    def optApp[A](f: T => A => T): Option[A] => F[T] = {
+    def optMap[A](f: T => A => T): Option[A] => F[T] = {
       case Some(a) => underlying.map(f(_)(a))
       case None => underlying
     }
 
-    def optAppF[A](f: T => A => T): Option[F[A]] => F[T] = {
+    def optMapF[A](f: T => A => T): Option[F[A]] => F[T] = {
       case Some(a) =>
         for {
           t <- underlying

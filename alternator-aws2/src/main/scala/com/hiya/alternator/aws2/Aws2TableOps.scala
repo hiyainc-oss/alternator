@@ -5,7 +5,8 @@ import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
 import com.hiya.alternator.syntax.{ConditionExpression, Segment}
-import com.hiya.alternator.{BatchReadResult, BatchWriteResult, Table}
+import com.hiya.alternator.{BatchReadResult, BatchWriteResult, DynamoDBOverride, Table}
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
 import software.amazon.awssdk.services.dynamodb.model._
 
 import java.util
@@ -42,7 +43,7 @@ class Aws2BatchWrite(
     getAVs(unprocessed.getOrDefault(table, java.util.List.of()))
 
   override def unprocessedItems[V, PK](table: Table[_, V, PK]): Vector[Either[Result[PK], Result[V]]] =
-    unprocessedAvFor(table.tableName).map(_.bimap(table.schema.extract(_), Aws2TableOps(table).deserialize))
+    unprocessedAvFor(table.tableName).map(_.bimap(table.schema.extract(_), table.schema.serializeValue.readFields(_)))
 }
 
 object Aws2BatchWrite {
@@ -64,7 +65,7 @@ class Aws2BatchRead(
     processed.getOrDefault(table, List.empty.asJava).asScala.toVector
 
   override def processedItems[V, PK](table: Table[_, V, PK]): Vector[Result[V]] =
-    processedAvFor(table.tableName).map(Aws2TableOps(table).deserialize)
+    processedAvFor(table.tableName).map(table.schema.serializeValue.readFields(_))
 
   override def unprocessed: util.Map[String, KeysAndAttributes] =
     response.unprocessedKeys()
@@ -83,7 +84,7 @@ object Aws2BatchRead {
   def apply(response: BatchGetItemResponse): Aws2BatchRead = new Aws2BatchRead(response)
 }
 
-class Aws2TableOps[V, PK](val underlying: Table[_, V, PK]) extends AnyVal {
+class Aws2TableOps[V, PK](val underlying: Table[Aws2DynamoDBClient, V, PK]) extends AnyVal {
   import underlying._
 
   final def deserialize(response: Aws2TableOps.AV): DynamoFormat.Result[V] = {
@@ -100,19 +101,30 @@ class Aws2TableOps[V, PK](val underlying: Table[_, V, PK]) extends AnyVal {
     else Nil
   }
 
-  final def get(pk: PK, consistent: Boolean): GetItemRequest.Builder =
-    GetItemRequest.builder().key(schema.serializePK(pk)).tableName(tableName).consistentRead(consistent)
+  final def get(
+    pk: PK,
+    consistent: Boolean,
+    overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
+  ): GetItemRequest.Builder =
+    GetItemRequest
+      .builder()
+      .key(schema.serializePK(pk))
+      .tableName(tableName)
+      .consistentRead(consistent)
+      .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
 
   final def scan(
     segment: Option[Segment] = None,
     condition: Option[ConditionExpression[Boolean]],
-    consistent: Boolean
+    consistent: Boolean,
+    overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
   ): ScanRequest.Builder = {
     val request = ScanRequest
       .builder()
       .tableName(tableName)
       .optApp(req => (segment: Segment) => req.segment(segment.segment).totalSegments(segment.totalSegments))(segment)
       .consistentRead(consistent)
+      .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
 
     condition match {
       case Some(cond) => ConditionalSupport.eval(request, cond)
@@ -136,20 +148,19 @@ class Aws2TableOps[V, PK](val underlying: Table[_, V, PK]) extends AnyVal {
       )
   }
 
-  final def put(item: V): PutItemRequest.Builder = put(item, returnOld = false)
-
-  final def put(item: V, returnOld: Boolean): PutItemRequest.Builder = {
-    val ret = PutItemRequest.builder().item(schema.serializeValue.writeFields(item)).tableName(tableName)
-    if (returnOld) ret.returnValues(ReturnValue.ALL_OLD) else ret.returnValues(ReturnValue.NONE)
-  }
-
   final def put(
     item: V,
-    condition: ConditionExpression[Boolean],
-    returnOld: Boolean = false
+    condition: Option[ConditionExpression[Boolean]],
+    returnOld: Boolean,
+    overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
   ): PutItemRequest.Builder = {
-    val ret = ConditionalSupport.eval(put(item), condition)
-    if (returnOld) ret.returnValues(ReturnValue.ALL_OLD) else ret.returnValues(ReturnValue.NONE)
+    PutItemRequest
+      .builder()
+      .item(schema.serializeValue.writeFields(item))
+      .tableName(tableName)
+      .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
+      .returnValues(if (returnOld) ReturnValue.ALL_OLD else ReturnValue.NONE)
+      .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
   }
 
   final def delete(key: PK): DeleteItemRequest.Builder =
@@ -162,11 +173,17 @@ class Aws2TableOps[V, PK](val underlying: Table[_, V, PK]) extends AnyVal {
 
   final def delete(
     key: PK,
-    condition: ConditionExpression[Boolean],
-    returnOld: Boolean = false
+    condition: Option[ConditionExpression[Boolean]],
+    returnOld: Boolean = false,
+    overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
   ): DeleteItemRequest.Builder = {
-    val ret = ConditionalSupport.eval(delete(key), condition)
-    if (returnOld) ret.returnValues(ReturnValue.ALL_OLD) else ret.returnValues(ReturnValue.NONE)
+    DeleteItemRequest
+      .builder()
+      .key(schema.serializePK(key))
+      .tableName(tableName)
+      .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
+      .returnValues(if (returnOld) ReturnValue.ALL_OLD else ReturnValue.NONE)
+      .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
   }
 
   final def putRequest(item: V): PutRequest.Builder = {
@@ -197,10 +214,16 @@ class Aws2TableOps[V, PK](val underlying: Table[_, V, PK]) extends AnyVal {
 object Aws2TableOps {
   type AV = java.util.Map[String, AttributeValue]
 
-  @inline def apply[V, PK](underlying: Table[_, V, PK]): Aws2TableOps[V, PK] = new Aws2TableOps(underlying)
+  @inline def apply[V, PK](underlying: Aws2Table[V, PK]): Aws2TableOps[V, PK] = new Aws2TableOps(underlying)
 
-  def dropTable(tableName: String): DeleteTableRequest.Builder =
-    DeleteTableRequest.builder().tableName(tableName)
+  def dropTable(
+    tableName: String,
+    overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
+  ): DeleteTableRequest.Builder =
+    DeleteTableRequest
+      .builder()
+      .tableName(tableName)
+      .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
 
   def createTable(
     tableName: String,
@@ -208,7 +231,8 @@ object Aws2TableOps {
     rangeKey: Option[String],
     readCapacity: Long,
     writeCapacity: Long,
-    attributes: List[(String, ScalarType)]
+    attributes: List[(String, ScalarType)],
+    overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
   ): CreateTableRequest.Builder = {
     val keySchema: List[KeySchemaElement] = {
       KeySchemaElement.builder().attributeName(hashKey).keyType(KeyType.HASH).build() ::
@@ -225,5 +249,6 @@ object Aws2TableOps {
       .provisionedThroughput(
         ProvisionedThroughput.builder().readCapacityUnits(readCapacity).writeCapacityUnits(writeCapacity).build()
       )
+      .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
   }
 }

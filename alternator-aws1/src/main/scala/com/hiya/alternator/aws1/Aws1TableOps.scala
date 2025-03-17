@@ -6,7 +6,7 @@ import com.hiya.alternator.internal.{ConditionalSupport, OptApp}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
 import com.hiya.alternator.syntax.{ConditionExpression, Segment}
-import com.hiya.alternator.{BatchReadResult, BatchWriteResult, Table}
+import com.hiya.alternator.{BatchReadResult, BatchWriteResult, DynamoDBOverride, Table}
 
 import java.util
 import scala.jdk.CollectionConverters._
@@ -98,13 +98,20 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, 
     Option(response.getItems).toList.flatMap(_.asScala.toList.map(deserialize))
   }
 
-  final def get(pk: PK, consistent: Boolean): GetItemRequest =
-    new GetItemRequest(underlying.tableName, underlying.schema.serializePK(pk)).withConsistentRead(consistent)
+  final def get(
+    pk: PK,
+    consistent: Boolean,
+    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
+  ): GetItemRequest =
+    overrides(
+      new GetItemRequest(underlying.tableName, underlying.schema.serializePK(pk)).withConsistentRead(consistent)
+    ).asInstanceOf[GetItemRequest]
 
   final def scan(
     segment: Option[Segment] = None,
     condition: Option[ConditionExpression[Boolean]],
-    consistent: Boolean
+    consistent: Boolean,
+    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
   ): ScanRequest = {
     val request = new ScanRequest(underlying.tableName)
       .optApp(req =>
@@ -113,45 +120,50 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, 
         }
       )(segment)
       .withConsistentRead(consistent)
+      .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
 
-    condition match {
-      case Some(condition) => ConditionalSupport.eval(request, condition)
-      case None => request
-    }
+    overrides(request).asInstanceOf[ScanRequest]
   }
 
-  final def batchGet(items: Seq[PK]): BatchGetItemRequest = {
-    new BatchGetItemRequest(
+  final def batchGet(
+    items: Seq[PK],
+    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
+  ): BatchGetItemRequest = {
+    val req = new BatchGetItemRequest(
       Map(
         underlying.tableName -> {
           new KeysAndAttributes().withKeys(items.map(item => underlying.schema.serializePK(item)).asJava)
         }
       ).asJava
     )
+
+    overrides(req).asInstanceOf[BatchGetItemRequest]
   }
 
-  final def put(item: V): PutItemRequest = put(item, returnOld = false)
+  final def put(
+    item: V,
+    condition: Option[ConditionExpression[Boolean]],
+    returnOld: Boolean,
+    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
+  ): PutItemRequest = {
+    val req = new PutItemRequest(underlying.tableName, underlying.schema.serializeValue.writeFields(item))
+      .withReturnValues(if (returnOld) ReturnValue.ALL_OLD else ReturnValue.NONE)
+      .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
 
-  final def put(item: V, returnOld: Boolean): PutItemRequest = {
-    val ret = new PutItemRequest(underlying.tableName, underlying.schema.serializeValue.writeFields(item))
-    if (returnOld) ret.withReturnValues(ReturnValue.ALL_OLD) else ret.withReturnValues(ReturnValue.NONE)
+    overrides(req).asInstanceOf[PutItemRequest]
   }
 
-  final def put(item: V, condition: ConditionExpression[Boolean], returnOld: Boolean = false): PutItemRequest = {
-    val ret = ConditionalSupport.eval(put(item), condition)
-    if (returnOld) ret.withReturnValues(ReturnValue.ALL_OLD) else ret.withReturnValues(ReturnValue.NONE)
-  }
+  final def delete(
+    key: PK,
+    condition: Option[ConditionExpression[Boolean]],
+    returnOld: Boolean,
+    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
+  ): DeleteItemRequest = {
+    val req = new DeleteItemRequest(underlying.tableName, underlying.schema.serializePK(key))
+      .withReturnValues(if (returnOld) ReturnValue.ALL_OLD else ReturnValue.NONE)
+      .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
 
-  final def delete(key: PK): DeleteItemRequest = delete(key, returnOld = false)
-
-  final def delete(key: PK, returnOld: Boolean): DeleteItemRequest = {
-    val ret = new DeleteItemRequest(underlying.tableName, underlying.schema.serializePK(key))
-    if (returnOld) ret.withReturnValues(ReturnValue.ALL_OLD) else ret.withReturnValues(ReturnValue.NONE)
-  }
-
-  final def delete(key: PK, condition: ConditionExpression[Boolean], returnOld: Boolean = false): DeleteItemRequest = {
-    val ret = ConditionalSupport.eval(delete(key), condition)
-    if (returnOld) ret.withReturnValues(ReturnValue.ALL_OLD) else ret.withReturnValues(ReturnValue.NONE)
+    overrides(req).asInstanceOf[DeleteItemRequest]
   }
 
   final def extractItem(item: DeleteItemResult): Option[Result[V]] = {
@@ -178,8 +190,11 @@ object Aws1TableOps {
   @inline def apply[V, PK](underlying: Table[_, V, PK]): Aws1TableOps[V, PK] =
     new Aws1TableOps[V, PK](underlying)
 
-  def dropTable(tableName: String): DeleteTableRequest =
-    new DeleteTableRequest(tableName)
+  def dropTable(
+    tableName: String,
+    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
+  ): DeleteTableRequest =
+    overrides(new DeleteTableRequest(tableName)).asInstanceOf[DeleteTableRequest]
 
   def createTable(
     tableName: String,
@@ -187,14 +202,15 @@ object Aws1TableOps {
     rangeKey: Option[String],
     readCapacity: Long,
     writeCapacity: Long,
-    attributes: List[(String, ScalarType)]
+    attributes: List[(String, ScalarType)],
+    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
   ): CreateTableRequest = {
     val keySchema: List[KeySchemaElement] = {
       new KeySchemaElement(hashKey, KeyType.HASH) ::
         rangeKey.map(key => new KeySchemaElement(key, KeyType.RANGE)).toList
     }
 
-    new CreateTableRequest(
+    val req = new CreateTableRequest(
       attributes.map { case (name, scalarType) =>
         new AttributeDefinition(name, scalarType)
       }.asJava,
@@ -202,5 +218,7 @@ object Aws1TableOps {
       keySchema.asJava,
       new ProvisionedThroughput(readCapacity, writeCapacity)
     )
+
+    overrides(req).asInstanceOf[CreateTableRequest]
   }
 }
