@@ -279,43 +279,54 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
 
   @inline final def batchWrite(
     client: Client,
-    values: Map[String, Seq[BatchWriteItemRequest]]
+    values: Map[String, Seq[BatchWriteItemRequest]],
+    overrides: DynamoDBOverride[Client]
   ): F[BatchWriteResult[BatchWriteItemRequest, BatchWriteItemResponse, AttributeValue]] =
-    batchWrite(client, values.view.mapValues(_.asJava).toMap.asJava)
+    batchWrite(client, values.view.mapValues(_.asJava).toMap.asJava, overrides)
 
   def batchWrite(
     client: Client,
-    values: java.util.Map[String, java.util.List[BatchWriteItemRequest]]
+    values: java.util.Map[String, java.util.List[BatchWriteItemRequest]],
+    overrides: DynamoDBOverride[Client]
   ): F[BatchWriteResult[BatchWriteItemRequest, BatchWriteItemResponse, AttributeValue]]
 
   @inline final def batchPutAll[V, PK](
     table: Table[Client, V, PK],
-    values: Seq[V]
+    values: Seq[V],
+    overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
   ): F[BatchWriteResult[BatchWriteItemRequest, BatchWriteItemResponse, AttributeValue]] =
-    batchWrite(table.client, Map(table.tableName -> values.map(batchPutRequest(table, _))))
+    batchWrite(table.client, Map(table.tableName -> values.map(batchPutRequest(table, _))), overrides |+| table.overrides)
 
-  @inline final def batchDeleteAll[T, V, PK](table: Table[Client, V, PK], keys: Seq[T])(implicit
+  @inline final def batchDeleteAll[T, V, PK](
+    table: Table[Client, V, PK],
+    keys: Seq[T],
+    overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
+  )(implicit
     T: ItemMagnet[T, V, PK]
   ): F[BatchWriteResult[BatchWriteItemRequest, BatchWriteItemResponse, AttributeValue]] =
     batchWrite(
       table.client,
-      Map(table.tableName -> keys.map(key => batchDeleteRequest(table, T.key(key)(table.schema))))
+      Map(table.tableName -> keys.map(key => batchDeleteRequest(table, T.key(key)(table.schema)))),
+      overrides |+| table.overrides
     )
 
   @inline final def batchGetAll[V, PK](
     table: Table[Client, V, PK],
-    keys: Seq[PK]
+    keys: Seq[PK],
+    overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
   ): F[BatchReadResult[BatchReadItemRequest, BatchReadItemResponse, AttributeValue]] =
-    batchGet(table.client, Map(table.tableName -> keys.map(batchGetRequest(table, _))))
+    batchGet(table.client, Map(table.tableName -> keys.map(batchGetRequest(table, _))), overrides |+| table.overrides)
 
   def batchGet(
     client: Client,
-    keys: Map[String, Seq[java.util.Map[String, AttributeValue]]]
+    keys: Map[String, Seq[java.util.Map[String, AttributeValue]]],
+    overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
   ): F[BatchReadResult[BatchReadItemRequest, BatchReadItemResponse, AttributeValue]]
 
   def batchGet(
     client: Client,
-    keys: java.util.Map[String, BatchReadItemRequest]
+    keys: java.util.Map[String, BatchReadItemRequest],
+    overrides: DynamoDBOverride[Client]
   ): F[BatchReadResult[BatchReadItemRequest, BatchReadItemResponse, AttributeValue]]
 
   def batchPutRequest[V, PK](table: Table[Client, V, PK], value: V): BatchWriteItemRequest
