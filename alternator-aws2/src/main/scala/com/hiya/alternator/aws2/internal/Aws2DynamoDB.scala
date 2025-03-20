@@ -8,10 +8,10 @@ import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.ScalarType
 import com.hiya.alternator.syntax.ConditionExpression
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
 import software.amazon.awssdk.services.dynamodb.model
 import software.amazon.awssdk.services.dynamodb.model.{
   BatchGetItemResponse,
-  BatchWriteItemRequest,
   KeysAndAttributes,
   WriteRequest
 }
@@ -147,16 +147,28 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
 
   override def batchGet(
     client: Aws2DynamoDBClient,
-    keys: Map[String, Seq[util.Map[String, AttributeValue]]]
+    keys: Map[String, Seq[util.Map[String, AttributeValue]]],
+    overrides: DynamoDBOverride[Client]
   ): F[BatchReadResult[KeysAndAttributes, BatchGetItemResponse, AttributeValue]] =
-    batchGet(client, keys.view.mapValues({ kv => KeysAndAttributes.builder().keys(kv.asJava).build() }).toMap.asJava)
+    batchGet(
+      client,
+      keys.view.mapValues({ kv => KeysAndAttributes.builder().keys(kv.asJava).build() }).toMap.asJava,
+      overrides
+    )
 
   override def batchGet(
     client: Aws2DynamoDBClient,
-    keys: util.Map[String, KeysAndAttributes]
-  ): F[BatchReadResult[KeysAndAttributes, BatchGetItemResponse, AttributeValue]] =
-    async(client.client.batchGetItem(model.BatchGetItemRequest.builder().requestItems(keys).build()))
-      .map(Aws2BatchRead(_))
+    keys: util.Map[String, KeysAndAttributes],
+    overrides: DynamoDBOverride[Client]
+  ): F[BatchReadResult[KeysAndAttributes, BatchGetItemResponse, AttributeValue]] = {
+    val resolvedOverride = overrides(client)
+    val req = model.BatchGetItemRequest
+      .builder()
+      .requestItems(keys)
+      .overrideConfiguration(resolvedOverride(AwsRequestOverrideConfiguration.builder()).build())
+      .build()
+    async(client.client.batchGetItem(req)).map(Aws2BatchRead(_))
+  }
 
   override def batchPutRequest[V, PK](table: Table[Aws2DynamoDBClient, V, PK], value: V): WriteRequest =
     WriteRequest.builder().putRequest(Aws2TableOps(table).putRequest(value).build()).build()
@@ -166,8 +178,15 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
 
   override def batchWrite(
     client: Aws2DynamoDBClient,
-    values: util.Map[String, util.List[WriteRequest]]
-  ): F[Aws2BatchWrite] =
-    async(client.client.batchWriteItem(BatchWriteItemRequest.builder().requestItems(values).build()))
-      .map(Aws2BatchWrite(_))
+    values: util.Map[String, util.List[WriteRequest]],
+    overrides: DynamoDBOverride[Client]
+  ): F[Aws2BatchWrite] = {
+    val resolvedOverride = overrides(client)
+    val req = model.BatchWriteItemRequest
+      .builder()
+      .requestItems(values)
+      .overrideConfiguration(resolvedOverride(AwsRequestOverrideConfiguration.builder()).build())
+      .build()
+    async(client.client.batchWriteItem(req)).map(Aws2BatchWrite(_))
+  }
 }
