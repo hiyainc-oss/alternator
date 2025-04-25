@@ -172,21 +172,25 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
 
   override def batchGet(
     client: Aws1DynamoDBClient,
-    keys: Map[String, Seq[util.Map[String, AttributeValue]]]
+    keys: Map[String, Seq[util.Map[String, AttributeValue]]],
+    overrides: DynamoDBOverride[Client]
   ): F[BatchReadResult[KeysAndAttributes, BatchGetItemResult, AttributeValue]] = {
-    batchGet(client, keys.view.mapValues(v => new KeysAndAttributes().withKeys(v.asJava)).toMap.asJava)
+    batchGet(client, keys.view.mapValues(v => new KeysAndAttributes().withKeys(v.asJava)).toMap.asJava, overrides)
   }
 
   override def batchGet(
     client: Aws1DynamoDBClient,
-    keys: util.Map[String, KeysAndAttributes]
-  ): F[BatchReadResult[KeysAndAttributes, BatchGetItemResult, AttributeValue]] =
+    keys: util.Map[String, KeysAndAttributes],
+    overrides: DynamoDBOverride[Client]
+  ): F[BatchReadResult[KeysAndAttributes, BatchGetItemResult, AttributeValue]] = {
+    val resolvedOverride = overrides.apply(client)
     async(
       client.underlying.batchGetItemAsync(
-        new model.BatchGetItemRequest(keys),
+        resolvedOverride(new model.BatchGetItemRequest(keys)).asInstanceOf[model.BatchGetItemRequest],
         _: AsyncHandler[model.BatchGetItemRequest, model.BatchGetItemResult]
       )
     ).map(Aws1BatchRead(_))
+  }
 
   override def batchPutRequest[V, PK](table: Table[Aws1DynamoDBClient, V, PK], value: V): model.WriteRequest =
     new model.WriteRequest().withPutRequest(Aws1TableOps(table).putRequest(value))
@@ -196,12 +200,15 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
 
   override def batchWrite(
     client: Aws1DynamoDBClient,
-    values: util.Map[String, util.List[WriteRequest]]
-  ): F[BatchWriteResult[WriteRequest, BatchWriteItemResult, AttributeValue]] =
+    values: util.Map[String, util.List[WriteRequest]],
+    overrides: DynamoDBOverride[Client]
+  ): F[BatchWriteResult[WriteRequest, BatchWriteItemResult, AttributeValue]] = {
+    val resolvedOverride = overrides.apply(client)
     async(
       client.underlying.batchWriteItemAsync(
-        new model.BatchWriteItemRequest(values),
+        resolvedOverride(new model.BatchWriteItemRequest(values)).asInstanceOf[model.BatchWriteItemRequest],
         _: AsyncHandler[model.BatchWriteItemRequest, BatchWriteItemResult]
       )
     ).map(Aws1BatchWrite(_))
+  }
 }
