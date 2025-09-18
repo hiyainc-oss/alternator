@@ -8,10 +8,10 @@ import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.dynamodbv2.model._
 import com.hiya.alternator.akka.internal.AkkaBase
 import com.hiya.alternator.aws1.internal.Aws1DynamoDB
-import com.hiya.alternator.aws1.{Aws1DynamoDBClient, Aws1TableOps, Aws1TableWithRangeKeyOps}
+import com.hiya.alternator.aws1.{Aws1DynamoDBClient, Aws1IndexOps, Aws1TableOps, Aws1TableWithRangeKeyOps}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
-import com.hiya.alternator.{DynamoDBOverride, Table, TableWithRange}
+import com.hiya.alternator.{DynamoDBOverride, Index, TableLike, TableWithRangeLike}
 
 import java.util.concurrent.{Future => JFuture}
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -48,7 +48,7 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
   }
 
   override def scan[V, PK](
-    table: Table[Aws1DynamoDBClient, V, PK],
+    table: TableLike[Aws1DynamoDBClient, V, PK],
     segment: Option[Segment],
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
@@ -88,7 +88,7 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
   }
 
   override def query[V, PK, RK](
-    table: TableWithRange[Aws1DynamoDBClient, V, PK, RK],
+    table: TableWithRangeLike[Aws1DynamoDBClient, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK],
     condition: Option[ConditionExpression[Boolean]],
@@ -103,6 +103,23 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
       limit
     )
       .mapConcat { data => Aws1TableWithRangeKeyOps(table).deserialize(data) }
+  }
+
+  override def queryPK[V, PK](
+    table: Index[Aws1DynamoDBClient, V, PK],
+    pk: PK,
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int],
+    consistent: Boolean,
+    overrides: DynamoDBOverride[Aws1DynamoDBClient]
+  ): Source[Result[V]] = {
+    val resolvedOverride = (table.overrides |+| overrides)(table.client)
+    queryPaginator(
+      table.client.underlying.queryAsync,
+      Aws1IndexOps(table).query(pk, condition, consistent, resolvedOverride),
+      limit
+    )
+      .mapConcat { data => Aws1IndexOps(table).deserialize(data) }
   }
 }
 

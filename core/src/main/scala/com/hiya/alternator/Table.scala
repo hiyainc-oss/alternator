@@ -4,12 +4,24 @@ import com.hiya.alternator.schema._
 
 import scala.util.{Failure, Success, Try}
 
-sealed class Table[C <: DynamoDBClient, V, PK](
-  val client: C,
-  val tableName: String,
-  val schema: TableSchema.Aux[V, PK],
+sealed trait TableLike[C <: DynamoDBClient, V, PK] {
+  val client: C
+  val tableName: String
+  val schema: TableSchema.Aux[V, PK]
   val overrides: DynamoDBOverride[C] = DynamoDBOverride.empty[C]
-) {
+  val indexNameOpt: Option[String] = None
+}
+
+sealed trait TableWithRangeLike[C <: DynamoDBClient, V, PK, RK] extends TableLike[C, V, (PK, RK)] {
+  override val schema: TableSchemaWithRange.Aux[V, PK, RK]
+}
+
+sealed class Table[C <: DynamoDBClient, V, PK](
+  override val client: C,
+  override val tableName: String,
+  override val schema: TableSchema.Aux[V, PK],
+  override val overrides: DynamoDBOverride[C] = DynamoDBOverride.empty[C]
+) extends TableLike[C, V, PK] {
   def withClient[C1 <: DynamoDBClient](
     client: C1,
     overrides: DynamoDBOverride[C1] = DynamoDBOverride.empty[C1]
@@ -21,6 +33,12 @@ sealed class Table[C <: DynamoDBClient, V, PK](
 
   def noClient: Table[DynamoDBClient.Missing, V, PK] =
     new Table[DynamoDBClient.Missing, V, PK](DynamoDBClient.Missing, tableName, schema)
+
+  def index[IPK](indexSchema: IndexSchema[V, IPK]): Index[C, V, IPK] =
+    new Index(client, tableName, indexSchema.indexName, indexSchema.schema, overrides)
+
+  def index[IPK, IRK](indexSchema: IndexSchemaWithRange[V, IPK, IRK]): IndexWithRange[C, V, IPK, IRK] =
+    new IndexWithRange(client, tableName, indexSchema.indexName, indexSchema.schema, overrides)
 }
 
 class TableWithRange[C <: DynamoDBClient, V, PK, RK](
@@ -28,7 +46,8 @@ class TableWithRange[C <: DynamoDBClient, V, PK, RK](
   name: String,
   override val schema: TableSchemaWithRange.Aux[V, PK, RK],
   overrides: DynamoDBOverride[C] = DynamoDBOverride.empty[C]
-) extends Table[C, V, (PK, RK)](c, name, schema, overrides) {
+) extends Table[C, V, (PK, RK)](c, name, schema, overrides)
+  with TableWithRangeLike[C, V, PK, RK] {
 
   override def withClient[C1 <: DynamoDBClient](
     client: C1,
@@ -41,6 +60,50 @@ class TableWithRange[C <: DynamoDBClient, V, PK, RK](
 
   override def noClient: TableWithRange[DynamoDBClient.Missing, V, PK, RK] =
     new TableWithRange[DynamoDBClient.Missing, V, PK, RK](DynamoDBClient.Missing, tableName, schema)
+}
+
+class Index[C <: DynamoDBClient, V, PK](
+  override val client: C,
+  override val tableName: String,
+  val indexName: String,
+  override val schema: TableSchemaWithPartition.Aux[V, PK],
+  override val overrides: DynamoDBOverride[C] = DynamoDBOverride.empty[C]
+) extends TableLike[C, V, PK] {
+  override val indexNameOpt: Option[String] = Some(indexName)
+
+  def withClient[C1 <: DynamoDBClient](
+    client: C1,
+    overrides: DynamoDBOverride[C1] = DynamoDBOverride.empty[C1]
+  ): Index[C1, V, PK] =
+    new Index[C1, V, PK](client, tableName, indexName, schema, overrides)
+
+  def withOverrides(overrides: DynamoDBOverride[C]): Index[C, V, PK] =
+    new Index[C, V, PK](client, tableName, indexName, schema, overrides)
+
+  def noClient: Index[DynamoDBClient.Missing, V, PK] =
+    new Index[DynamoDBClient.Missing, V, PK](DynamoDBClient.Missing, tableName, indexName, schema)
+}
+
+class IndexWithRange[C <: DynamoDBClient, V, PK, RK](
+  override val client: C,
+  override val tableName: String,
+  val indexName: String,
+  override val schema: TableSchemaWithRange.Aux[V, PK, RK],
+  override val overrides: DynamoDBOverride[C] = DynamoDBOverride.empty[C]
+) extends TableWithRangeLike[C, V, PK, RK] {
+  override val indexNameOpt: Option[String] = Some(indexName)
+
+  def withClient[C1 <: DynamoDBClient](
+    client: C1,
+    overrides: DynamoDBOverride[C1] = DynamoDBOverride.empty[C1]
+  ): IndexWithRange[C1, V, PK, RK] =
+    new IndexWithRange[C1, V, PK, RK](client, tableName, indexName, schema, overrides)
+
+  def withOverrides(overrides: DynamoDBOverride[C]): IndexWithRange[C, V, PK, RK] =
+    new IndexWithRange[C, V, PK, RK](client, tableName, indexName, schema, overrides)
+
+  def noClient: IndexWithRange[DynamoDBClient.Missing, V, PK, RK] =
+    new IndexWithRange[DynamoDBClient.Missing, V, PK, RK](DynamoDBClient.Missing, tableName, indexName, schema)
 }
 
 final case class DynamoDBException(error: DynamoAttributeError) extends Exception(error.message)

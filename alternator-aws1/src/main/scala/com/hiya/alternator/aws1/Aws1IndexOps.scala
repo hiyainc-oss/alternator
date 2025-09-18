@@ -4,19 +4,18 @@ import cats.syntax.all._
 import com.amazonaws.services.dynamodbv2.model
 import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat
-import com.hiya.alternator.syntax.{ConditionExpression, RKCondition}
-import com.hiya.alternator.{DynamoDBOverride, TableWithRangeLike}
+import com.hiya.alternator.syntax.ConditionExpression
+import com.hiya.alternator.{DynamoDBOverride, Index}
 
 import scala.jdk.CollectionConverters._
 
-class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRangeLike[Aws1DynamoDBClient, V, PK, RK])
+class Aws1IndexOps[V, PK](val underlying: Index[Aws1DynamoDBClient, V, PK])
   extends AnyVal {
 
   import underlying._
 
   def query(
     pk: PK,
-    rk: RKCondition[RK] = RKCondition.Empty,
     condition: Option[ConditionExpression[_]],
     consistent: Boolean,
     overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
@@ -24,12 +23,12 @@ class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRangeLike[Aws
     val request = overrides(
       new model.QueryRequest(tableName)
         .withConsistentRead(consistent)
-        .optApp(_.withIndexName)(underlying.indexNameOpt)
+        .withIndexName(underlying.indexName)
     ).asInstanceOf[model.QueryRequest]
 
     Condition.eval {
       for {
-        keyCondition <- Condition.renderCondition[model.AttributeValue, PK, RK](pk, rk, underlying.schema)
+        keyCondition <- Condition.renderPKCondition[model.AttributeValue, PK](pk, underlying.schema)
         filter <- condition.traverse(Condition.renderCondition(_))
         builder <- Condition.execute(request)
       } yield builder.withKeyConditionExpression(keyCondition).withFilterExpression(filter.orNull)
@@ -42,7 +41,7 @@ class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRangeLike[Aws
   }
 }
 
-object Aws1TableWithRangeKeyOps {
-  @inline def apply[V, PK, RK](underlying: TableWithRangeLike[Aws1DynamoDBClient, V, PK, RK]) =
-    new Aws1TableWithRangeKeyOps(underlying)
+object Aws1IndexOps {
+  @inline def apply[V, PK, RK](underlying: Index[Aws1DynamoDBClient, V, PK]) =
+    new Aws1IndexOps(underlying)
 }

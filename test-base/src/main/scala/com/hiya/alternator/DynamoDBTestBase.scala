@@ -3,7 +3,7 @@ package com.hiya.alternator
 import cats.MonadThrow
 import cats.syntax.all._
 import com.hiya.alternator.generic.semiauto
-import com.hiya.alternator.schema.{RootDynamoFormat, TableSchema}
+import com.hiya.alternator.schema.{IndexSchema, IndexSchemaWithRange, RootDynamoFormat, TableSchema}
 import com.hiya.alternator.syntax._
 import com.hiya.alternator.testkit.LocalDynamoDB
 import com.hiya.alternator.util.{DataPK, DataRK}
@@ -293,6 +293,107 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient] extends AnyFunS
 
       result should have size 500
     }
+  }
 
+  describe("index with partition key") {
+    val indexSchema = IndexSchema.onTable(ExampleData.schema)("myindex", "intValue", _.intValue)
+
+    val data = List(
+      ExampleData("100", 1, "a"),
+      ExampleData("101", 1, "b"),
+      ExampleData("200", 2, "c")
+    )
+
+    it("can be queried") {
+      val tableName = s"test-table-${UUID.randomUUID()}"
+      val table = Table.tableWithPK[ExampleData](tableName).withClient[C](client)
+      val index = table.index(indexSchema)
+
+      eval {
+        LocalDynamoDB
+          .withTable(client, tableName, LocalDynamoDB.schema[ExampleData].withIndex(indexSchema))
+          .eval { _ =>
+            for {
+              _ <- data.traverse_(record => DB.put(table, record))
+
+              _ <- list(DB.queryPK(index, 1)).map(
+                _ should contain theSameElementsAs data.take(2).map(Right(_))
+              )
+              _ <- list(DB.queryPK(index, 2)).map(
+                _ should contain theSameElementsAs data.drop(2).map(Right(_))
+              )
+            } yield ()
+          }
+      }
+    }
+
+    it("can be scanned") {
+      val tableName = s"test-table-${UUID.randomUUID()}"
+      val table = Table.tableWithPK[ExampleData](tableName).withClient[C](client)
+      val index = table.index(indexSchema)
+
+      eval {
+        LocalDynamoDB
+          .withTable(client, tableName, LocalDynamoDB.schema[ExampleData].withIndex(indexSchema))
+          .eval { _ =>
+            for {
+              _ <- data.traverse_(record => DB.put(table, record))
+              _ <- list(DB.scan(index)).map(_ should contain theSameElementsAs data.map(Right(_)))
+            } yield ()
+          }
+      }
+    }
+  }
+
+  describe("index with range key") {
+    val indexSchema = IndexSchemaWithRange.onTable(
+      ExampleData.schema
+    )("myindex", "intValue", "stringValue", d => (d.intValue, d.stringValue))
+
+    val data = List(
+      ExampleData("100", 1, "a"),
+      ExampleData("101", 1, "a"),
+      ExampleData("200", 2, "c")
+    )
+
+    it("can be queried") {
+      val tableName = s"test-table-${UUID.randomUUID()}"
+      val table = Table.tableWithPK[ExampleData](tableName).withClient[C](client)
+      val index = table.index(indexSchema)
+
+      eval {
+        LocalDynamoDB
+          .withTable(client, tableName, LocalDynamoDB.schema[ExampleData].withIndex(indexSchema))
+          .eval { _ =>
+            for {
+              _ <- data.traverse_(row => DB.put(table, row))
+
+              _ <- list(DB.query(index, 1, rk beginsWith "a")).map(
+                _ should contain theSameElementsAs data.take(2).map(Right(_))
+              )
+              _ <- list(DB.query(index, 2, rk beginsWith "c")).map(
+                _ should contain theSameElementsAs data.drop(2).map(Right(_))
+              )
+            } yield ()
+          }
+      }
+    }
+
+    it("can be scanned") {
+      val tableName = s"test-table-${UUID.randomUUID()}"
+      val table = Table.tableWithPK[ExampleData](tableName).withClient[C](client)
+      val index = table.index(indexSchema)
+
+      eval {
+        LocalDynamoDB
+          .withTable(client, tableName, LocalDynamoDB.schema[ExampleData].withIndex(indexSchema))
+          .eval { _ =>
+            for {
+              _ <- data.traverse_(row => DB.put(table, row))
+              _ <- list(DB.scan(index)).map(_ should contain theSameElementsAs data.map(Right(_)))
+            } yield ()
+          }
+      }
+    }
   }
 }

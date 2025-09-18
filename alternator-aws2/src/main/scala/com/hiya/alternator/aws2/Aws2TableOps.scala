@@ -5,7 +5,7 @@ import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
 import com.hiya.alternator.syntax.{ConditionExpression, Segment}
-import com.hiya.alternator.{BatchReadResult, BatchWriteResult, DynamoDBOverride, Table}
+import com.hiya.alternator.{BatchReadResult, BatchWriteResult, DynamoDBOverride, Table, TableLike}
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
 import software.amazon.awssdk.services.dynamodb.model._
 
@@ -84,7 +84,7 @@ object Aws2BatchRead {
   def apply(response: BatchGetItemResponse): Aws2BatchRead = new Aws2BatchRead(response)
 }
 
-class Aws2TableOps[V, PK](val underlying: Table[Aws2DynamoDBClient, V, PK]) extends AnyVal {
+class Aws2TableOps[V, PK](val underlying: TableLike[Aws2DynamoDBClient, V, PK]) extends AnyVal {
   import underlying._
 
   final def deserialize(response: Aws2TableOps.AV): DynamoFormat.Result[V] = {
@@ -122,6 +122,7 @@ class Aws2TableOps[V, PK](val underlying: Table[Aws2DynamoDBClient, V, PK]) exte
     val request = ScanRequest
       .builder()
       .tableName(tableName)
+      .optApp(_.indexName)(underlying.indexNameOpt)
       .optApp(req => (segment: Segment) => req.segment(segment.segment).totalSegments(segment.totalSegments))(segment)
       .consistentRead(consistent)
       .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
@@ -214,7 +215,7 @@ class Aws2TableOps[V, PK](val underlying: Table[Aws2DynamoDBClient, V, PK]) exte
 object Aws2TableOps {
   type AV = java.util.Map[String, AttributeValue]
 
-  @inline def apply[V, PK](underlying: Aws2Table[V, PK]): Aws2TableOps[V, PK] = new Aws2TableOps(underlying)
+  @inline def apply[V, PK](underlying: Aws2TableLike[V, PK]): Aws2TableOps[V, PK] = new Aws2TableOps(underlying)
 
   def dropTable(
     tableName: String,
@@ -232,6 +233,7 @@ object Aws2TableOps {
     readCapacity: Long,
     writeCapacity: Long,
     attributes: List[(String, ScalarType)],
+    globalSecondaryIndexes: List[com.hiya.alternator.GlobalSecondaryIndex],
     overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
   ): CreateTableRequest.Builder = {
     val keySchema: List[KeySchemaElement] = {
@@ -246,6 +248,35 @@ object Aws2TableOps {
       .attributeDefinitions(attributes.map { case (name, scalarType) =>
         AttributeDefinition.builder().attributeName(name).attributeType(scalarType).build()
       }.asJava)
+      .optApp(req => (gsis: List[GlobalSecondaryIndex]) => req.globalSecondaryIndexes(gsis.asJava))(
+        globalSecondaryIndexes match {
+          case Nil => None
+          case gsis =>
+            Some(
+              gsis.map { gsi =>
+                val keySchema: List[KeySchemaElement] = {
+                  KeySchemaElement.builder().attributeName(gsi.partitionKeyName).keyType(KeyType.HASH).build() ::
+                    gsi.rangeKeyName
+                      .map(key => KeySchemaElement.builder().attributeName(key).keyType(KeyType.RANGE).build())
+                      .toList
+                }
+                GlobalSecondaryIndex
+                  .builder()
+                  .indexName(gsi.indexName)
+                  .keySchema(keySchema.asJava)
+                  .provisionedThroughput(
+                    ProvisionedThroughput
+                      .builder()
+                      .readCapacityUnits(readCapacity)
+                      .writeCapacityUnits(writeCapacity)
+                      .build()
+                  )
+                  .projection(Projection.builder().projectionType(ProjectionType.ALL).build())
+                  .build()
+              }
+            )
+        }
+      )
       .provisionedThroughput(
         ProvisionedThroughput.builder().readCapacityUnits(readCapacity).writeCapacityUnits(writeCapacity).build()
       )
