@@ -5,11 +5,11 @@ import com.amazonaws.services.dynamodbv2.model
 import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition}
-import com.hiya.alternator.{DynamoDBOverride, TableWithRange}
+import com.hiya.alternator.{DynamoDBOverride, TableWithRangeLike}
 
 import scala.jdk.CollectionConverters._
 
-class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[Aws1DynamoDBClient, V, PK, RK])
+class Aws1TableWithRangeLikeOps[V, PK, RK](val underlying: TableWithRangeLike[Aws1DynamoDBClient, V, PK, RK])
   extends AnyVal {
 
   import underlying._
@@ -24,6 +24,7 @@ class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[Aws1Dyn
     val request = overrides(
       new model.QueryRequest(tableName)
         .withConsistentRead(consistent)
+        .optApp(_.withIndexName)(underlying.indexNameOpt)
     ).asInstanceOf[model.QueryRequest]
 
     Condition.eval {
@@ -37,11 +38,11 @@ class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRange[Aws1Dyn
   }
 
   final def deserialize(response: model.QueryResult): List[DynamoFormat.Result[V]] = {
-    Option(response.getItems).toList.flatMap(_.asScala.toList.map(Aws1TableOps(underlying).deserialize))
+    Option(response.getItems).toList.flatMap(_.asScala.toList.map(Aws1TableLikeOps(underlying).deserialize))
   }
 }
 
-object Aws1TableWithRangeKeyOps {
-  @inline def apply[V, PK, RK](underlying: TableWithRange[Aws1DynamoDBClient, V, PK, RK]) =
-    new Aws1TableWithRangeKeyOps(underlying)
+object Aws1TableWithRangeLikeOps {
+  @inline def apply[V, PK, RK](underlying: TableWithRangeLike[Aws1DynamoDBClient, V, PK, RK]) =
+    new Aws1TableWithRangeLikeOps(underlying)
 }

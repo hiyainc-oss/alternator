@@ -131,6 +131,7 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
     readCapacity: Long,
     writeCapacity: Long,
     attributes: List[(String, ScalarType)],
+    globalSecondaryIndexes: List[com.hiya.alternator.GlobalSecondaryIndex],
     overrides: DynamoDBOverride[Client]
   ): F[Unit] = {
     val resolvedOverride = overrides.apply(client)
@@ -143,6 +144,7 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
           readCapacity,
           writeCapacity,
           attributes,
+          globalSecondaryIndexes,
           resolvedOverride
         ),
         _: AsyncHandler[CreateTableRequest, CreateTableResult]

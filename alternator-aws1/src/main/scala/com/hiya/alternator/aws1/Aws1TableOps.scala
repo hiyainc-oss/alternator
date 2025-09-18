@@ -5,7 +5,7 @@ import com.amazonaws.services.dynamodbv2.model._
 import com.hiya.alternator.internal.{ConditionalSupport, OptApp}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
-import com.hiya.alternator.syntax.{ConditionExpression, Segment}
+import com.hiya.alternator.syntax.ConditionExpression
 import com.hiya.alternator.{BatchReadResult, BatchWriteResult, DynamoDBOverride, Table}
 
 import java.util
@@ -94,10 +94,6 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, 
     Option(response.getItem).map(deserialize)
   }
 
-  final def deserialize(response: ScanResult): List[DynamoFormat.Result[V]] = {
-    Option(response.getItems).toList.flatMap(_.asScala.toList.map(deserialize))
-  }
-
   final def get(
     pk: PK,
     consistent: Boolean,
@@ -106,24 +102,6 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, 
     overrides(
       new GetItemRequest(underlying.tableName, underlying.schema.serializePK(pk)).withConsistentRead(consistent)
     ).asInstanceOf[GetItemRequest]
-
-  final def scan(
-    segment: Option[Segment] = None,
-    condition: Option[ConditionExpression[Boolean]],
-    consistent: Boolean,
-    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
-  ): ScanRequest = {
-    val request = new ScanRequest(underlying.tableName)
-      .optApp(req =>
-        (segment: Segment) => {
-          req.withSegment(segment.segment).withTotalSegments(segment.totalSegments)
-        }
-      )(segment)
-      .withConsistentRead(consistent)
-      .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
-
-    overrides(request).asInstanceOf[ScanRequest]
-  }
 
   final def batchGet(
     items: Seq[PK],
@@ -203,6 +181,7 @@ object Aws1TableOps {
     readCapacity: Long,
     writeCapacity: Long,
     attributes: List[(String, ScalarType)],
+    globalSecondaryIndexes: List[com.hiya.alternator.GlobalSecondaryIndex],
     overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
   ): CreateTableRequest = {
     val keySchema: List[KeySchemaElement] = {
@@ -218,6 +197,25 @@ object Aws1TableOps {
       keySchema.asJava,
       new ProvisionedThroughput(readCapacity, writeCapacity)
     )
+      .optApp(req => (gsis: List[GlobalSecondaryIndex]) => req.withGlobalSecondaryIndexes(gsis.asJava))(
+        globalSecondaryIndexes match {
+          case Nil => None
+          case gsis =>
+            Some(
+              gsis.map { gsi =>
+                val gsiKeySchema: List[KeySchemaElement] = {
+                  new KeySchemaElement(gsi.partitionKeyName, KeyType.HASH) ::
+                    gsi.rangeKeyName.map(key => new KeySchemaElement(key, KeyType.RANGE)).toList
+                }
+                new GlobalSecondaryIndex()
+                  .withIndexName(gsi.indexName)
+                  .withKeySchema(gsiKeySchema.asJava)
+                  .withProvisionedThroughput(new ProvisionedThroughput(readCapacity, writeCapacity))
+                  .withProjection(new Projection().withProjectionType(ProjectionType.ALL))
+              }
+            )
+        }
+      )
 
     overrides(req).asInstanceOf[CreateTableRequest]
   }

@@ -4,7 +4,7 @@ import cats.syntax.all._
 import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
-import com.hiya.alternator.syntax.{ConditionExpression, Segment}
+import com.hiya.alternator.syntax.ConditionExpression
 import com.hiya.alternator.{BatchReadResult, BatchWriteResult, DynamoDBOverride, Table}
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
 import software.amazon.awssdk.services.dynamodb.model._
@@ -113,25 +113,6 @@ class Aws2TableOps[V, PK](val underlying: Table[Aws2DynamoDBClient, V, PK]) exte
       .consistentRead(consistent)
       .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
 
-  final def scan(
-    segment: Option[Segment] = None,
-    condition: Option[ConditionExpression[Boolean]],
-    consistent: Boolean,
-    overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
-  ): ScanRequest.Builder = {
-    val request = ScanRequest
-      .builder()
-      .tableName(tableName)
-      .optApp(req => (segment: Segment) => req.segment(segment.segment).totalSegments(segment.totalSegments))(segment)
-      .consistentRead(consistent)
-      .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
-
-    condition match {
-      case Some(cond) => ConditionalSupport.eval(request, cond)
-      case None => request
-    }
-  }
-
   final def batchGet(items: Seq[PK]): BatchGetItemRequest.Builder = {
     BatchGetItemRequest
       .builder()
@@ -232,6 +213,7 @@ object Aws2TableOps {
     readCapacity: Long,
     writeCapacity: Long,
     attributes: List[(String, ScalarType)],
+    globalSecondaryIndexes: List[com.hiya.alternator.GlobalSecondaryIndex],
     overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
   ): CreateTableRequest.Builder = {
     val keySchema: List[KeySchemaElement] = {
@@ -246,6 +228,35 @@ object Aws2TableOps {
       .attributeDefinitions(attributes.map { case (name, scalarType) =>
         AttributeDefinition.builder().attributeName(name).attributeType(scalarType).build()
       }.asJava)
+      .optApp(req => (gsis: List[GlobalSecondaryIndex]) => req.globalSecondaryIndexes(gsis.asJava))(
+        globalSecondaryIndexes match {
+          case Nil => None
+          case gsis =>
+            Some(
+              gsis.map { gsi =>
+                val keySchema: List[KeySchemaElement] = {
+                  KeySchemaElement.builder().attributeName(gsi.partitionKeyName).keyType(KeyType.HASH).build() ::
+                    gsi.rangeKeyName
+                      .map(key => KeySchemaElement.builder().attributeName(key).keyType(KeyType.RANGE).build())
+                      .toList
+                }
+                GlobalSecondaryIndex
+                  .builder()
+                  .indexName(gsi.indexName)
+                  .keySchema(keySchema.asJava)
+                  .provisionedThroughput(
+                    ProvisionedThroughput
+                      .builder()
+                      .readCapacityUnits(readCapacity)
+                      .writeCapacityUnits(writeCapacity)
+                      .build()
+                  )
+                  .projection(Projection.builder().projectionType(ProjectionType.ALL).build())
+                  .build()
+              }
+            )
+        }
+      )
       .provisionedThroughput(
         ProvisionedThroughput.builder().readCapacityUnits(readCapacity).writeCapacityUnits(writeCapacity).build()
       )

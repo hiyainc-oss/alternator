@@ -72,7 +72,7 @@ trait DynamoDBSource {
   type Monad[_]
 
   def scan[V, PK](
-    table: Table[Client, V, PK],
+    table: TableLike[Client, V, PK],
     segment: Option[Segment] = None,
     condition: Option[ConditionExpression[Boolean]] = None,
     limit: Option[Int] = None,
@@ -81,9 +81,18 @@ trait DynamoDBSource {
   ): Source[Result[V]]
 
   def query[V, PK, RK](
-    table: TableWithRange[Client, V, PK, RK],
+    table: TableWithRangeLike[Client, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK] = RKCondition.Empty,
+    condition: Option[ConditionExpression[Boolean]] = None,
+    limit: Option[Int] = None,
+    consistent: Boolean = false,
+    overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
+  ): Source[Result[V]]
+
+  def queryPK[V, PK](
+    table: Index[Client, V, PK],
+    pk: PK,
     condition: Option[ConditionExpression[Boolean]] = None,
     limit: Option[Int] = None,
     consistent: Boolean = false,
@@ -341,6 +350,7 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
     readCapacity: Long = 1L,
     writeCapacity: Long = 1L,
     attributes: List[(String, ScalarType)] = Nil,
+    globalSecondaryIndexes: List[GlobalSecondaryIndex] = Nil,
     overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
   ): F[Unit]
 

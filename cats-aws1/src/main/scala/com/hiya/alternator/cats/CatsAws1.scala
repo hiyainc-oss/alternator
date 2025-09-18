@@ -6,11 +6,11 @@ import com.amazonaws.AmazonWebServiceRequest
 import com.amazonaws.handlers.AsyncHandler
 import com.amazonaws.services.dynamodbv2.model.{QueryRequest, QueryResult, ScanRequest, ScanResult}
 import com.hiya.alternator.aws1.internal.Aws1DynamoDB
-import com.hiya.alternator.aws1.{Aws1DynamoDBClient, Aws1TableOps, Aws1TableWithRangeKeyOps}
+import com.hiya.alternator.aws1.{Aws1DynamoDBClient, Aws1IndexOps, Aws1TableLikeOps, Aws1TableWithRangeLikeOps}
 import com.hiya.alternator.cats.internal.CatsBase
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
-import com.hiya.alternator.{DynamoDBOverride, Table, TableWithRange}
+import com.hiya.alternator.{DynamoDBOverride, Index, TableLike, TableWithRangeLike}
 import fs2.Stream
 
 import java.util.concurrent.{Future => JFuture}
@@ -51,7 +51,7 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
   }
 
   override def scan[V, PK](
-    table: Table[Aws1DynamoDBClient, V, PK],
+    table: TableLike[Aws1DynamoDBClient, V, PK],
     segment: Option[Segment],
     condition: Option[ConditionExpression[Boolean]],
     limit: Option[Int],
@@ -61,10 +61,10 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
     val resolvedOverride = (table.overrides |+| overrides).apply(table.client)
     scanPaginator(
       table.client.underlying.scanAsync,
-      Aws1TableOps(table).scan(segment, condition, consistent, resolvedOverride),
+      Aws1TableLikeOps(table).scan(segment, condition, consistent, resolvedOverride),
       limit
     )
-      .flatMap(data => Stream.emits(Aws1TableOps(table).deserialize(data)))
+      .flatMap(data => Stream.emits(Aws1TableLikeOps(table).deserialize(data)))
   }
 
   private def queryPaginator(
@@ -89,7 +89,7 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
   }
 
   override def query[V, PK, RK](
-    table: TableWithRange[Aws1DynamoDBClient, V, PK, RK],
+    table: TableWithRangeLike[Aws1DynamoDBClient, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK],
     condition: Option[ConditionExpression[Boolean]],
@@ -100,10 +100,27 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
     val resolvedOverride = (table.overrides |+| overrides).apply(table.client)
     queryPaginator(
       table.client.underlying.queryAsync,
-      Aws1TableWithRangeKeyOps(table).query(pk, rk, condition, consistent, resolvedOverride),
+      Aws1TableWithRangeLikeOps(table).query(pk, rk, condition, consistent, resolvedOverride),
       limit
     )
-      .flatMap { data => fs2.Stream.emits(Aws1TableWithRangeKeyOps(table).deserialize(data)) }
+      .flatMap { data => fs2.Stream.emits(Aws1TableWithRangeLikeOps(table).deserialize(data)) }
+  }
+
+  override def queryPK[V, PK](
+    table: Index[Aws1DynamoDBClient, V, PK],
+    pk: PK,
+    condition: Option[ConditionExpression[Boolean]],
+    limit: Option[Int],
+    consistent: Boolean,
+    overrides: DynamoDBOverride[Client]
+  ): Stream[F, Result[V]] = {
+    val resolvedOverride = (table.overrides |+| overrides).apply(table.client)
+    queryPaginator(
+      table.client.underlying.queryAsync,
+      Aws1IndexOps(table).queryPK(pk, condition, consistent, resolvedOverride),
+      limit
+    )
+      .flatMap { data => fs2.Stream.emits(Aws1IndexOps(table).deserialize(data)) }
   }
 }
 

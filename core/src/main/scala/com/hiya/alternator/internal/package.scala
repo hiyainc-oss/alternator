@@ -3,7 +3,7 @@ package com.hiya.alternator
 import cats.FlatMap
 import cats.data.State
 import cats.syntax.all._
-import com.hiya.alternator.schema.{AttributeValue, TableSchemaWithRange}
+import com.hiya.alternator.schema.{AttributeValue, TableSchemaWithPartition, TableSchemaWithRange}
 import com.hiya.alternator.syntax.ConditionExpression._
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition}
 
@@ -107,6 +107,12 @@ package object internal {
       }
     }
 
+    def renderPKCondition[AV: AttributeValue, PK](
+      pk: PK,
+      schema: TableSchemaWithPartition.Aux[_, PK]
+    ): Condition[AV, String] = {
+      nonemptyCondition(RKCondition.EQ(pk)(schema.PK), schema.pkField)
+    }
   }
 
   implicit class OptApp[T](underlying: T) {

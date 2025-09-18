@@ -120,11 +120,12 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
     readCapacity: Long,
     writeCapacity: Long,
     attributes: List[(String, ScalarType)],
+    globalSecondaryIndexes: List[GlobalSecondaryIndex] = Nil,
     overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
   ): F[Unit] = {
     val resolvedOverride = overrides(client)
     val req = Aws2TableOps
-      .createTable(tableName, hashKey, rangeKey, readCapacity, writeCapacity, attributes, resolvedOverride)
+      .createTable(tableName, hashKey, rangeKey, readCapacity, writeCapacity, attributes, globalSecondaryIndexes, resolvedOverride)
       .build()
     async(client.client.createTable(req)).map(_ => ())
   }
