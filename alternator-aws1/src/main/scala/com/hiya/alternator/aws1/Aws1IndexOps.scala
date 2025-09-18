@@ -37,7 +37,7 @@ class Aws1IndexOps[V, PK](val underlying: Index[Aws1DynamoDBClient, V, PK])
   }
 
   final def deserialize(response: model.QueryResult): List[DynamoFormat.Result[V]] = {
-    Option(response.getItems).toList.flatMap(_.asScala.toList.map(Aws1TableOps(underlying).deserialize))
+    Option(response.getItems).toList.flatMap(_.asScala.toList.map(Aws1TableLikeOps(underlying).deserialize))
   }
 }
 

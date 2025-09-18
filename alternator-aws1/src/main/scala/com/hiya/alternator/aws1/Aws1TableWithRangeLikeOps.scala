@@ -9,7 +9,7 @@ import com.hiya.alternator.{DynamoDBOverride, TableWithRangeLike}
 
 import scala.jdk.CollectionConverters._
 
-class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRangeLike[Aws1DynamoDBClient, V, PK, RK])
+class Aws1TableWithRangeLikeOps[V, PK, RK](val underlying: TableWithRangeLike[Aws1DynamoDBClient, V, PK, RK])
   extends AnyVal {
 
   import underlying._
@@ -38,11 +38,11 @@ class Aws1TableWithRangeKeyOps[V, PK, RK](val underlying: TableWithRangeLike[Aws
   }
 
   final def deserialize(response: model.QueryResult): List[DynamoFormat.Result[V]] = {
-    Option(response.getItems).toList.flatMap(_.asScala.toList.map(Aws1TableOps(underlying).deserialize))
+    Option(response.getItems).toList.flatMap(_.asScala.toList.map(Aws1TableLikeOps(underlying).deserialize))
   }
 }
 
-object Aws1TableWithRangeKeyOps {
+object Aws1TableWithRangeLikeOps {
   @inline def apply[V, PK, RK](underlying: TableWithRangeLike[Aws1DynamoDBClient, V, PK, RK]) =
-    new Aws1TableWithRangeKeyOps(underlying)
+    new Aws1TableWithRangeLikeOps(underlying)
 }

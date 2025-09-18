@@ -4,7 +4,7 @@ import _root_.cats.effect._
 import _root_.cats.syntax.all._
 import com.hiya.alternator._
 import com.hiya.alternator.aws2.internal.Aws2DynamoDB
-import com.hiya.alternator.aws2.{Aws2DynamoDBClient, Aws2IndexOps, Aws2TableOps, Aws2TableWithRangeKeyOps}
+import com.hiya.alternator.aws2.{Aws2DynamoDBClient, Aws2IndexOps, Aws2TableLikeOps, Aws2TableWithRangeLikeOps}
 import com.hiya.alternator.cats.internal.CatsBase
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
@@ -53,10 +53,10 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     scanPaginator(
       table.client.client.scan,
-      Aws2TableOps(table).scan(segment, condition, consistent, resolvedOverride),
+      Aws2TableLikeOps(table).scan(segment, condition, consistent, resolvedOverride),
       limit
     )
-      .flatMap(data => Stream.emits(Aws2TableOps(table).deserialize(data)))
+      .flatMap(data => Stream.emits(Aws2TableLikeOps(table).deserialize(data)))
   }
 
   private def queryPaginator(
@@ -93,9 +93,9 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     queryPaginator(
       table.client.client.query,
-      Aws2TableWithRangeKeyOps(table).query(pk, rk, condition, consistent, resolvedOverride),
+      Aws2TableWithRangeLikeOps(table).query(pk, rk, condition, consistent, resolvedOverride),
       limit
-    ).flatMap { data => fs2.Stream.emits(Aws2TableWithRangeKeyOps(table).deserialize(data)) }
+    ).flatMap { data => fs2.Stream.emits(Aws2TableWithRangeLikeOps(table).deserialize(data)) }
   }
 
   override def queryPK[V, PK](

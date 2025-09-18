@@ -38,7 +38,7 @@ class Aws2IndexOps[V, PK](val underlying: Aws2Index[V, PK]) extends AnyVal {
   }
 
   final def deserialize(response: model.QueryResponse): List[DynamoFormat.Result[V]] = {
-    if (response.hasItems) response.items().asScala.toList.map(Aws2TableOps(underlying).deserialize)
+    if (response.hasItems) response.items().asScala.toList.map(Aws2TableLikeOps(underlying).deserialize)
     else Nil
   }
 }

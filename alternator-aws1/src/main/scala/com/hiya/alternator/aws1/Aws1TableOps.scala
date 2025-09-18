@@ -5,8 +5,8 @@ import com.amazonaws.services.dynamodbv2.model._
 import com.hiya.alternator.internal.{ConditionalSupport, OptApp}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
-import com.hiya.alternator.syntax.{ConditionExpression, Segment}
-import com.hiya.alternator.{BatchReadResult, BatchWriteResult, DynamoDBOverride, Table, TableLike}
+import com.hiya.alternator.syntax.ConditionExpression
+import com.hiya.alternator.{BatchReadResult, BatchWriteResult, DynamoDBOverride, Table}
 
 import java.util
 import scala.jdk.CollectionConverters._
@@ -85,17 +85,13 @@ object Aws1BatchRead {
   def apply(response: BatchGetItemResult): Aws1BatchRead = new Aws1BatchRead(response)
 }
 
-final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.TableLike[_, V, PK]) {
+final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, PK]) {
   final def deserialize(response: Aws1TableOps.AV): DynamoFormat.Result[V] = {
     underlying.schema.serializeValue.readFields(response)
   }
 
   final def deserialize(response: GetItemResult): Option[DynamoFormat.Result[V]] = {
     Option(response.getItem).map(deserialize)
-  }
-
-  final def deserialize(response: ScanResult): List[DynamoFormat.Result[V]] = {
-    Option(response.getItems).toList.flatMap(_.asScala.toList.map(deserialize))
   }
 
   final def get(
@@ -106,25 +102,6 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.TableLike[_,
     overrides(
       new GetItemRequest(underlying.tableName, underlying.schema.serializePK(pk)).withConsistentRead(consistent)
     ).asInstanceOf[GetItemRequest]
-
-  final def scan(
-    segment: Option[Segment] = None,
-    condition: Option[ConditionExpression[Boolean]],
-    consistent: Boolean,
-    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
-  ): ScanRequest = {
-    val request = new ScanRequest(underlying.tableName)
-      .optApp(_.withIndexName)(underlying.indexNameOpt)
-      .optApp(req =>
-        (segment: Segment) => {
-          req.withSegment(segment.segment).withTotalSegments(segment.totalSegments)
-        }
-      )(segment)
-      .withConsistentRead(consistent)
-      .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
-
-    overrides(request).asInstanceOf[ScanRequest]
-  }
 
   final def batchGet(
     items: Seq[PK],
@@ -188,7 +165,7 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.TableLike[_,
 object Aws1TableOps {
   type AV = java.util.Map[String, AttributeValue]
 
-  @inline def apply[V, PK](underlying: TableLike[_, V, PK]): Aws1TableOps[V, PK] =
+  @inline def apply[V, PK](underlying: Table[_, V, PK]): Aws1TableOps[V, PK] =
     new Aws1TableOps[V, PK](underlying)
 
   def dropTable(

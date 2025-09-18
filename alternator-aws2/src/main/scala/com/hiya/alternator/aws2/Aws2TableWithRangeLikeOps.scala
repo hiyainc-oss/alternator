@@ -11,7 +11,7 @@ import software.amazon.awssdk.services.dynamodb.model.QueryRequest
 
 import scala.jdk.CollectionConverters._
 
-class Aws2TableWithRangeKeyOps[V, PK, RK](val underlying: Aws2TableWithRangeLike[V, PK, RK]) extends AnyVal {
+class Aws2TableWithRangeLikeOps[V, PK, RK](val underlying: Aws2TableWithRangeLike[V, PK, RK]) extends AnyVal {
 
   import underlying._
 
@@ -39,12 +39,12 @@ class Aws2TableWithRangeKeyOps[V, PK, RK](val underlying: Aws2TableWithRangeLike
   }
 
   final def deserialize(response: model.QueryResponse): List[DynamoFormat.Result[V]] = {
-    if (response.hasItems) response.items().asScala.toList.map(Aws2TableOps(underlying).deserialize)
+    if (response.hasItems) response.items().asScala.toList.map(Aws2TableLikeOps(underlying).deserialize)
     else Nil
   }
 }
 
-object Aws2TableWithRangeKeyOps {
+object Aws2TableWithRangeLikeOps {
   @inline def apply[V, PK, RK](underlying: Aws2TableWithRangeLike[V, PK, RK]) =
-    new Aws2TableWithRangeKeyOps(underlying)
+    new Aws2TableWithRangeLikeOps(underlying)
 }
