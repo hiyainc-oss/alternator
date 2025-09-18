@@ -14,7 +14,7 @@ class Aws1IndexOps[V, PK](val underlying: Index[Aws1DynamoDBClient, V, PK])
 
   import underlying._
 
-  def query(
+  def queryPK(
     pk: PK,
     condition: Option[ConditionExpression[_]],
     consistent: Boolean,

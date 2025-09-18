@@ -116,7 +116,7 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     queryPaginator(
       table.client.underlying.queryAsync,
-      Aws1IndexOps(table).query(pk, condition, consistent, resolvedOverride),
+      Aws1IndexOps(table).queryPK(pk, condition, consistent, resolvedOverride),
       limit
     )
       .mapConcat { data => Aws1IndexOps(table).deserialize(data) }

@@ -117,7 +117,7 @@ class CatsAws1[F[+_]](protected override implicit val F: Async[F])
     val resolvedOverride = (table.overrides |+| overrides).apply(table.client)
     queryPaginator(
       table.client.underlying.queryAsync,
-      Aws1IndexOps(table).query(pk, condition, consistent, resolvedOverride),
+      Aws1IndexOps(table).queryPK(pk, condition, consistent, resolvedOverride),
       limit
     )
       .flatMap { data => fs2.Stream.emits(Aws1IndexOps(table).deserialize(data)) }
