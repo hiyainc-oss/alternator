@@ -6,11 +6,14 @@ import com.hiya.alternator.syntax._
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
+object ConditionExpressionTestBase {
+  final case class RenderedConditional[AV](str: String, params: Map[String, String], values: Map[String, AV])
+}
+
 abstract class ConditionExpressionTestBase[AV](implicit av: AttributeValue[AV]) extends AnyFunSpec with Matchers {
+  import ConditionExpressionTestBase._
 
-  final case class RenderedConditional(str: String, params: Map[String, String], values: Map[String, AV])
-
-  def render(expression: ConditionExpression[Boolean]): RenderedConditional = {
+  def render(expression: ConditionExpression[Boolean]): RenderedConditional[AV] = {
     val (params, exp) = Condition.renderCondition(expression).run(ConditionParameters.empty).value
     RenderedConditional(exp, params.names, params.values)
   }
