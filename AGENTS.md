@@ -17,41 +17,35 @@ Alternator is an alternative DynamoDB client for Scala, influenced by Scanamo. I
 
 ### Running Tests
 
-#### Integration Tests (Testcontainers + LocalStack)
-
-Integration tests use Testcontainers to automatically start a LocalStack container with DynamoDB service. These tests are located in `src/it/scala/` directories and require Docker.
+The integration test modules (`integration-tests-*`) use Testcontainers to automatically start a LocalStack container with DynamoDB service. Other modules may have unit tests that don't require Docker or external dependencies.
 
 ```bash
+# Run all integration tests across all integration-tests-* modules
+sbt integration-tests/test
+
 # Run all integration tests for a specific module
-sbt "project alternator-akka-aws2" IntegrationTest/test
+sbt "project integration-tests-cats-aws2" test
 
-# Run a specific integration test class
-sbt "project alternator-akka-aws2" "IntegrationTest/testOnly *AkkaAws2WriteTests"
+# Run all tests for a specific implementation module (may include unit tests)
+sbt "project alternator-akka-aws2" test
 
-# Run all integration tests across all projects
-sbt IntegrationTest/test
+# Run all tests across all projects
+sbt test
+
+# Skip integration tests (useful for faster feedback during development)
+sbt "set ThisBuild / skipIntegrationTests := true" test
+
+# Run a specific test class
+sbt "project integration-tests-cats-aws2" "testOnly *CatsAws2Tests"
 ```
 
-**Important**:
-- **Docker is required** to run integration tests. Ensure Docker is installed and running.
+**Important for Integration Tests**:
+- **Docker is required** for integration tests. Ensure Docker is installed and running.
 - LocalStack container is automatically started on the first test execution and shared across all tests in a module.
 - Each parallel module gets its own container on a different dynamic port to allow parallel testing.
 - Containers are cleaned up automatically when the JVM exits.
 - LocalStack provides a complete local AWS cloud stack including DynamoDB.
-
-#### Unit Tests
-
-Unit tests (if any) are in `src/test/scala/` and can be run without Docker:
-
-```bash
-# Run unit tests for a specific module
-sbt "project alternator-akka-aws2" test
-
-# Run all unit tests across all projects
-sbt test
-```
-
-**Note**: Currently, all existing tests in Alternator are integration tests using LocalStack's DynamoDB service.
+- Integration tests are in the standard `Test` configuration in `integration-tests-*` modules.
 
 ### Building
 
@@ -183,15 +177,17 @@ The base class provides complete test suites covering:
 
 ### Test Infrastructure
 
-Integration tests use Testcontainers to manage LocalStack containers:
-- **Location**: Integration tests are in `src/it/scala/` directories (not `src/test/scala/`)
-- **Configuration**: Uses sbt's `IntegrationTest` configuration with `Defaults.itSettings`
+Integration tests (in `integration-tests-*` modules) use Testcontainers to manage LocalStack containers:
+- **Location**: Integration tests are in `integration-tests-*/src/test/scala/` directories
+- **Configuration**: Uses standard sbt `Test` configuration (not `IntegrationTest`)
 - **Container**: LocalStack with DynamoDB service (port 4566)
-- **Container lifecycle**: One shared container per module, started lazily on first integration test execution
+- **Container lifecycle**: One shared container per module, started lazily on first test execution
 - **Container registry**: `DynamoDBContainerRegistry` provides thread-safe singleton access to the container
 - **Test isolation**: Each test creates temporary tables via `LocalDynamoDB.withTable`, ensuring isolation
 - **Cleanup**: Containers stop automatically on JVM shutdown; tables are cleaned up after each test
-- **Dependencies**: Test dependencies are scoped to `"it,test"` to be available in both configurations
+- **Dependencies**: Test dependencies are scoped to `Test` configuration
+
+Other modules may have unit tests that don't use Testcontainers and don't require Docker.
 
 ## Testing Code That Uses Alternator
 
