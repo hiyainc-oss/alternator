@@ -263,6 +263,200 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
     }
   }
 
+  describe("conditional operations with diverse expressions") {
+    it("should handle complex AND conditions that match") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("complex", 100)) >>
+            DB.putAndReturn(
+              table,
+              DataPK("complex", 200),
+              (attr("value") === 100) && (attr("key") === "complex")
+            ).map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("complex", 100)))))
+        }
+      }
+    }
+
+    it("should handle complex AND conditions that fail") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("complex", 100)) >>
+            DB.putAndReturn(
+              table,
+              DataPK("complex", 200),
+              (attr("value") === 100) && (attr("key") === "wrong")
+            ).map(_ shouldBe ConditionResult.Failed)
+        }
+      }
+    }
+
+    it("should handle OR conditions that match on first clause") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("or-test", 50)) >>
+            DB.putAndReturn(
+              table,
+              DataPK("or-test", 75),
+              (attr("value") === 50) || (attr("value") === 999)
+            ).map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("or-test", 50)))))
+        }
+      }
+    }
+
+    it("should handle OR conditions that match on second clause") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("or-test", 50)) >>
+            DB.putAndReturn(
+              table,
+              DataPK("or-test", 75),
+              (attr("value") === 999) || (attr("value") === 50)
+            ).map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("or-test", 50)))))
+        }
+      }
+    }
+
+    it("should handle OR conditions that fail on all clauses") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("or-test", 50)) >>
+            DB.putAndReturn(
+              table,
+              DataPK("or-test", 75),
+              (attr("value") === 999) || (attr("value") === 888)
+            ).map(_ shouldBe ConditionResult.Failed)
+        }
+      }
+    }
+
+    it("should handle comparison operators with success") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("compare", 50)) >>
+            DB.deleteAndReturn(table, "compare", condition = attr("value") > 25)
+              .map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("compare", 50)))))
+        }
+      }
+    }
+
+    it("should handle comparison operators with failure") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("compare", 50)) >>
+            DB.deleteAndReturn(table, "compare", condition = attr("value") > 100)
+              .map(_ shouldBe ConditionResult.Failed)
+        }
+      }
+    }
+
+    it("should handle not-equal operator with success") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("neq", 50)) >>
+            DB.deleteAndReturn(table, "neq", condition = attr("value") =!= 999)
+              .map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("neq", 50)))))
+        }
+      }
+    }
+
+    it("should handle not-equal operator with failure") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("neq", 50)) >>
+            DB.deleteAndReturn(table, "neq", condition = attr("value") =!= 50)
+              .map(_ shouldBe ConditionResult.Failed)
+        }
+      }
+    }
+
+    it("should handle attribute_exists with success") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("exists", 1)) >>
+            DB.putAndReturn(table, DataPK("exists", 2), attr("value").exists)
+              .map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("exists", 1)))))
+        }
+      }
+    }
+
+    it("should handle attribute_exists with failure") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("exists", 1)) >>
+            DB.putAndReturn(table, DataPK("exists", 2), attr("nonexistent").exists)
+              .map(_ shouldBe ConditionResult.Failed)
+        }
+      }
+    }
+
+    it("should handle attribute_not_exists with success") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("notexists", 1)) >>
+            DB.putAndReturn(table, DataPK("notexists", 2), attr("nonexistent").notExists)
+              .map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("notexists", 1)))))
+        }
+      }
+    }
+
+    it("should handle attribute_not_exists with failure") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("notexists", 1)) >>
+            DB.putAndReturn(table, DataPK("notexists", 2), attr("value").notExists)
+              .map(_ shouldBe ConditionResult.Failed)
+        }
+      }
+    }
+
+    it("should handle complex AND+OR combinations that match") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("combo", 100)) >>
+            DB.deleteAndReturn(
+              table,
+              "combo",
+              condition = ((attr("value") > 50) && (attr("key") === "combo")) || (attr("value") === 999)
+            ).map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("combo", 100)))))
+        }
+      }
+    }
+
+    it("should handle complex AND+OR combinations that fail") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("combo", 100)) >>
+            DB.deleteAndReturn(
+              table,
+              "combo",
+              condition = ((attr("value") > 50) && (attr("key") === "wrong")) || (attr("value") === 999)
+            ).map(_ shouldBe ConditionResult.Failed)
+        }
+      }
+    }
+
+    it("should distinguish between boolean and ConditionResult return types") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          for {
+            _ <- DB.put(table, DataPK("ret-type", 10))
+            // Boolean return: condition fails -> false
+            boolResult <- DB.put(table, DataPK("ret-type", 20), attr("value") === 999)
+            _ = boolResult shouldBe false
+            // ConditionResult return: condition fails -> ConditionResult.Failed
+            condResult <- DB.putAndReturn(table, DataPK("ret-type", 30), attr("value") === 999)
+            _ = condResult shouldBe ConditionResult.Failed
+            // Boolean return: condition succeeds -> true
+            boolSuccess <- DB.put(table, DataPK("ret-type", 40), attr("value") === 10)
+            _ = boolSuccess shouldBe true
+            // ConditionResult return: condition succeeds -> ConditionResult.Success with old value
+            condSuccess <- DB.putAndReturn(table, DataPK("ret-type", 50), attr("value") === 40)
+          } yield condSuccess shouldBe ConditionResult.Success(Some(Right(DataPK("ret-type", 40))))
+        }
+      }
+    }
+  }
+
   describe("scan") {
     def withData[T](f: Table[C, DataPK, String] => F[T]): T = eval {
       DataPK.config.withTable(client).eval { table =>
