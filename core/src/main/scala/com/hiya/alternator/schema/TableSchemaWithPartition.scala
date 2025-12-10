@@ -2,7 +2,7 @@ package com.hiya.alternator.schema
 
 abstract class TableSchemaWithPartition[V](
   serializeValue: RootDynamoFormat[V],
-  val pkField: String,
+  val pkField: String
 ) extends TableSchema[V](serializeValue) {
 
   type PK

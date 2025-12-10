@@ -10,11 +10,7 @@ import com.hiya.alternator.schema.ScalarType
 import com.hiya.alternator.syntax.ConditionExpression
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
 import software.amazon.awssdk.services.dynamodb.model
-import software.amazon.awssdk.services.dynamodb.model.{
-  BatchGetItemResponse,
-  KeysAndAttributes,
-  WriteRequest
-}
+import software.amazon.awssdk.services.dynamodb.model.{BatchGetItemResponse, KeysAndAttributes, WriteRequest}
 
 import java.util
 import java.util.concurrent.CompletionException
@@ -125,7 +121,16 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
   ): F[Unit] = {
     val resolvedOverride = overrides(client)
     val req = Aws2TableOps
-      .createTable(tableName, hashKey, rangeKey, readCapacity, writeCapacity, attributes, globalSecondaryIndexes, resolvedOverride)
+      .createTable(
+        tableName,
+        hashKey,
+        rangeKey,
+        readCapacity,
+        writeCapacity,
+        attributes,
+        globalSecondaryIndexes,
+        resolvedOverride
+      )
       .build()
     async(client.client.createTable(req)).map(_ => ())
   }
