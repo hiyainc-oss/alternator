@@ -299,17 +299,6 @@ This project uses:
 
 Both are configured in `project/Dependencies.scala` and applied automatically.
 
-## Contributing
-
-Before making changes:
-1. **Discuss first**: Discuss proposed changes with repository owners via issue or other communication channels (see CONTRIBUTING.md)
-2. **Follow coding standards**: Adhere to the functional programming style and type annotation requirements above
-3. **Add tests**: All new operations must include tests in `test-base/DynamoDBTestBase`
-4. **Cross-compile**: Verify changes work across both Scala 2.12 and 2.13 using `+test`
-5. **Format code**: Run `sbt scalafmtAll` before submitting
-
-See CONTRIBUTING.md for full contribution guidelines and code of conduct.
-
 ## Cross-Version Support
 
 The project supports Scala 2.12 and 2.13. When making changes:
