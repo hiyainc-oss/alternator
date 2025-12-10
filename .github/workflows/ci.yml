@@ -163,11 +163,15 @@ jobs:
         id: coverage
         run: |
           if [ -f "target/scala-2.13/scoverage-report/scoverage.xml" ]; then
-            COVERAGE=$(grep -oP 'statement-rate="\K[0-9.]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
-            echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
-            echo "Aggregate Coverage: $COVERAGE%"
+            STMT_RATE=$(grep -oP 'statement-rate="\K[0-9.]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
+            BRANCH_RATE=$(grep -oP 'branch-rate="\K[0-9.]+' target/scala-2.13/scoverage-report/scoverage.xml | head -1)
+            echo "statement_rate=$STMT_RATE" >> $GITHUB_OUTPUT
+            echo "branch_rate=$BRANCH_RATE" >> $GITHUB_OUTPUT
+            echo "Statement Coverage: $STMT_RATE%"
+            echo "Branch Coverage: $BRANCH_RATE%"
           else
-            echo "percentage=N/A" >> $GITHUB_OUTPUT
+            echo "statement_rate=N/A" >> $GITHUB_OUTPUT
+            echo "branch_rate=N/A" >> $GITHUB_OUTPUT
             echo "Coverage XML report not found"
           fi
       - name: Comment PR with coverage
@@ -176,13 +180,15 @@ jobs:
         with:
           script: |
             const hasCoverage = '${{ steps.check.outputs.has_coverage }}' === 'true';
-            const coverage = '${{ steps.coverage.outputs.percentage }}';
+            const stmtRate = '${{ steps.coverage.outputs.statement_rate }}';
+            const branchRate = '${{ steps.coverage.outputs.branch_rate }}';
 
             let body;
-            if (hasCoverage && coverage && coverage !== 'N/A') {
+            if (hasCoverage && stmtRate && stmtRate !== 'N/A') {
               body = `## 📊 Test Coverage Report
 
-            **Aggregated Coverage:** ${coverage}%
+            **Statement Coverage:** ${stmtRate}%
+            **Branch Coverage:** ${branchRate}%
 
             Coverage aggregated from all test runs (unit + integration tests, Scala 2.13).
 
