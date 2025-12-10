@@ -130,21 +130,36 @@ jobs:
           jvm: temurin:17
           apps: sbt
       - name: Download all coverage data
+        id: download
         uses: actions/download-artifact@v4
         with:
           pattern: coverage-data-*
           merge-multiple: true
+        continue-on-error: true
+      - name: Check for coverage data
+        id: check
+        run: |
+          if find . -name "scoverage-data" -type d | grep -q .; then
+            echo "has_coverage=true" >> $GITHUB_OUTPUT
+            echo "Coverage data found"
+          else
+            echo "has_coverage=false" >> $GITHUB_OUTPUT
+            echo "No coverage data found - skipping report"
+          fi
       - name: Generate aggregate coverage report
+        if: steps.check.outputs.has_coverage == 'true'
         run: sbt coverageAggregate
         env:
           SBT_TPOLECAT_CI: true
       - name: Upload aggregate coverage report
+        if: steps.check.outputs.has_coverage == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report-aggregate
           path: target/scala-*/scoverage-report/
           retention-days: 30
       - name: Parse coverage results
+        if: steps.check.outputs.has_coverage == 'true'
         id: coverage
         run: |
           if [ -f "target/scala-2.13/scoverage-report/index.html" ]; then
@@ -156,6 +171,7 @@ jobs:
             echo "Coverage report not found"
           fi
       - name: Comment PR with coverage
+        if: steps.check.outputs.has_coverage == 'true'
         uses: actions/github-script@v7
         with:
           script: |
