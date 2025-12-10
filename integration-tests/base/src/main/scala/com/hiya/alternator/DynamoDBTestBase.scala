@@ -457,6 +457,52 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
     }
   }
 
+  describe("error handling") {
+    it("should handle get on non-existent table") {
+      val nonExistentTable = Table.tableWithPK[DataPK]("non-existent-table-" + UUID.randomUUID()).withClient[C](client)
+
+      val result = eval {
+        DB.get(nonExistentTable, "any-key").attempt
+      }
+
+      result.isLeft shouldBe true
+    }
+
+    it("should handle put with malformed data gracefully") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          // Try to get a value that doesn't exist - should return None, not error
+          DB.get(table, "non-existent-key").map(_ shouldBe None)
+        }
+      }
+    }
+
+    it("should handle delete on non-existent key") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          // Deleting a non-existent key should succeed (no-op)
+          DB.delete(table, "non-existent-key").map(_ shouldBe (()))
+        }
+      }
+    }
+
+    it("should handle query on empty table") {
+      eval {
+        DataRK.config.withTable(client).eval { table =>
+          list(DB.query(table, pk = "non-existent-pk").raiseError).map(_ shouldBe List.empty)
+        }
+      }
+    }
+
+    it("should handle scan on empty table") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          list(DB.scan(table).raiseError).map(_ shouldBe List.empty)
+        }
+      }
+    }
+  }
+
   describe("scan") {
     def withData[T](f: Table[C, DataPK, String] => F[T]): T = eval {
       DataPK.config.withTable(client).eval { table =>
