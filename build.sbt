@@ -8,8 +8,13 @@ ThisBuild / scalaVersion := "2.13.14"
 ThisBuild / organization := "com.hiya"
 ThisBuild / versionScheme := Some("early-semver")
 ThisBuild / tpolecatDefaultOptionsMode := DevMode
-ThisBuild / githubOwner := "hiyainc-oss"
-ThisBuild / githubRepository := "alternator"
+ThisBuild / publishTo := Some("GitHub Package Registry" at "https://maven.pkg.github.com/hiyainc-oss/alternator")
+ThisBuild / credentials += Credentials(
+  "GitHub Package Registry",
+  "maven.pkg.github.com",
+  "_",
+  sys.env.getOrElse("GITHUB_TOKEN", "")
+)
 ThisBuild / Test / fork := true
 ThisBuild / run / fork := true
 ThisBuild / semanticdbEnabled := true
