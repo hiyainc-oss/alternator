@@ -1,4 +1,5 @@
 import org.typelevel.sbt.tpolecat.*
+import sbt.internal.util.{Appender, GithubAppender}
 
 ThisBuild / crossScalaVersions := Seq("2.13.16", "2.12.19")
 ThisBuild / scalaVersion := "2.13.16"
@@ -17,6 +18,19 @@ ThisBuild / Test / fork := true
 ThisBuild / run / fork := true
 ThisBuild / semanticdbEnabled := true
 ThisBuild / semanticdbVersion := scalafixSemanticdb.revision
+ThisBuild / extraAppenders := {
+  val currentAppenders = (ThisBuild / extraAppenders).value
+  val baseDir = (ThisBuild / baseDirectory).value
+  val isCI = insideCI.value
+  (key: Def.ScopedKey[_]) => {
+    val baseAppenders = currentAppenders(key)
+    if (isCI) {
+      new GithubAppender(baseDir) +: baseAppenders
+    } else {
+      baseAppenders
+    }
+  }
+}
 
 lazy val `alternator-core` = (project in file("core"))
   .settings(
