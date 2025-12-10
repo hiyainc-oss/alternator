@@ -41,14 +41,14 @@ lazy val `alternator-core` = (project in file("core"))
 
 
 lazy val `alternator-aws2` = (project in file("alternator-aws2"))
-  .dependsOn(`alternator-core`)
+  .dependsOn(`alternator-core` % "compile->compile;test->test")
   .settings(
     BuildCommon.commonSettings,
     libraryDependencies ++= Dependencies.AlternatorAws2,
   )
 
 lazy val `alternator-aws1` = (project in file("alternator-aws1"))
-  .dependsOn(`alternator-core`)
+  .dependsOn(`alternator-core` % "compile->compile;test->test")
   .settings(
     BuildCommon.commonSettings,
     libraryDependencies ++= Dependencies.AlternatorAws1,
