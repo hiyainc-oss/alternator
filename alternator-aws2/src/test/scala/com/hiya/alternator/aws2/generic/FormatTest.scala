@@ -27,6 +27,10 @@ class FormatTest extends AnyFunSpec with Matchers {
       iso(Test("asd"))(semiauto.derive[Test])
     }
 
+    it("should fail to test GithubAppender") {
+      fail("This test failure should appear as a GitHub Actions annotation")
+    }
+
     it("should derive a case class [int]") {
       final case class Test(a: Int)
       iso(Test(1))(semiauto.derive[Test])
