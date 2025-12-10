@@ -171,19 +171,33 @@ jobs:
             echo "Coverage report not found"
           fi
       - name: Comment PR with coverage
-        if: steps.check.outputs.has_coverage == 'true'
+        if: always()
         uses: actions/github-script@v7
         with:
           script: |
+            const hasCoverage = '${{ steps.check.outputs.has_coverage }}' === 'true';
             const coverage = '${{ steps.coverage.outputs.percentage }}';
 
-            const body = `## 📊 Test Coverage Report
+            let body;
+            if (hasCoverage && coverage && coverage !== 'N/A') {
+              body = `## 📊 Test Coverage Report
 
             **Aggregated Coverage:** ${coverage}%
 
-            Coverage aggregated from all test runs (unit + integration tests, Scala 2.13 + 2.12).
+            Coverage aggregated from all test runs (unit + integration tests, Scala 2.13).
 
             📦 Detailed HTML coverage report available in the [\`coverage-report-aggregate\` artifact](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).`;
+            } else {
+              body = `## 📊 Test Coverage Report
+
+            ⚠️ **Coverage data not available**
+
+            Coverage reporting was skipped because:
+            - Integration tests may not have run (only run on merge queue or with \`run-integration-tests\` label)
+            - Or there was an error collecting coverage data
+
+            [View workflow run for details](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+            }
 
             // Find existing comment
             const { data: comments } = await github.rest.issues.listComments({
