@@ -95,7 +95,12 @@ lazy val `alternator-cats-aws1` = (project in file("cats-aws1"))
   )
 
 // Integration test subprojects (defined in integration-tests/build.sbt)
-lazy val `integration-tests` = project in file("integration-tests")
+lazy val `integration-tests` = project
+  .in(file("integration-tests"))
+  .settings(
+    publish / skip := true,
+    Test / skip := BuildCommon.skipIntegrationTests.value
+  )
 
 lazy val `tests` = project in file("tests")
 publish / skip := true
