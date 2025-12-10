@@ -38,7 +38,12 @@ jobs:
           jvm: temurin:17
           apps: sbt
       - name: Run unit tests with coverage
-        run: sbt ++${{ matrix.scala }} clean coverage test
+        run: |
+          if [ "${{ matrix.scala }}" == "2.13.16" ]; then
+            sbt ++2.13 clean coverage test
+          else
+            sbt ++${{ matrix.scala }} test
+          fi
         env:
           SBT_TPOLECAT_CI: true
       - name: Upload coverage data
@@ -72,7 +77,12 @@ jobs:
           jvm: temurin:17
           apps: sbt
       - name: Run integration tests with coverage
-        run: sbt ++${{ matrix.scala }} clean coverage integration-tests/test
+        run: |
+          if [ "${{ matrix.scala }}" == "2.13.16" ]; then
+            sbt ++2.13 clean coverage integration-tests/test
+          else
+            sbt ++${{ matrix.scala }} integration-tests/test
+          fi
         env:
           SBT_TPOLECAT_CI: true
           RUN_INTEGRATION_TESTS: true
