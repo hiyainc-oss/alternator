@@ -37,10 +37,18 @@ jobs:
         with:
           jvm: temurin:17
           apps: sbt
-      - name: Run unit tests
-        run: sbt ++${{ matrix.scala }} test
+      - name: Run unit tests with coverage
+        run: sbt ++${{ matrix.scala }} clean coverage test
         env:
           SBT_TPOLECAT_CI: true
+      - name: Upload coverage data
+        if: github.event_name == 'pull_request' && matrix.scala == '2.13.16'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data-unit
+          path: |
+            **/target/scala-2.13/scoverage-data/
+          retention-days: 5
 
   integration-tests:
     name: Integration Tests
@@ -63,11 +71,19 @@ jobs:
         with:
           jvm: temurin:17
           apps: sbt
-      - name: Run integration tests
-        run: sbt ++${{ matrix.scala }} integration-tests/test
+      - name: Run integration tests with coverage
+        run: sbt ++${{ matrix.scala }} clean coverage integration-tests/test
         env:
           SBT_TPOLECAT_CI: true
           RUN_INTEGRATION_TESTS: true
+      - name: Upload coverage data
+        if: github.event_name == 'pull_request' && matrix.scala == '2.13.16'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data-integration
+          path: |
+            **/target/scala-2.13/scoverage-data/
+          retention-days: 5
 
   scalafmt:
     name: Code Formatting Check
@@ -86,6 +102,92 @@ jobs:
           apps: sbt
       - name: Check code formatting
         run: sbt scalafmtCheckAll
+
+  coverage-report:
+    name: Coverage Report
+    if: github.event_name == 'pull_request' && always()
+    needs: [unit-tests, integration-tests]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout current branch (full)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Java (temurin@17)
+        uses: coursier/setup-action@v1
+        with:
+          jvm: temurin:17
+          apps: sbt
+      - name: Download all coverage data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-data-*
+          merge-multiple: true
+      - name: Generate aggregate coverage report
+        run: sbt coverageAggregate
+        env:
+          SBT_TPOLECAT_CI: true
+      - name: Upload aggregate coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-aggregate
+          path: target/scala-*/scoverage-report/
+          retention-days: 30
+      - name: Parse coverage results
+        id: coverage
+        run: |
+          if [ -f "target/scala-2.13/scoverage-report/index.html" ]; then
+            COVERAGE=$(grep -oP 'Total.*?>\K[0-9.]+(?=%)' target/scala-2.13/scoverage-report/index.html | head -1)
+            echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+            echo "Aggregate Coverage: $COVERAGE%"
+          else
+            echo "percentage=N/A" >> $GITHUB_OUTPUT
+            echo "Coverage report not found"
+          fi
+      - name: Comment PR with coverage
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const coverage = '${{ steps.coverage.outputs.percentage }}';
+
+            const body = `## 📊 Test Coverage Report
+
+            **Aggregated Coverage:** ${coverage}%
+
+            Coverage aggregated from all test runs (unit + integration tests, Scala 2.13 + 2.12).
+
+            📦 Detailed HTML coverage report available in the [\`coverage-report-aggregate\` artifact](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).`;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Test Coverage Report')
+            );
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
 
   ci-success:
     name: CI Success
