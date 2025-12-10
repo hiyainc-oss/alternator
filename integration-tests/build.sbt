@@ -56,3 +56,17 @@ lazy val `integration-tests-cats-aws2` = project
     publish / skip := true,
     Test / skip := BuildCommon.skipIntegrationTests.value
   )
+
+// Root aggregate project
+lazy val `integration-tests` = (project in file("."))
+  .aggregate(
+    `integration-tests-base`,
+    `integration-tests-akka-aws1`,
+    `integration-tests-akka-aws2`,
+    `integration-tests-cats-aws1`,
+    `integration-tests-cats-aws2`
+  )
+  .settings(
+    publish / skip := true,
+    Test / skip := BuildCommon.skipIntegrationTests.value
+  )

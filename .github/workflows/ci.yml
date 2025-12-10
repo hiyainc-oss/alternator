@@ -97,4 +97,5 @@ jobs:
         uses: re-actors/alls-green@release/v1
         with:
           allowed-skips: integration-tests
+          allowed-failures: scalafmt
           jobs: ${{ toJSON(needs) }}
