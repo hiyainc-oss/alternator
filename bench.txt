@@ -1,0 +1,27 @@
+Scanamo M23
+[info] Benchmark                   Mode  Cnt     Score    Error  Units
+[info] Aws2Benchmark.read_10      thrpt    9   131.408 ± 13.092  ops/s
+[info] Aws2Benchmark.read_100     thrpt    9    10.380 ±  0.257  ops/s
+[info] Aws2Benchmark.read_1000    thrpt    9     0.274 ±  0.015  ops/s
+[info] Aws2Benchmark.write_10     thrpt    9   177.505 ±  6.496  ops/s
+[info] Aws2Benchmark.write_100    thrpt    9    19.305 ±  0.189  ops/s
+[info] Aws2Benchmark.write_1000   thrpt    9     1.726 ±  0.042  ops/s
+
+[info] Aws2Benchmark.read_10     thrpt    9  120.749 ±  7.858  ops/s
+[info] Aws2Benchmark.read_100    thrpt    9    9.563 ±  0.091  ops/s
+[info] Aws2Benchmark.read_1000   thrpt    9    0.276 ±  0.018  ops/s
+[info] Aws2Benchmark.write_10    thrpt    9  155.740 ± 11.595  ops/s
+[info] Aws2Benchmark.write_100   thrpt    9   15.493 ±  2.099  ops/s
+[info] Aws2Benchmark.write_1000  thrpt    9    1.295 ±  0.069  ops/s
+
+
+AWS2
+[info] AlternatorBenchmark.read_10      thrpt    9   407.876 ±   2.920  ops/s
+[info] AlternatorBenchmark.read_100     thrpt    9    40.231 ±   0.641  ops/s
+[info] AlternatorBenchmark.read_1000    thrpt    9     2.934 ±   0.015  ops/s
+[info] AlternatorBenchmark.write_10     thrpt    9   169.086 ±   4.676  ops/s
+[info] AlternatorBenchmark.write_100    thrpt    9    16.863 ±   0.183  ops/s
+[info] AlternatorBenchmark.write_1000   thrpt    9     1.491 ±   0.115  ops/s
+
+New AWS2
+
