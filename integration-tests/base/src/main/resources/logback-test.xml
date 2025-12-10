@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Suppress noisy testcontainers/docker-java logs -->
+    <logger name="com.github.dockerjava" level="ERROR"/>
+    <logger name="com.github.dockerjava.zerodep" level="ERROR"/>
+    <logger name="org.testcontainers" level="WARN"/>
+    <logger name="org.testcontainers.utility" level="ERROR"/>
+    <logger name="org.testcontainers.dockerclient" level="ERROR"/>
+    <logger name="tc" level="WARN"/>
+
+    <!-- Default level -->
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>

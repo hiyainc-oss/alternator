@@ -5,7 +5,7 @@ import cats.syntax.all._
 import com.hiya.alternator.generic.semiauto
 import com.hiya.alternator.schema.{IndexSchema, IndexSchemaWithRange, RootDynamoFormat, TableSchema}
 import com.hiya.alternator.syntax._
-import com.hiya.alternator.testkit.LocalDynamoDB
+import com.hiya.alternator.testkit.{LocalDynamoDB, TestContainerInitializer}
 import com.hiya.alternator.util.{DataPK, DataRK}
 import org.scalatest.funspec.AnyFunSpecLike
 import org.scalatest.matchers.should
@@ -21,7 +21,10 @@ object DynamoDBTestBase {
   }
 }
 
-abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient] extends AnyFunSpecLike with should.Matchers {
+abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
+  extends AnyFunSpecLike
+  with should.Matchers
+  with TestContainerInitializer {
 
   import DynamoDBTestBase._
 

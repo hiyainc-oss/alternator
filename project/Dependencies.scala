@@ -3,6 +3,7 @@ import sbt.*
 object Dependencies {
   private val akkaV = "2.6.21"
   private val jacksonV = "2.17.2"
+  private val testcontainersScalaV = "0.44.0"
 
   private val dynamoDB2           = "software.amazon.awssdk"      % "dynamodb"         % "2.25.35"
   private val dynamoDB            = "com.amazonaws"               % "aws-java-sdk-dynamodb" % "1.12.765"
@@ -21,6 +22,8 @@ object Dependencies {
   private val scalaCheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.16" % "1.3.1"
   private val collectionsCompat   = "org.scala-lang.modules"     %% "scala-collection-compat" % "2.12.0"
   private val logback             = "ch.qos.logback" % "logback-classic" % "1.5.6"
+  private val testcontainersScalaLocalStack = "com.dimafeng" %% "testcontainers-scala-localstack-v2" % testcontainersScalaV
+  private val testcontainersScalaScalatest = "com.dimafeng" %% "testcontainers-scala-scalatest" % testcontainersScalaV
 
   private val jacksonOverride = Seq(
     "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonV,
@@ -28,8 +31,10 @@ object Dependencies {
     "com.fasterxml.jackson.core" % "jackson-databind" % jacksonV
   )
   
-  val KindProjector = compilerPlugin("org.typelevel" % "kind-projector" % "0.13.3" cross CrossVersion.full)
-  val MonadicFor = compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
+  private val KindProjector = compilerPlugin("org.typelevel" % "kind-projector" % "0.13.3" cross CrossVersion.full)
+  private val MonadicFor = compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
+
+  val CompilerPlugins = Seq(KindProjector, MonadicFor)
 
   object Tests {
     val ScanamoBase = Seq(
@@ -44,10 +49,6 @@ object Dependencies {
     val Alternator = Seq(
     )
   }
-
-  val TestBase = Seq(
-    scalaTest
-  )
 
   val AlternatorAws2 = Seq(
     dynamoDB2,
@@ -84,40 +85,30 @@ object Dependencies {
     akkaActor,
   )
 
-  val AkkaAws2 = Seq(
-    akkaTestkit         % Test,
-    scalaTest           % Test,
-    scalaCheck          % Test,
-    scalaCheckShapeless % Test,
-    logback             % Test
-  ) ++ jacksonOverride
+  val AkkaAws2 = jacksonOverride
 
-  val AkkaAws1 = Seq(
-    akkaTestkit         % Test,
-    scalaTest           % Test,
-    scalaCheck          % Test,
-    scalaCheckShapeless % Test,
-    logback             % Test
-  ) ++ jacksonOverride
+  val AkkaAws1 = jacksonOverride
 
   val CatsBase = Seq(
     catsEffect,
     fs2Core,
   )
 
-  val CatsAws2 = Seq(
-    akkaTestkit % Test,
-    scalaTest % Test,
-    scalaCheck % Test,
-    scalaCheckShapeless % Test,
-    logback % Test
-  )
+  val CatsAws2 = Seq.empty
 
-  val CatsAws1 = Seq(
-    akkaTestkit % Test,
-    scalaTest % Test,
-    scalaCheck % Test,
-    scalaCheckShapeless % Test,
-    logback % Test
+  val CatsAws1 = Seq.empty
+
+  // Integration test dependencies
+  // Note: All integration tests need AWS SDK v2 (dynamoDB2) regardless of which SDK version
+  // the module uses, because Testcontainers LocalStack requires it for DynamoDB configuration
+  val IntegrationTestBase = Seq(
+    dynamoDB2,  // Required by Testcontainers for LocalStack configuration
+    testcontainersScalaLocalStack,
+    testcontainersScalaScalatest,
+    scalaTest,
+    scalaCheck,
+    scalaCheckShapeless,
+    akkaTestkit,
+    logback
   )
 }
