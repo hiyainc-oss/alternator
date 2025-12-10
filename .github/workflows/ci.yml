@@ -163,9 +163,14 @@ jobs:
         id: coverage
         run: |
           if [ -f "target/scala-2.13/scoverage-report/index.html" ]; then
-            COVERAGE=$(grep -oP 'Total.*?>\K[0-9.]+(?=%)' target/scala-2.13/scoverage-report/index.html | head -1)
-            echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
-            echo "Aggregate Coverage: $COVERAGE%"
+            COVERAGE=$(grep -oP 'Total.*?>\K[0-9.]+(?=%)' target/scala-2.13/scoverage-report/index.html | head -1 || echo "")
+            if [ -n "$COVERAGE" ]; then
+              echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+              echo "Aggregate Coverage: $COVERAGE%"
+            else
+              echo "percentage=N/A" >> $GITHUB_OUTPUT
+              echo "Could not parse coverage percentage"
+            fi
           else
             echo "percentage=N/A" >> $GITHUB_OUTPUT
             echo "Coverage report not found"
