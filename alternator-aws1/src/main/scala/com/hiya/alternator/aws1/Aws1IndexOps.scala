@@ -9,8 +9,7 @@ import com.hiya.alternator.{DynamoDBOverride, Index}
 
 import scala.jdk.CollectionConverters._
 
-class Aws1IndexOps[V, PK](val underlying: Index[Aws1DynamoDBClient, V, PK])
-  extends AnyVal {
+class Aws1IndexOps[V, PK](val underlying: Index[Aws1DynamoDBClient, V, PK]) extends AnyVal {
 
   import underlying._
 

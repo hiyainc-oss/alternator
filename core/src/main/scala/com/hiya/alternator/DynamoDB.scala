@@ -304,7 +304,11 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
     values: Seq[V],
     overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
   ): F[BatchWriteResult[BatchWriteItemRequest, BatchWriteItemResponse, AttributeValue]] =
-    batchWrite(table.client, Map(table.tableName -> values.map(batchPutRequest(table, _))), overrides |+| table.overrides)
+    batchWrite(
+      table.client,
+      Map(table.tableName -> values.map(batchPutRequest(table, _))),
+      overrides |+| table.overrides
+    )
 
   @inline final def batchDeleteAll[T, V, PK](
     table: Table[Client, V, PK],
