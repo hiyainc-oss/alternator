@@ -53,7 +53,7 @@ jobs:
           name: coverage-data-unit
           path: |
             **/target/scala-2.13/scoverage-data/
-          retention-days: 5
+          retention-days: 1
 
   integration-tests:
     name: Integration Tests
@@ -93,7 +93,7 @@ jobs:
           name: coverage-data-integration
           path: |
             **/target/scala-2.13/scoverage-data/
-          retention-days: 5
+          retention-days: 1
 
   scalafmt:
     name: Code Formatting Check
