@@ -79,7 +79,7 @@ jobs:
       - name: Run integration tests with coverage
         run: |
           if [ "${{ matrix.scala }}" == "2.13.16" ]; then
-            sbt ++${{ matrix.scala }} clean coverage integration-tests/test
+            sbt ++${{ matrix.scala }} clean coverage Test/compile integration-tests/test
           else
             sbt ++${{ matrix.scala }} integration-tests/test
           fi
