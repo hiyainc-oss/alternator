@@ -158,6 +158,14 @@ jobs:
           name: coverage-report-aggregate
           path: target/scala-*/scoverage-report/
           retention-days: 30
+      - name: Delete intermediate coverage artifacts
+        if: steps.check.outputs.has_coverage == 'true'
+        continue-on-error: true
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            coverage-data-unit
+            coverage-data-integration
       - name: Parse coverage results
         if: steps.check.outputs.has_coverage == 'true'
         id: coverage
