@@ -17,20 +17,35 @@ Alternator is an alternative DynamoDB client for Scala, influenced by Scanamo. I
 
 ### Running Tests
 
-Tests use DynamoDB Local, which is automatically started via the `dynamoDBLocal` sbt plugin:
+The integration test modules (`integration-tests-*`) use Testcontainers to automatically start a LocalStack container with DynamoDB service. Other modules may have unit tests that don't require Docker or external dependencies.
 
 ```bash
-# Run all tests for a specific module
-sbt "project alternator-akka-aws2" test
+# Run all integration tests across all integration-tests-* modules
+sbt integration-tests/test
 
-# Run a specific test class
-sbt "project alternator-akka-aws2" "testOnly *AkkaAws2WriteTests"
+# Run all integration tests for a specific module
+sbt "project integration-tests-cats-aws2" test
+
+# Run all tests for a specific implementation module (may include unit tests)
+sbt "project alternator-akka-aws2" test
 
 # Run all tests across all projects
 sbt test
+
+# Skip integration tests (useful for faster feedback during development)
+sbt "set ThisBuild / skipIntegrationTests := true" test
+
+# Run a specific test class
+sbt "project integration-tests-cats-aws2" "testOnly *CatsAws2Tests"
 ```
 
-**Important**: Tests are configured to automatically start DynamoDB Local before running. Each module uses a unique port calculated from the module name and Scala version to allow parallel testing.
+**Important for Integration Tests**:
+- **Docker is required** for integration tests. Ensure Docker is installed and running.
+- LocalStack container is automatically started on the first test execution and shared across all tests in a module.
+- Each parallel module gets its own container on a different dynamic port to allow parallel testing.
+- Containers are cleaned up automatically when the JVM exits.
+- LocalStack provides a complete local AWS cloud stack including DynamoDB.
+- Integration tests are in the standard `Test` configuration in `integration-tests-*` modules.
 
 ### Building
 
@@ -160,31 +175,44 @@ The base class provides complete test suites covering:
 
 **This means when adding new DynamoDB features, add the test cases once in `DynamoDBTestBase` and all four implementations will automatically test it.**
 
-Tests use `LocalDynamoDB.withTable` to create temporary tables for each test scenario, ensuring isolation.
+### Test Infrastructure
+
+Integration tests (in `integration-tests-*` modules) use Testcontainers to manage LocalStack containers:
+- **Location**: Integration tests are in `integration-tests-*/src/test/scala/` directories
+- **Configuration**: Uses standard sbt `Test` configuration (not `IntegrationTest`)
+- **Container**: LocalStack with DynamoDB service (port 4566)
+- **Container lifecycle**: One shared container per module, started lazily on first test execution
+- **Container registry**: `DynamoDBContainerRegistry` provides thread-safe singleton access to the container
+- **Test isolation**: Each test creates temporary tables via `LocalDynamoDB.withTable`, ensuring isolation
+- **Cleanup**: Containers stop automatically on JVM shutdown; tables are cleaned up after each test
+- **Dependencies**: Test dependencies are scoped to `Test` configuration
+
+Other modules may have unit tests that don't use Testcontainers and don't require Docker.
 
 ## Testing Code That Uses Alternator
 
-When writing tests for code that uses Alternator, use **Testcontainers with DynamoDB Local** for fast, isolated testing:
+When writing tests for code that uses Alternator, use **Testcontainers with LocalStack** for fast, isolated testing:
 
 ### Recommended Approach: Testcontainers
 
-Use the `testcontainers-scala` library with DynamoDB Local container:
+Use the `testcontainers-scala` library with LocalStack container:
 
 ```scala
 import com.dimafeng.testcontainers.GenericContainer
 import org.testcontainers.containers.wait.strategy.Wait
 
-// Start DynamoDB Local container
-val dynamoContainer = GenericContainer(
-  dockerImage = "amazon/dynamodb-local:latest",
-  exposedPorts = Seq(8000),
+// Start LocalStack container with DynamoDB
+val localstackContainer = GenericContainer(
+  dockerImage = "localstack/localstack:latest",
+  exposedPorts = Seq(4566),
+  env = Map("SERVICES" -> "dynamodb", "EAGER_SERVICE_LOADING" -> "1"),
   waitStrategy = Wait.forListeningPort()
 )
 
-dynamoContainer.start()
+localstackContainer.start()
 
 // Configure your DynamoDB client to point to the container
-val endpoint = s"http://${dynamoContainer.host}:${dynamoContainer.mappedPort(8000)}"
+val endpoint = s"http://${localstackContainer.host}:${localstackContainer.mappedPort(4566)}"
 // Create your client with this endpoint
 ```
 
@@ -227,9 +255,9 @@ val table = Table.tableWithPK[MyData](tableName).withClient(mockClient)
 
 ### Key Points
 
-- **Preferred**: Use Testcontainers for DynamoDB Local (tests real DynamoDB behavior)
+- **Preferred**: Use Testcontainers with LocalStack (tests real DynamoDB behavior via LocalStack)
 - **Alternative**: Mock the DynamoDB client for fast unit tests (doesn't test actual DynamoDB)
-- Alternator's internal tests use `sbt-dynamodb` plugin with `withDynamoDBLocal()` configuration
+- Alternator's internal tests use Testcontainers with automatic LocalStack container management via `DynamoDBContainerRegistry`
 - Each test gets a fresh, isolated table via `LocalDynamoDB.withTable`
 - Table schema is automatically derived from your `TableSchema` implicit
 - Use `LocalDynamoDB.schema[T].withIndex(indexSchema)` to add secondary indexes for testing
@@ -240,8 +268,8 @@ val table = Table.tableWithPK[MyData](tableName).withClient(mockClient)
 1. **Modify core logic**: Start in `alternator-core` if changing schema or format logic
 2. **Modify AWS SDK integration**: Edit `alternator-aws1` or `alternator-aws2` for SDK-specific changes
 3. **Modify effect system logic**: Edit `akka-base` or `cats-base` for effect-specific changes
-4. **Update tests**: Modify `test-base` for shared test logic, or specific module tests for integration tests
-5. **Run tests**: Always run tests for the modified module and any dependent modules
+4. **Update tests**: Modify `test-base` for shared test logic, or specific module integration tests in `src/it/scala/`
+5. **Run integration tests**: Always run integration tests for the modified module and any dependent modules
 6. **Check for errors**: Verify compilation after edits
 7. **Format code**: Format modified Scala files with scalafmt
 
@@ -266,7 +294,7 @@ To add a new DynamoDB operation across all four implementations (akka-aws1, akka
    - Add test cases to `DynamoDBTestBase` - all four implementations will automatically inherit and run these tests
    - Each implementation only needs to provide the client instance and `eval`/`list` methods
 
-5. **Verify across all modules**: Run `sbt test` to ensure all implementations pass the new tests
+5. **Verify across all modules**: Run `sbt IntegrationTest/test` to ensure all implementations pass the new tests
 
 ## Coding Standards
 

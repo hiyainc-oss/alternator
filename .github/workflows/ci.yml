@@ -6,6 +6,8 @@ env:
 on:
   pull_request:
     branches: ['**']
+    types: [opened, synchronize, reopened, labeled]
+  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -16,13 +18,13 @@ defaults:
     shell: bash
 
 jobs:
-  build:
-    name: Build and Test
+  unit-tests:
+    name: Unit Tests
     timeout-minutes: 10
     strategy:
       matrix:
         os: [ubuntu-latest]
-        scala: [2.13.14, 2.12.19]
+        scala: [2.13.16, 2.12.19]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -35,13 +37,64 @@ jobs:
         with:
           jvm: temurin:17
           apps: sbt
-      - name: Get DynamoDBLocal
-        run: |
-          mkdir dynamodb-local
-          cd dynamodb-local 
-          wget https://s3-us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz
-          tar -xzf dynamodb_local_latest.tar.gz
-      - name: Build project
+      - name: Run unit tests
         run: sbt ++${{ matrix.scala }} test
         env:
           SBT_TPOLECAT_CI: true
+
+  integration-tests:
+    name: Integration Tests
+    # Run on merge queue OR when PR has 'run-integration-tests' label
+    if: github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'run-integration-tests')
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.13.16, 2.12.19]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout current branch (full)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Java (temurin@17)
+        uses: coursier/setup-action@v1
+        with:
+          jvm: temurin:17
+          apps: sbt
+      - name: Run integration tests
+        run: sbt ++${{ matrix.scala }} integration-tests/test
+        env:
+          SBT_TPOLECAT_CI: true
+          RUN_INTEGRATION_TESTS: true
+
+  scalafmt:
+    name: Code Formatting Check
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout current branch (full)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Java (temurin@17)
+        uses: coursier/setup-action@v1
+        with:
+          jvm: temurin:17
+          apps: sbt
+      - name: Check code formatting
+        run: sbt scalafmtCheckAll
+
+  ci-success:
+    name: CI Success
+    if: always()
+    needs: [unit-tests, integration-tests, scalafmt]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all jobs succeeded
+        uses: re-actors/alls-green@release/v1
+        with:
+          allowed-skips: integration-tests
+          jobs: ${{ toJSON(needs) }}
