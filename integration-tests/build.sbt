@@ -17,6 +17,7 @@ lazy val `integration-tests-akka-aws1` = project
   )
   .settings(
     BuildCommon.commonSettings,
+    libraryDependencies ++= Dependencies.IntegrationTestAkka,
     publish / skip := true,
     Test / skip := BuildCommon.skipIntegrationTests.value
   )
@@ -29,6 +30,7 @@ lazy val `integration-tests-akka-aws2` = project
   )
   .settings(
     BuildCommon.commonSettings,
+    libraryDependencies ++= Dependencies.IntegrationTestAkka,
     publish / skip := true,
     Test / skip := BuildCommon.skipIntegrationTests.value
   )
@@ -53,6 +55,32 @@ lazy val `integration-tests-cats-aws2` = project
   )
   .settings(
     BuildCommon.commonSettings,
+    publish / skip := true,
+    Test / skip := BuildCommon.skipIntegrationTests.value
+  )
+
+lazy val `integration-tests-pekko-aws1` = project
+  .in(file("pekko-aws1"))
+  .dependsOn(
+    LocalProject("alternator-pekko-aws1"),
+    `integration-tests-base`
+  )
+  .settings(
+    BuildCommon.commonSettings,
+    libraryDependencies ++= Dependencies.IntegrationTestPekko,
+    publish / skip := true,
+    Test / skip := BuildCommon.skipIntegrationTests.value
+  )
+
+lazy val `integration-tests-pekko-aws2` = project
+  .in(file("pekko-aws2"))
+  .dependsOn(
+    LocalProject("alternator-pekko-aws2"),
+    `integration-tests-base`
+  )
+  .settings(
+    BuildCommon.commonSettings,
+    libraryDependencies ++= Dependencies.IntegrationTestPekko,
     publish / skip := true,
     Test / skip := BuildCommon.skipIntegrationTests.value
   )

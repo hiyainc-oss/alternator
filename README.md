@@ -14,7 +14,7 @@ Alternator is an alternative DynamoDB client for Scala, influenced by [Scanamo](
 - 🚀 **Performance**: 3-10x faster than Scanamo for read operations (see [benchmarks](#performance))
 - 🔒 **Type-safe**: Compile-time guarantees with `TableSchema` and type-safe condition expressions
 - 🎯 **Scanamo-compatible**: Almost perfectly compatible DynamoFormat implementation for easy migration
-- ⚡ **Flexible**: Choose your effect system (Akka Streams or Cats Effect)
+- ⚡ **Flexible**: Choose your effect system (Akka Streams, Apache Pekko Streams, or Cats Effect)
 - 🔧 **Multi-SDK**: Support for both AWS SDK v1 and v2
 
 ## Quick Start
@@ -43,12 +43,20 @@ libraryDependencies += "com.hiya" %% "alternator-cats-aws2" % "0.12.0"
 // Cats Effect + AWS SDK v1
 libraryDependencies += "com.hiya" %% "alternator-cats-aws1" % "0.12.0"
 
-// Akka Streams + AWS SDK v2
+// Apache Pekko Streams + AWS SDK v2 (Recommended for streaming)
+libraryDependencies += "com.hiya" %% "alternator-pekko-aws2" % "0.12.0"
+
+// Apache Pekko Streams + AWS SDK v1
+libraryDependencies += "com.hiya" %% "alternator-pekko-aws1" % "0.12.0"
+
+// Akka Streams + AWS SDK v2 (legacy, prefer Pekko for new projects)
 libraryDependencies += "com.hiya" %% "alternator-akka-aws2" % "0.12.0"
 
 // Akka Streams + AWS SDK v1
 libraryDependencies += "com.hiya" %% "alternator-akka-aws1" % "0.12.0"
 ```
+
+> **Note**: Both Akka 2.6.21 and Apache Pekko 1.4.0 are supported. Pekko is an open-source fork of Akka maintained by the Apache Software Foundation with the same API but without licensing concerns. New projects should prefer Pekko.
 
 > **Note:** Current version is 0.12.0. Check [releases](https://github.com/hiyainc-oss/alternator/releases) for the latest version
 
@@ -97,11 +105,11 @@ object Example extends IOApp.Simple {
 }
 ```
 
-### Basic Usage (Akka Streams)
+### Basic Usage (Pekko Streams)
 
 ```scala
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.Sink
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.Sink
 import com.hiya.alternator._
 import com.hiya.alternator.generic.semiauto
 import com.hiya.alternator.schema.{RootDynamoFormat, TableSchema}
@@ -109,7 +117,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object AkkaExample extends App {
+object PekkoExample extends App {
   implicit val system: ActorSystem = ActorSystem("alternator-example")
   implicit val ec: ExecutionContext = system.dispatcher
 
@@ -133,12 +141,16 @@ object AkkaExample extends App {
 
 | Your Stack | AWS SDK | Module to Use |
 |------------|---------|---------------|
-| New project with Cats Effect | v2 (Recommended) | `alternator-cats-aws2` |
-| Existing Cats Effect project | v1 | `alternator-cats-aws1` |
-| New project with Akka Streams | v2 (Recommended) | `alternator-akka-aws2` |
-| Existing Akka project | v1 | `alternator-akka-aws1` |
+| Cats Effect | v2 (Recommended) | `alternator-cats-aws2` |
+| Cats Effect | v1 | `alternator-cats-aws1` |
+| Apache Pekko Streams | v2 (Recommended) | `alternator-pekko-aws2` |
+| Apache Pekko Streams | v1 | `alternator-pekko-aws1` |
+| Akka Streams (legacy) | v2 | `alternator-akka-aws2` |
+| Akka Streams (legacy) | v1 | `alternator-akka-aws1` |
 
 > **Note:** AWS SDK v2 is recommended for new projects (better performance, HTTP/2 support, more active development)
+
+> **Apache Pekko vs Akka:** Apache Pekko is an open-source fork of Akka 2.6 maintained by the Apache Software Foundation with the same API. New projects should prefer Pekko to avoid Akka's BSL licensing concerns. Both are supported for compatibility.
 
 ## Core Features
 
