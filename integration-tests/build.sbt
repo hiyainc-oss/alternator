@@ -9,10 +9,10 @@ lazy val `integration-tests-base` = (project in file("base"))
     publish / skip := true
   )
 
-lazy val `integration-tests-akka-aws1` = project
-  .in(file("akka-aws1"))
+lazy val `integration-tests-pekko-aws1` = project
+  .in(file("pekko-aws1"))
   .dependsOn(
-    LocalProject("alternator-akka-aws1"),
+    LocalProject("alternator-pekko-aws1"),
     `integration-tests-base`
   )
   .settings(
@@ -21,10 +21,10 @@ lazy val `integration-tests-akka-aws1` = project
     Test / skip := BuildCommon.skipIntegrationTests.value
   )
 
-lazy val `integration-tests-akka-aws2` = project
-  .in(file("akka-aws2"))
+lazy val `integration-tests-pekko-aws2` = project
+  .in(file("pekko-aws2"))
   .dependsOn(
-    LocalProject("alternator-akka-aws2"),
+    LocalProject("alternator-pekko-aws2"),
     `integration-tests-base`
   )
   .settings(

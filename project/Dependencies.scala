@@ -1,7 +1,7 @@
 import sbt.*
 
 object Dependencies {
-  private val akkaV = "2.6.21"
+  private val pekkoV = "1.1.2"
   private val jacksonV = "2.17.2"
   private val testcontainersScalaV = "0.44.0"
 
@@ -15,10 +15,10 @@ object Dependencies {
   private val catsEffect          = "org.typelevel"              %% "cats-effect"      % "3.4.2"
   private val catsFree            = "org.typelevel"              %% "cats-free"        % "2.12.0"
   private val fs2Core             = "co.fs2"                     %% "fs2-core"         % "3.10.2"
-  private val akkaActor           = "com.typesafe.akka"          %% "akka-actor"       % akkaV
-  private val akkaTyped           = "com.typesafe.akka"          %% "akka-actor-typed" % akkaV
-  private val akkaTestkit         = "com.typesafe.akka"          %% "akka-testkit"     % akkaV
-  private val akkaStream          = "com.typesafe.akka"          %% "akka-stream"      % akkaV
+  private val pekkoActor          = "org.apache.pekko"          %% "pekko-actor"       % pekkoV
+  private val pekkoTyped          = "org.apache.pekko"          %% "pekko-actor-typed" % pekkoV
+  private val pekkoTestkit        = "org.apache.pekko"          %% "pekko-testkit"     % pekkoV
+  private val pekkoStream         = "org.apache.pekko"          %% "pekko-stream"      % pekkoV
   private val scalaCheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.16" % "1.3.1"
   private val collectionsCompat   = "org.scala-lang.modules"     %% "scala-collection-compat" % "2.12.0"
   private val logback             = "ch.qos.logback" % "logback-classic" % "1.5.6"
@@ -79,15 +79,15 @@ object Dependencies {
     scalaCheckShapeless % Test
   )
 
-  val AkkaBase = Seq(
-    akkaTyped,
-    akkaStream,
-    akkaActor,
+  val PekkoBase = Seq(
+    pekkoTyped,
+    pekkoStream,
+    pekkoActor,
   )
 
-  val AkkaAws2 = jacksonOverride
+  val PekkoAws2 = jacksonOverride
 
-  val AkkaAws1 = jacksonOverride
+  val PekkoAws1 = jacksonOverride
 
   val CatsBase = Seq(
     catsEffect,
@@ -108,7 +108,7 @@ object Dependencies {
     scalaTest,
     scalaCheck,
     scalaCheckShapeless,
-    akkaTestkit,
+    pekkoTestkit,  // For Pekko integration tests
     logback
   )
 }

@@ -54,31 +54,31 @@ lazy val `alternator-aws1` = (project in file("alternator-aws1"))
     libraryDependencies ++= Dependencies.AlternatorAws1,
   )
 
-lazy val `alternator-akka-base` = (project in file("akka-base"))
+lazy val `alternator-pekko-base` = (project in file("pekko-base"))
   .dependsOn(`alternator-core`)
   .settings(
     BuildCommon.commonSettings,
-    libraryDependencies ++= Dependencies.AkkaBase,
+    libraryDependencies ++= Dependencies.PekkoBase,
   )
 
-lazy val `alternator-akka-aws2` = (project in file("akka-aws2"))
+lazy val `alternator-pekko-aws2` = (project in file("pekko-aws2"))
   .dependsOn(
     `alternator-aws2`,
-    `alternator-akka-base`
+    `alternator-pekko-base`
   )
   .settings(
     BuildCommon.commonSettings,
-    libraryDependencies ++= Dependencies.AkkaAws2
+    libraryDependencies ++= Dependencies.PekkoAws2
   )
 
-lazy val `alternator-akka-aws1` = (project in file("akka-aws1"))
+lazy val `alternator-pekko-aws1` = (project in file("pekko-aws1"))
   .dependsOn(
     `alternator-aws1`,
-    `alternator-akka-base`
+    `alternator-pekko-base`
   )
   .settings(
     BuildCommon.commonSettings,
-    libraryDependencies ++= Dependencies.AkkaAws1
+    libraryDependencies ++= Dependencies.PekkoAws1
   )
 
 lazy val `alternator-cats-base` = (project in file("cats-base"))
