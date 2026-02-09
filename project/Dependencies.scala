@@ -2,6 +2,7 @@ import sbt.*
 
 object Dependencies {
   private val akkaV = "2.6.21"
+  private val pekkoV = "1.4.0"
   private val jacksonV = "2.17.2"
   private val testcontainersScalaV = "0.44.0"
 
@@ -19,6 +20,10 @@ object Dependencies {
   private val akkaTyped           = "com.typesafe.akka"          %% "akka-actor-typed" % akkaV
   private val akkaTestkit         = "com.typesafe.akka"          %% "akka-testkit"     % akkaV
   private val akkaStream          = "com.typesafe.akka"          %% "akka-stream"      % akkaV
+  private val pekkoActor          = "org.apache.pekko"          %% "pekko-actor"       % pekkoV
+  private val pekkoTyped          = "org.apache.pekko"          %% "pekko-actor-typed" % pekkoV
+  private val pekkoTestkit        = "org.apache.pekko"          %% "pekko-testkit"     % pekkoV
+  private val pekkoStream         = "org.apache.pekko"          %% "pekko-stream"      % pekkoV
   private val scalaCheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.16" % "1.3.1"
   private val collectionsCompat   = "org.scala-lang.modules"     %% "scala-collection-compat" % "2.12.0"
   private val logback             = "ch.qos.logback" % "logback-classic" % "1.5.6"
@@ -31,7 +36,7 @@ object Dependencies {
     "com.fasterxml.jackson.core" % "jackson-databind" % jacksonV
   )
   
-  private val KindProjector = compilerPlugin("org.typelevel" % "kind-projector" % "0.13.3" cross CrossVersion.full)
+  private val KindProjector = compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4" cross CrossVersion.full)
   private val MonadicFor = compilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
 
   val CompilerPlugins = Seq(KindProjector, MonadicFor)
@@ -98,6 +103,16 @@ object Dependencies {
 
   val CatsAws1 = Seq.empty
 
+  val PekkoBase = Seq(
+    pekkoTyped,
+    pekkoStream,
+    pekkoActor,
+  )
+
+  val PekkoAws2 = jacksonOverride
+
+  val PekkoAws1 = jacksonOverride
+
   // Integration test dependencies
   // Note: All integration tests need AWS SDK v2 (dynamoDB2) regardless of which SDK version
   // the module uses, because Testcontainers LocalStack requires it for DynamoDB configuration
@@ -108,7 +123,14 @@ object Dependencies {
     scalaTest,
     scalaCheck,
     scalaCheckShapeless,
-    akkaTestkit,
     logback
+  )
+
+  val IntegrationTestAkka = Seq(
+    akkaTestkit
+  )
+
+  val IntegrationTestPekko = Seq(
+    pekkoTestkit
   )
 }

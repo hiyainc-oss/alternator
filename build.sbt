@@ -1,8 +1,8 @@
 import org.typelevel.sbt.tpolecat.*
 import sbt.internal.util.{Appender, GithubAppender}
 
-ThisBuild / crossScalaVersions := Seq("2.13.16", "2.12.19")
-ThisBuild / scalaVersion := "2.13.16"
+ThisBuild / crossScalaVersions := Seq("2.13.18", "2.12.19")
+ThisBuild / scalaVersion := "2.13.18"
 ThisBuild / organization := "com.hiya"
 ThisBuild / versionScheme := Some("early-semver")
 ThisBuild / tpolecatDefaultOptionsMode := DevMode
@@ -106,6 +106,33 @@ lazy val `alternator-cats-aws1` = (project in file("cats-aws1"))
   .settings(
     BuildCommon.commonSettings,
     libraryDependencies ++= Dependencies.CatsAws1
+  )
+
+lazy val `alternator-pekko-base` = (project in file("pekko-base"))
+  .dependsOn(`alternator-core`)
+  .settings(
+    BuildCommon.commonSettings,
+    libraryDependencies ++= Dependencies.PekkoBase,
+  )
+
+lazy val `alternator-pekko-aws2` = (project in file("pekko-aws2"))
+  .dependsOn(
+    `alternator-aws2`,
+    `alternator-pekko-base`
+  )
+  .settings(
+    BuildCommon.commonSettings,
+    libraryDependencies ++= Dependencies.PekkoAws2
+  )
+
+lazy val `alternator-pekko-aws1` = (project in file("pekko-aws1"))
+  .dependsOn(
+    `alternator-aws1`,
+    `alternator-pekko-base`
+  )
+  .settings(
+    BuildCommon.commonSettings,
+    libraryDependencies ++= Dependencies.PekkoAws1
   )
 
 // Integration test subprojects (defined in integration-tests/build.sbt)

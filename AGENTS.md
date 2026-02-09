@@ -49,18 +49,21 @@ sbt "project integration-tests-cats-aws2" "testOnly *CatsAws2Tests"
 
 ### Building
 
-```bash
-# Compile test sources
-sbt Test/compile
+**IMPORTANT**: This project cross-builds for multiple Scala versions (2.13.18 and 2.12.19). Always use the `+` prefix to compile for all versions:
 
-# Compile a specific module
-sbt "project alternator-core" Test/compile
+```bash
+# Cross-compile test sources for all Scala versions (RECOMMENDED)
+sbt +Test/compile
+
+# Compile for a specific Scala version
+sbt ++2.13.18 Test/compile
+sbt ++2.12.19 Test/compile
+
+# Compile a specific module for all Scala versions
+sbt "project alternator-core" +Test/compile
 
 # Compile test sources for a specific module
-sbt "project alternator-akka-aws2" Test/compile
-
-# Cross-compile for all Scala versions (2.12 and 2.13)
-sbt +Test/compile
+sbt "project alternator-akka-aws2" +Test/compile
 ```
 
 ### Formatting
@@ -99,21 +102,23 @@ These modules are internal implementation layers for code sharing, not user-faci
 ### Effect System Layers
 
 **Internal base modules** (for code sharing):
-- **`akka-base`**: Akka-specific batching logic using Akka Typed actors for batch read/write operations.
+- **`pekko-base`**: Apache Pekko-specific batching logic using Pekko Typed actors for batch read/write operations.
 - **`cats-base`**: Cats Effect specific logic for DynamoDB operations.
 
 **User-facing modules** (use these in your projects):
-- **`alternator-akka-aws1`**: Combines akka-base + alternator-aws1. Provides `AkkaAws1` object with DynamoDB operations returning Akka Streams `Source[T, _]`.
-- **`alternator-akka-aws2`**: Combines akka-base + alternator-aws2. Provides `AkkaAws2` object with DynamoDB operations returning Akka Streams `Source[T, _]`.
+- **`alternator-pekko-aws1`**: Combines pekko-base + alternator-aws1. Provides `PekkoAws1` object with DynamoDB operations returning Pekko Streams `Source[T, _]`.
+- **`alternator-pekko-aws2`**: Combines pekko-base + alternator-aws2. Provides `PekkoAws2` object with DynamoDB operations returning Pekko Streams `Source[T, _]`.
 - **`alternator-cats-aws1`**: Combines cats-base + alternator-aws1. Provides Cats Effect IO/fs2 Stream operations.
 - **`alternator-cats-aws2`**: Combines cats-base + alternator-aws2. Provides Cats Effect IO/fs2 Stream operations.
+
+> **Note**: As of version 0.12.0, Akka modules have been replaced with Apache Pekko to avoid licensing concerns.
 
 ### Testing
 
 - **`test-base`**: Shared test utilities and base test traits (e.g., `DynamoDBTestBase`, test data models like `DataPK` and `DataRK`).
 - **`tests`**: Aggregate project (publish skipped).
 
-**Pattern**: Each concrete module (e.g., `alternator-akka-aws2`) depends on a base module (e.g., `akka-base`) and an AWS SDK adapter (e.g., `alternator-aws2`), plus `test-base` for testing.
+**Pattern**: Each concrete module (e.g., `alternator-pekko-aws2`) depends on a base module (e.g., `pekko-base`) and an AWS SDK adapter (e.g., `alternator-aws2`), plus `test-base` for testing.
 
 ## Key Concepts
 
@@ -161,7 +166,7 @@ Indexes are accessed via `table.index(indexSchema)` and support `query` and `sca
 
 **This section describes how Alternator's internal test suite is structured, not how to test code that uses Alternator.**
 
-**DynamoDBTestBase contains the generic test cases for all implementations.** Each concrete implementation (akka-aws1, akka-aws2, cats-aws1, cats-aws2) extends `DynamoDBTestBase[F, S, C]` and only needs to provide:
+**DynamoDBTestBase contains the generic test cases for all implementations.** Each concrete implementation (pekko-aws1, pekko-aws2, cats-aws1, cats-aws2) extends `DynamoDBTestBase[F, S, C]` and only needs to provide:
 - The concrete client instance
 - Effect-specific type parameters `F[_]` (single item) and `S[_]` (stream)
 - Implementation of `eval` and `list` methods to run effects
@@ -267,7 +272,7 @@ val table = Table.tableWithPK[MyData](tableName).withClient(mockClient)
 
 1. **Modify core logic**: Start in `alternator-core` if changing schema or format logic
 2. **Modify AWS SDK integration**: Edit `alternator-aws1` or `alternator-aws2` for SDK-specific changes
-3. **Modify effect system logic**: Edit `akka-base` or `cats-base` for effect-specific changes
+3. **Modify effect system logic**: Edit `pekko-base` or `cats-base` for effect-specific changes
 4. **Update tests**: Modify `test-base` for shared test logic, or specific module integration tests in `src/it/scala/`
 5. **Run integration tests**: Always run integration tests for the modified module and any dependent modules
 6. **Check for errors**: Verify compilation after edits
@@ -275,7 +280,7 @@ val table = Table.tableWithPK[MyData](tableName).withClient(mockClient)
 
 ## Adding New Operations
 
-To add a new DynamoDB operation across all four implementations (akka-aws1, akka-aws2, cats-aws1, cats-aws2):
+To add a new DynamoDB operation across all four implementations (pekko-aws1, pekko-aws2, cats-aws1, cats-aws2):
 
 1. **Add to core trait** (`core/src/main/scala/com/hiya/alternator/DynamoDB.scala`):
    - Add the operation signature to the appropriate trait (`DynamoDBSource` for streaming operations or similar)
@@ -287,14 +292,14 @@ To add a new DynamoDB operation across all four implementations (akka-aws1, akka
    - These provide the concrete SDK calls but remain effect-system-agnostic
 
 3. **Implement effect-specific logic**:
-   - **For Akka** (`akka-base`, `alternator-akka-aws1`, `alternator-akka-aws2`): Implement streaming with Akka Streams `Source`
+   - **For Pekko** (`pekko-base`, `alternator-pekko-aws1`, `alternator-pekko-aws2`): Implement streaming with Pekko Streams `Source`
    - **For Cats** (`cats-base`, `alternator-cats-aws1`, `alternator-cats-aws2`): Implement with Cats Effect `IO` and fs2 `Stream`
 
 4. **Add tests once in `test-base`**:
    - Add test cases to `DynamoDBTestBase` - all four implementations will automatically inherit and run these tests
    - Each implementation only needs to provide the client instance and `eval`/`list` methods
 
-5. **Verify across all modules**: Run `sbt IntegrationTest/test` to ensure all implementations pass the new tests
+5. **Verify across all modules**: Run `sbt integration-tests/test` to ensure all implementations pass the new tests
 
 ## Coding Standards
 
