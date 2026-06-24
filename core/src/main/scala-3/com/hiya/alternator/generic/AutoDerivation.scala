@@ -5,5 +5,5 @@ import com.hiya.alternator.schema.RootDynamoFormat
 import scala.deriving.Mirror
 
 trait AutoDerivation:
-  inline given autoDerive[A](using Mirror.Of[A]): RootDynamoFormat[A] =
+  implicit inline def autoFormat[A](using Mirror.Of[A]): RootDynamoFormat[A] =
     DerivedDynamoFormat.derive[A]
