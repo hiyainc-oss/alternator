@@ -47,8 +47,66 @@ object DerivedDynamoFormat:
         }.map(values => m.fromProduct(Tuple.fromArray(values.toArray)))
 
   // ------------------------------------------------------------------
-  // Sums — placeholder, implemented in Task 5
+  // Sums (sealed trait)
   // ------------------------------------------------------------------
 
+  /** Per-variant codec: knows how to read/write its value under a discriminator key.
+    * Not private — inline methods expand at call sites outside this object.
+    */
+  sealed trait VariantDef[A]:
+    def write[AV: AttributeValue](label: String, value: A): AV
+    def read[AV: AttributeValue](label: String, av: AV): Result[A]
+
+  /** Case object variant: writes `{ label -> S(label) }`, reads the singleton back. */
+  final class CaseObjectDef[A](singleton: A) extends VariantDef[A]:
+    def write[AV: AttributeValue](label: String, value: A): AV =
+      summon[AttributeValue[AV]].createString(label)
+    def read[AV: AttributeValue](label: String, av: AV): Result[A] =
+      summon[AttributeValue[AV]].string(av) match
+        case Some(`label`) => Right(singleton)
+        case _             => Left(DynamoAttributeError.IllegalDistriminator)
+
+  /** Case class variant: delegates to `RootDynamoFormat` for the variant type. */
+  final class CaseClassDef[A](fmt: RootDynamoFormat[A]) extends VariantDef[A]:
+    def write[AV: AttributeValue](label: String, value: A): AV = fmt.write[AV](value)
+    def read[AV: AttributeValue](label: String, av: AV): Result[A] = fmt.read[AV](av)
+
+  private inline def summonVariants[T <: Tuple]: List[VariantDef[Any]] =
+    inline erasedValue[T] match
+      case _: EmptyTuple => Nil
+      case _: (h *: t)   =>
+        summonVariant[h].asInstanceOf[VariantDef[Any]] :: summonVariants[t]
+
+  /** Determine if variant A is a case object (singleton) or case class. */
+  private inline def summonVariant[A]: VariantDef[A] =
+    summonFrom {
+      // Case object: a singleton with no fields, represented as Mirror.Product with empty elems
+      case m: Mirror.ProductOf[A] =>
+        inline erasedValue[m.MirroredElemTypes] match
+          case _: EmptyTuple =>
+            // case object: no fields
+            new CaseObjectDef[A](m.fromProduct(EmptyTuple))
+          case _ =>
+            // case class: has fields — derive using full product derivation
+            inline summonInline[Mirror.ProductOf[A]] match
+              case mp => new CaseClassDef[A](deriveProduct(using mp))
+      case _ =>
+        // No Mirror available: fall back to summoning an existing implicit
+        new CaseClassDef[A](summonInline[RootDynamoFormat[A]])
+    }
+
   private inline def deriveSum[A](using m: Mirror.SumOf[A]): DerivedDynamoFormat[A] =
-    throw new NotImplementedError("Sum derivation not yet implemented — see Task 5")
+    val labels   = constValueTuple[m.MirroredElemLabels].productIterator.toList.asInstanceOf[List[String]]
+    val variants = summonVariants[m.MirroredElemTypes].asInstanceOf[List[VariantDef[A]]]
+
+    new DerivedDynamoFormat[A]:
+      override def writeFields[AV: AttributeValue](value: A): util.Map[String, AV] =
+        val ord   = m.ordinal(value)
+        val label = labels(ord)
+        Map(label -> variants(ord).write[AV](label, value)).asJava
+
+      override def readFields[AV: AttributeValue](av: util.Map[String, AV]): Result[A] =
+        labels.zip(variants).iterator.collectFirst {
+          case (label, variant) if av.containsKey(label) =>
+            variant.read[AV](label, av.get(label))
+        }.getOrElse(Left(DynamoAttributeError.IllegalDistriminator))
