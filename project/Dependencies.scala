@@ -8,7 +8,6 @@ object Dependencies {
 
   private val dynamoDB2           = "software.amazon.awssdk"      % "dynamodb"         % "2.25.35"
   private val dynamoDB            = "com.amazonaws"               % "aws-java-sdk-dynamodb" % "1.12.765"
-  private val shapeless           = "com.chuusai"                %% "shapeless"        % "2.3.12"
   private val scanamoAws2         = "org.scanamo"                %% "scanamo"          % "1.1.1"
   private val scalaTest           = "org.scalatest"              %% "scalatest"        % "3.2.19"
   private val scalaCheck          = "org.scalatestplus"          %% "scalacheck-1-16"  % "3.2.14.0"
@@ -59,29 +58,24 @@ object Dependencies {
     dynamoDB2,
     cats,
     collectionsCompat,
-    scalaTest           % Test,
-    scalaCheck          % Test,
-    scalaCheckShapeless % Test
+    scalaTest  % Test,
+    scalaCheck % Test,
   )
 
   val AlternatorAws1 = Seq(
     dynamoDB,
-    shapeless,
     cats,
     collectionsCompat,
-    scalaTest           % Test,
-    scalaCheck          % Test,
-    scalaCheckShapeless % Test
+    scalaTest  % Test,
+    scalaCheck % Test,
   )
 
   val Core = Seq(
-    shapeless,
     cats,
     catsFree,
     collectionsCompat,
-    scalaTest           % Test,
-    scalaCheck          % Test,
-    scalaCheckShapeless % Test
+    scalaTest  % Test,
+    scalaCheck % Test,
   )
 
   val AkkaBase = Seq(
