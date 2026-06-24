@@ -106,8 +106,8 @@ trait DynamoDBSource {
 }
 
 object DynamoDBSource {
-  type Client[S[_], C] = DynamoDBSource { type Client = C; type Source[_] = S[_] }
-  type Base[S[_]] = DynamoDBSource { type Source[_] = S[_] }
+  type Client[S[_], C] = DynamoDBSource { type Client = C; type Source[X] = S[X] }
+  type Base[S[_]] = DynamoDBSource { type Source[X] = S[X] }
 
   def apply[S[_]](implicit S: Base[S]): Base[S] = S
   def client[S[_], C](implicit S: Client[S, C]): Client[S, C] = S
