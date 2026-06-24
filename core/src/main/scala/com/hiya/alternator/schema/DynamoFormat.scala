@@ -1,8 +1,6 @@
 package com.hiya.alternator.schema
 
 import cats.implicits.toTraverseOps
-import com.hiya.alternator.generic.util.Exported
-
 import scala.jdk.CollectionConverters._
 
 trait DynamoFormat[T] extends Serializable {
@@ -64,11 +62,4 @@ object DynamoFormat
       override def isEmpty(value: List[T]): Boolean = false
     }
 
-}
-
-private[alternator] trait LowPriorityDynamoFormats {
-
-  final implicit def importedDynamoFormat[A](implicit
-    exported: Exported[RootDynamoFormat[A]]
-  ): RootDynamoFormat[A] = exported.instance
 }
