@@ -4,6 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Scala 2.12](https://img.shields.io/badge/scala-2.12-red.svg)](https://www.scala-lang.org/)
 [![Scala 2.13](https://img.shields.io/badge/scala-2.13-red.svg)](https://www.scala-lang.org/)
+[![Scala 3](https://img.shields.io/badge/scala-3-red.svg)](https://www.scala-lang.org/)
 
 > High-performance, type-safe DynamoDB client for Scala
 
@@ -59,6 +60,18 @@ libraryDependencies += "com.hiya" %% "alternator-akka-aws1" % "0.12.0"
 > **Note**: Both Akka 2.6.21 and Apache Pekko 1.4.0 are supported. Pekko is an open-source fork of Akka maintained by the Apache Software Foundation with the same API but without licensing concerns. New projects should prefer Pekko.
 
 > **Note:** Current version is 0.12.0. Check [releases](https://github.com/hiyainc-oss/alternator/releases) for the latest version
+
+### Local Development with Colima
+
+Integration tests require Docker. If you use **Colima** instead of Docker Desktop for local development, configure Testcontainers:
+
+```bash
+# Link Colima's Docker socket to the standard location
+sudo ln -sf ~/.colima/default/docker.sock /var/run/docker.sock
+
+# Configure Testcontainers to use the linked socket
+echo 'docker.host=unix:///var/run/docker.sock' >> ~/.testcontainers.properties
+```
 
 ### Basic Usage (Cats Effect)
 
@@ -206,7 +219,8 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 ## Scala Version Support
 
 - Scala 2.12.19
-- Scala 2.13.16
+- Scala 2.13.18
+- Scala 3.3.8
 
 ## Acknowledgments
 
