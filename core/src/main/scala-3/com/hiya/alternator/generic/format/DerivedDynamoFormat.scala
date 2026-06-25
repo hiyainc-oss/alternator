@@ -81,22 +81,36 @@ object DerivedDynamoFormat:
       case _: (h *: t) =>
         summonVariant[h].asInstanceOf[VariantDef[Any]] :: summonVariants[t]
 
-  /** Determine if variant A is a case object (singleton) or case class. */
+  /** Determine if variant A is a case object (singleton) or case class.
+    *
+    * Priority:
+    *  1. Case object (empty Mirror product) — detected structurally so it is never mistaken for a
+    *     case class even when an auto-derived `RootDynamoFormat` is in scope.
+    *  2. Explicit user-provided `RootDynamoFormat[A]` — wins over structural derivation, mirroring
+    *     the Scala 2 behaviour where `deriveCCons` summons `Lazy[DynamoFormat[HV]]` so the user's
+    *     implicit takes precedence.
+    *  3. Structural product derivation — fallback when no user format exists.
+    *
+    * The check is for each *variant* type `A`, never for the enclosing sum type `S` itself, so
+    * there is no risk of infinite recursion.
+    *
+    * IMPORTANT: The case-object arm (1) must precede the `RootDynamoFormat` arm (2). With
+    * `auto._` in scope every type that has a `Mirror` automatically has a `RootDynamoFormat`, so
+    * checking the format first would wrongly treat case objects as case classes.
+    */
   private inline def summonVariant[A]: VariantDef[A] =
     summonFrom {
-      // Case object: a singleton with no fields, represented as Mirror.Product with empty elems
+      // (1) Case object: a singleton with no fields — detect via Mirror before checking any format.
       case m: Mirror.ProductOf[A] =>
         inline erasedValue[m.MirroredElemTypes] match
           case _: EmptyTuple =>
-            // case object: no fields
             new CaseObjectDef[A](m.fromProduct(EmptyTuple))
           case _ =>
-            // case class: has fields — derive using full product derivation
-            inline summonInline[Mirror.ProductOf[A]] match
-              case mp => new CaseClassDef[A](deriveProduct(using mp))
-      case _ =>
-        // No Mirror available: fall back to summoning an existing implicit
-        new CaseClassDef[A](summonInline[RootDynamoFormat[A]])
+            // (2) Case class: prefer an explicit user-provided format over structural derivation.
+            summonFrom {
+              case f: RootDynamoFormat[A] => new CaseClassDef[A](f)
+              case mp: Mirror.ProductOf[A] => new CaseClassDef[A](deriveProduct(using mp))
+            }
     }
 
   private inline def deriveSum[A](using m: Mirror.SumOf[A]): DerivedDynamoFormat[A] =
