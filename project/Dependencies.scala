@@ -23,7 +23,6 @@ object Dependencies {
   private val pekkoTyped          = "org.apache.pekko"          %% "pekko-actor-typed" % pekkoV
   private val pekkoTestkit        = "org.apache.pekko"          %% "pekko-testkit"     % pekkoV
   private val pekkoStream         = "org.apache.pekko"          %% "pekko-stream"      % pekkoV
-  private val scalaCheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.16" % "1.3.1"
   private val collectionsCompat   = "org.scala-lang.modules"     %% "scala-collection-compat" % "2.12.0"
   private val logback             = "ch.qos.logback" % "logback-classic" % "1.5.6"
   private val testcontainersScalaLocalStack = "com.dimafeng" %% "testcontainers-scala-localstack-v2" % testcontainersScalaV
@@ -116,7 +115,6 @@ object Dependencies {
     testcontainersScalaScalatest,
     scalaTest,
     scalaCheck,
-    scalaCheckShapeless,
     logback
   )
 

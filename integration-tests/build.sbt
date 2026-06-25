@@ -17,6 +17,7 @@ lazy val `integration-tests-akka-aws1` = project
   )
   .settings(
     BuildCommon.commonSettings,
+    crossScalaVersions := Seq("2.13.18", "2.12.19"),
     libraryDependencies ++= Dependencies.IntegrationTestAkka,
     publish / skip := true,
     Test / skip := BuildCommon.skipIntegrationTests.value
@@ -30,6 +31,7 @@ lazy val `integration-tests-akka-aws2` = project
   )
   .settings(
     BuildCommon.commonSettings,
+    crossScalaVersions := Seq("2.13.18", "2.12.19"),
     libraryDependencies ++= Dependencies.IntegrationTestAkka,
     publish / skip := true,
     Test / skip := BuildCommon.skipIntegrationTests.value

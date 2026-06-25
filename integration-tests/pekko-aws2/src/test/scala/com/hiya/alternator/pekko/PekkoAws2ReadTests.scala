@@ -7,7 +7,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.testkit.TestKit
 import cats.MonadThrow
 import com.hiya.alternator._
-import com.hiya.alternator.aws2.Aws2DynamoDBClient
+import com.hiya.alternator.aws2._
 import com.hiya.alternator.aws2.testkit.DynamoDBLossyClient
 import com.hiya.alternator.testkit.{LocalDynamoDB, TestContainerInitializer}
 import com.hiya.alternator.util.{DataPK, DataRK}

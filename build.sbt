@@ -165,6 +165,9 @@ lazy val `integration-tests` = project
     Test / skip := BuildCommon.skipIntegrationTests.value
   )
 
-lazy val `tests` = project in file("tests")
+lazy val `tests` = (project in file("tests"))
+  .settings(
+    crossScalaVersions := Seq("2.13.18", "2.12.19")
+  )
 publish / skip := true
 crossScalaVersions := Nil
