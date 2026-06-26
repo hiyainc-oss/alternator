@@ -11,13 +11,12 @@ import scala.jdk.CollectionConverters._
 
 /** Golden tests for sealed-trait hierarchies with intermediate sealed-trait variants (grouping ADTs).
   *
-  * Scala 3 Mirror.SumOf for `Expr` produces `(Arithmetic, Lit)` as the direct subtypes, where `Arithmetic` is itself
-  * a sealed trait. Derivation must handle this recursively, mirroring Scala 2 shapeless behaviour where `CConsFormat`
+  * Scala 3 Mirror.SumOf for `Expr` produces `(Arithmetic, Lit)` as the direct subtypes, where `Arithmetic` is itself a
+  * sealed trait. Derivation must handle this recursively, mirroring Scala 2 shapeless behaviour where `CConsFormat`
   * summons `Lazy[DynamoFormat[HV]]` for each coproduct element regardless of whether it is a product or sum type.
   *
-  * Wire format: each nesting level wraps in an extra map keyed by the variant name.
-  *   Add(1, 2) → { "Arithmetic": { "Add": { "a": 1, "b": 2 } } }
-  *   Lit(5)    → { "Lit": { "n": 5 } }
+  * Wire format: each nesting level wraps in an extra map keyed by the variant name. Add(1, 2) → { "Arithmetic": {
+  * "Add": { "a": 1, "b": 2 } } } Lit(5) → { "Lit": { "n": 5 } }
   */
 class NestedSumFormatSpec extends AnyFunSpec with Matchers {
 

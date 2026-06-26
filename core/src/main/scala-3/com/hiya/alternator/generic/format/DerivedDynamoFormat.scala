@@ -84,20 +84,17 @@ object DerivedDynamoFormat:
   /** Determine the codec for a single sum variant A. Handles products, nested sums, and case objects.
     *
     * Priority:
-    *  1. Case object (empty Mirror product) — detected structurally before any format check, so it is
-    *     never accidentally treated as a case class even with `auto._` in scope (which would yield an
-    *     auto-derived `RootDynamoFormat` whose `write` wraps in a map instead of producing a string).
-    *  2. Case class product — prefer an explicit user-provided `RootDynamoFormat[A]` over structural
-    *     derivation, mirroring Scala 2 where `deriveCCons` summons `Lazy[DynamoFormat[HV]]`.
-    *  3. Nested sealed trait (Mirror.SumOf) — supports grouping ADTs such as:
-    *       sealed trait Expr
-    *       sealed trait Arithmetic extends Expr  // grouping level
-    *       case class Add(a: Int, b: Int) extends Arithmetic
-    *     An explicit `RootDynamoFormat[A]` takes priority; otherwise the sum is derived recursively.
-    *     Wire format adds one nesting level per sealed-trait layer, matching Scala 2 behaviour.
+    *   1. Case object (empty Mirror product) — detected structurally before any format check, so it is never
+    *      accidentally treated as a case class even with `auto._` in scope (which would yield an auto-derived
+    *      `RootDynamoFormat` whose `write` wraps in a map instead of producing a string). 2. Case class product —
+    *      prefer an explicit user-provided `RootDynamoFormat[A]` over structural derivation, mirroring Scala 2 where
+    *      `deriveCCons` summons `Lazy[DynamoFormat[HV]]`. 3. Nested sealed trait (Mirror.SumOf) — supports grouping
+    *      ADTs such as: sealed trait Expr sealed trait Arithmetic extends Expr // grouping level case class Add(a: Int,
+    *      b: Int) extends Arithmetic An explicit `RootDynamoFormat[A]` takes priority; otherwise the sum is derived
+    *      recursively. Wire format adds one nesting level per sealed-trait layer, matching Scala 2 behaviour.
     *
-    * The check is for each *variant* type `A`, never for the enclosing sum type `S` itself, so
-    * there is no infinite-recursion risk.
+    * The check is for each *variant* type `A`, never for the enclosing sum type `S` itself, so there is no
+    * infinite-recursion risk.
     */
   private inline def summonVariant[A]: VariantDef[A] =
     summonFrom {

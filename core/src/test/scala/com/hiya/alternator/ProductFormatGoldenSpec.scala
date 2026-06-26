@@ -52,8 +52,8 @@ class ProductFormatGoldenSpec extends AnyFunSpec with Matchers {
         }
       override def write[AV](value: Severity)(implicit AV: AttributeValue[AV]): AV =
         AV.createNumeric(value match {
-          case Info  => "0"
-          case Warn  => "1"
+          case Info => "0"
+          case Warn => "1"
           case Error => "2"
         })
       override def isEmpty(value: Severity): Boolean = false
@@ -161,7 +161,9 @@ class ProductFormatGoldenSpec extends AnyFunSpec with Matchers {
     it("read returns a FieldFormatError naming the offending field") {
       LogEntry.fmt.readFields[TestAV](
         jmap("msg" -> TAVString("?"), "severity" -> TAVNumber("99"))
-      ) shouldBe Left(DynamoAttributeError.FieldFormatError("severity", DynamoAttributeError.TypeError(TAVNumber("99"), "Severity")))
+      ) shouldBe Left(
+        DynamoAttributeError.FieldFormatError("severity", DynamoAttributeError.TypeError(TAVNumber("99"), "Severity"))
+      )
     }
 
     it("round-trips through all severity levels") {
