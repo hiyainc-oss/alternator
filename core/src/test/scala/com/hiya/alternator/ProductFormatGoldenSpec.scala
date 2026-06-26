@@ -2,7 +2,7 @@ package com.hiya.alternator
 
 import com.hiya.alternator.TestAV._
 import com.hiya.alternator.generic.semiauto
-import com.hiya.alternator.schema.RootDynamoFormat
+import com.hiya.alternator.schema.{AttributeValue, DynamoAttributeError, DynamoFormat, RootDynamoFormat}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -33,6 +33,36 @@ class ProductFormatGoldenSpec extends AnyFunSpec with Matchers {
   case class WithMap(m: Map[String, Int])
   object WithMap {
     implicit val fmt: RootDynamoFormat[WithMap] = semiauto.derive
+  }
+
+  // Custom scalar: enum stored as a number rather than a string.
+  sealed trait Severity
+  case object Info extends Severity
+  case object Warn extends Severity
+  case object Error extends Severity
+
+  object Severity {
+    implicit val fmt: DynamoFormat[Severity] = new DynamoFormat[Severity] {
+      override def read[AV](av: AV)(implicit AV: AttributeValue[AV]): DynamoFormat.Result[Severity] =
+        AV.numeric(av) match {
+          case Some("0") => Right(Info)
+          case Some("1") => Right(Warn)
+          case Some("2") => Right(Error)
+          case _ => Left(DynamoAttributeError.TypeError(av, "Severity"))
+        }
+      override def write[AV](value: Severity)(implicit AV: AttributeValue[AV]): AV =
+        AV.createNumeric(value match {
+          case Info  => "0"
+          case Warn  => "1"
+          case Error => "2"
+        })
+      override def isEmpty(value: Severity): Boolean = false
+    }
+  }
+
+  case class LogEntry(msg: String, severity: Severity)
+  object LogEntry {
+    implicit val fmt: RootDynamoFormat[LogEntry] = semiauto.derive
   }
 
   /** Build a java.util.Map[String, TestAV] from pairs — explicit type prevents Scala from inferring a concrete subtype
@@ -105,6 +135,42 @@ class ProductFormatGoldenSpec extends AnyFunSpec with Matchers {
       WithMap.fmt.readFields[TestAV](
         jmap("m" -> TAVMap(Map("a" -> TAVNumber("1"), "b" -> TAVNumber("2"))))
       ) shouldBe Right(WithMap(Map("a" -> 1, "b" -> 2)))
+    }
+  }
+
+  describe("custom scalar format in derived product") {
+
+    it("enum field uses the custom number representation on write") {
+      LogEntry.fmt.writeFields[TestAV](LogEntry("started", Info)) shouldBe
+        jmap("msg" -> TAVString("started"), "severity" -> TAVNumber("0"))
+      LogEntry.fmt.writeFields[TestAV](LogEntry("degraded", Warn)) shouldBe
+        jmap("msg" -> TAVString("degraded"), "severity" -> TAVNumber("1"))
+      LogEntry.fmt.writeFields[TestAV](LogEntry("down", Error)) shouldBe
+        jmap("msg" -> TAVString("down"), "severity" -> TAVNumber("2"))
+    }
+
+    it("enum field reads back from the number representation") {
+      LogEntry.fmt.readFields[TestAV](
+        jmap("msg" -> TAVString("started"), "severity" -> TAVNumber("0"))
+      ) shouldBe Right(LogEntry("started", Info))
+      LogEntry.fmt.readFields[TestAV](
+        jmap("msg" -> TAVString("degraded"), "severity" -> TAVNumber("1"))
+      ) shouldBe Right(LogEntry("degraded", Warn))
+    }
+
+    it("read returns an error for an unrecognised numeric value") {
+      // Scala 2 and Scala 3 differ on whether the error is wrapped in FieldFormatError;
+      // the important invariant is that an unrecognised value is rejected.
+      LogEntry.fmt.readFields[TestAV](
+        jmap("msg" -> TAVString("?"), "severity" -> TAVNumber("99"))
+      ).isLeft shouldBe true
+    }
+
+    it("round-trips through all severity levels") {
+      Seq(Info, Warn, Error).foreach { sev =>
+        val entry = LogEntry("test", sev)
+        LogEntry.fmt.readFields[TestAV](LogEntry.fmt.writeFields[TestAV](entry)) shouldBe Right(entry)
+      }
     }
   }
 }
