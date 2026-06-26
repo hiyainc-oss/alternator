@@ -35,7 +35,7 @@ object DynamoDBContainer {
     * usage.
     */
   val containerDef: LocalStackV2Container.Def = LocalStackV2Container.Def(
-    tag = "latest",
+    tag = "3.8.1",
     services = Seq(LocalStackContainer.Service.DYNAMODB)
   )
 

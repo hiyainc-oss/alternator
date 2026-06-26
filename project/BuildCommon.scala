@@ -8,7 +8,12 @@ object BuildCommon {
   lazy val skipIntegrationTests = settingKey[Boolean]("Skip integration tests in CI")
 
   lazy val commonSettings = Seq(
-    libraryDependencies ++= Dependencies.CompilerPlugins,
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) => Dependencies.CompilerPlugins
+        case _            => Seq.empty
+      }
+    },
     Test / tpolecatExcludeOptions += ScalacOptions.warnNonUnitStatement,
     tpolecatScalacOptions ++= (CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, p)) if p < 13 => Set(

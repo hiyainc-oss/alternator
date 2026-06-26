@@ -1,7 +1,7 @@
 import org.typelevel.sbt.tpolecat.*
 import sbt.internal.util.{Appender, GithubAppender}
 
-ThisBuild / crossScalaVersions := Seq("2.13.18", "2.12.19")
+ThisBuild / crossScalaVersions := Seq("2.13.18", "2.12.19", "3.3.8")
 ThisBuild / scalaVersion := "2.13.18"
 ThisBuild / organization := "com.hiya"
 ThisBuild / versionScheme := Some("early-semver")
@@ -32,11 +32,21 @@ ThisBuild / extraAppenders := {
   }
 }
 
+def scala2Deps(scalaVersion: String): Seq[ModuleID] =
+  CrossVersion.partialVersion(scalaVersion) match {
+    case Some((2, _)) => Seq(
+      "org.scala-lang"              %  "scala-reflect"             % scalaVersion % Provided,
+      "com.chuusai"                 %% "shapeless"                 % "2.3.12",
+      "com.github.alexarchambault" %% "scalacheck-shapeless_1.16" % "1.3.1" % Test,
+    )
+    case _ => Seq.empty
+  }
+
 lazy val `alternator-core` = (project in file("core"))
   .settings(
     BuildCommon.commonSettings,
     libraryDependencies ++= Dependencies.Core,
-    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided,
+    libraryDependencies ++= scala2Deps(scalaVersion.value),
   )
 
 
@@ -45,6 +55,14 @@ lazy val `alternator-aws2` = (project in file("alternator-aws2"))
   .settings(
     BuildCommon.commonSettings,
     libraryDependencies ++= Dependencies.AlternatorAws2,
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) => Seq(
+          "com.github.alexarchambault" %% "scalacheck-shapeless_1.16" % "1.3.1" % Test,
+        )
+        case _ => Seq.empty
+      }
+    },
   )
 
 lazy val `alternator-aws1` = (project in file("alternator-aws1"))
@@ -52,12 +70,14 @@ lazy val `alternator-aws1` = (project in file("alternator-aws1"))
   .settings(
     BuildCommon.commonSettings,
     libraryDependencies ++= Dependencies.AlternatorAws1,
+    libraryDependencies ++= scala2Deps(scalaVersion.value),
   )
 
 lazy val `alternator-akka-base` = (project in file("akka-base"))
   .dependsOn(`alternator-core`)
   .settings(
     BuildCommon.commonSettings,
+    crossScalaVersions := Seq("2.13.18", "2.12.19"),
     libraryDependencies ++= Dependencies.AkkaBase,
   )
 
@@ -68,6 +88,7 @@ lazy val `alternator-akka-aws2` = (project in file("akka-aws2"))
   )
   .settings(
     BuildCommon.commonSettings,
+    crossScalaVersions := Seq("2.13.18", "2.12.19"),
     libraryDependencies ++= Dependencies.AkkaAws2
   )
 
@@ -78,6 +99,7 @@ lazy val `alternator-akka-aws1` = (project in file("akka-aws1"))
   )
   .settings(
     BuildCommon.commonSettings,
+    crossScalaVersions := Seq("2.13.18", "2.12.19"),
     libraryDependencies ++= Dependencies.AkkaAws1
   )
 
@@ -143,6 +165,9 @@ lazy val `integration-tests` = project
     Test / skip := BuildCommon.skipIntegrationTests.value
   )
 
-lazy val `tests` = project in file("tests")
+lazy val `tests` = (project in file("tests"))
+  .settings(
+    crossScalaVersions := Seq("2.13.18", "2.12.19")
+  )
 publish / skip := true
 crossScalaVersions := Nil

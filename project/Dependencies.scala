@@ -8,7 +8,6 @@ object Dependencies {
 
   private val dynamoDB2           = "software.amazon.awssdk"      % "dynamodb"         % "2.25.35"
   private val dynamoDB            = "com.amazonaws"               % "aws-java-sdk-dynamodb" % "1.12.765"
-  private val shapeless           = "com.chuusai"                %% "shapeless"        % "2.3.12"
   private val scanamoAws2         = "org.scanamo"                %% "scanamo"          % "1.1.1"
   private val scalaTest           = "org.scalatest"              %% "scalatest"        % "3.2.19"
   private val scalaCheck          = "org.scalatestplus"          %% "scalacheck-1-16"  % "3.2.14.0"
@@ -24,7 +23,6 @@ object Dependencies {
   private val pekkoTyped          = "org.apache.pekko"          %% "pekko-actor-typed" % pekkoV
   private val pekkoTestkit        = "org.apache.pekko"          %% "pekko-testkit"     % pekkoV
   private val pekkoStream         = "org.apache.pekko"          %% "pekko-stream"      % pekkoV
-  private val scalaCheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.16" % "1.3.1"
   private val collectionsCompat   = "org.scala-lang.modules"     %% "scala-collection-compat" % "2.12.0"
   private val logback             = "ch.qos.logback" % "logback-classic" % "1.5.6"
   private val testcontainersScalaLocalStack = "com.dimafeng" %% "testcontainers-scala-localstack-v2" % testcontainersScalaV
@@ -59,29 +57,24 @@ object Dependencies {
     dynamoDB2,
     cats,
     collectionsCompat,
-    scalaTest           % Test,
-    scalaCheck          % Test,
-    scalaCheckShapeless % Test
+    scalaTest  % Test,
+    scalaCheck % Test,
   )
 
   val AlternatorAws1 = Seq(
     dynamoDB,
-    shapeless,
     cats,
     collectionsCompat,
-    scalaTest           % Test,
-    scalaCheck          % Test,
-    scalaCheckShapeless % Test
+    scalaTest  % Test,
+    scalaCheck % Test,
   )
 
   val Core = Seq(
-    shapeless,
     cats,
     catsFree,
     collectionsCompat,
-    scalaTest           % Test,
-    scalaCheck          % Test,
-    scalaCheckShapeless % Test
+    scalaTest  % Test,
+    scalaCheck % Test,
   )
 
   val AkkaBase = Seq(
@@ -122,7 +115,6 @@ object Dependencies {
     testcontainersScalaScalatest,
     scalaTest,
     scalaCheck,
-    scalaCheckShapeless,
     logback
   )
 
