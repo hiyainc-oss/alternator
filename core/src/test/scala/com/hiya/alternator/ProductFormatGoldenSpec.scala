@@ -158,12 +158,10 @@ class ProductFormatGoldenSpec extends AnyFunSpec with Matchers {
       ) shouldBe Right(LogEntry("degraded", Warn))
     }
 
-    it("read returns an error for an unrecognised numeric value") {
-      // Scala 2 and Scala 3 differ on whether the error is wrapped in FieldFormatError;
-      // the important invariant is that an unrecognised value is rejected.
+    it("read returns a FieldFormatError naming the offending field") {
       LogEntry.fmt.readFields[TestAV](
         jmap("msg" -> TAVString("?"), "severity" -> TAVNumber("99"))
-      ).isLeft shouldBe true
+      ) shouldBe Left(DynamoAttributeError.FieldFormatError("severity", DynamoAttributeError.TypeError(TAVNumber("99"), "Severity")))
     }
 
     it("round-trips through all severity levels") {

@@ -57,7 +57,11 @@ object ReprDynamoFormat {
     @inline override def readFields[AV](
       av: util.Map[String, AV]
     )(implicit AV: AttributeValue[AV]): DynamoFormat.Result[FieldType[HK, HV] :: HNil] = {
-      val head = ch.value.read(av.getOrDefault(key.value.name, AV.nullValue)).map(field[HK](_))
+      val head = ch.value
+        .read(av.getOrDefault(key.value.name, AV.nullValue))
+        .map(field[HK](_))
+        .left
+        .map(_.withFieldName(key.value.name))
       val tail = Right(HNil)
       (head, tail).mapN(_ :: _)
     }
