@@ -81,36 +81,43 @@ object DerivedDynamoFormat:
       case _: (h *: t) =>
         summonVariant[h].asInstanceOf[VariantDef[Any]] :: summonVariants[t]
 
-  /** Determine if variant A is a case object (singleton) or case class.
+  /** Determine the codec for a single sum variant A. Handles products, nested sums, and case objects.
     *
     * Priority:
-    *  1. Case object (empty Mirror product) — detected structurally so it is never mistaken for a
-    *     case class even when an auto-derived `RootDynamoFormat` is in scope.
-    *  2. Explicit user-provided `RootDynamoFormat[A]` — wins over structural derivation, mirroring
-    *     the Scala 2 behaviour where `deriveCCons` summons `Lazy[DynamoFormat[HV]]` so the user's
-    *     implicit takes precedence.
-    *  3. Structural product derivation — fallback when no user format exists.
+    *  1. Case object (empty Mirror product) — detected structurally before any format check, so it is
+    *     never accidentally treated as a case class even with `auto._` in scope (which would yield an
+    *     auto-derived `RootDynamoFormat` whose `write` wraps in a map instead of producing a string).
+    *  2. Case class product — prefer an explicit user-provided `RootDynamoFormat[A]` over structural
+    *     derivation, mirroring Scala 2 where `deriveCCons` summons `Lazy[DynamoFormat[HV]]`.
+    *  3. Nested sealed trait (Mirror.SumOf) — supports grouping ADTs such as:
+    *       sealed trait Expr
+    *       sealed trait Arithmetic extends Expr  // grouping level
+    *       case class Add(a: Int, b: Int) extends Arithmetic
+    *     An explicit `RootDynamoFormat[A]` takes priority; otherwise the sum is derived recursively.
+    *     Wire format adds one nesting level per sealed-trait layer, matching Scala 2 behaviour.
     *
     * The check is for each *variant* type `A`, never for the enclosing sum type `S` itself, so
-    * there is no risk of infinite recursion.
-    *
-    * IMPORTANT: The case-object arm (1) must precede the `RootDynamoFormat` arm (2). With
-    * `auto._` in scope every type that has a `Mirror` automatically has a `RootDynamoFormat`, so
-    * checking the format first would wrongly treat case objects as case classes.
+    * there is no infinite-recursion risk.
     */
   private inline def summonVariant[A]: VariantDef[A] =
     summonFrom {
-      // (1) Case object: a singleton with no fields — detect via Mirror before checking any format.
+      // (1) Case object: singleton with no fields.
       case m: Mirror.ProductOf[A] =>
         inline erasedValue[m.MirroredElemTypes] match
           case _: EmptyTuple =>
             new CaseObjectDef[A](m.fromProduct(EmptyTuple))
           case _ =>
-            // (2) Case class: prefer an explicit user-provided format over structural derivation.
+            // (2) Case class: explicit user format wins; fall back to structural derivation.
             summonFrom {
               case f: RootDynamoFormat[A] => new CaseClassDef[A](f)
               case mp: Mirror.ProductOf[A] => new CaseClassDef[A](deriveProduct(using mp))
             }
+      // (3) Nested sealed trait: explicit user format wins; fall back to recursive derivation.
+      case s: Mirror.SumOf[A] =>
+        summonFrom {
+          case f: RootDynamoFormat[A] => new CaseClassDef[A](f)
+          case _: Mirror.SumOf[A] => new CaseClassDef[A](deriveSum(using s))
+        }
     }
 
   private inline def deriveSum[A](using m: Mirror.SumOf[A]): DerivedDynamoFormat[A] =
