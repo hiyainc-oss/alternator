@@ -31,7 +31,7 @@ object DynamoAttributeError {
     override def message: String = "should not be null"
   }
 
-  final case object IllegalDistriminator extends FormatError {
+  final case object IllegalDiscriminator extends FormatError {
     override def message: String = "Cannot find valid discriminator"
   }
 }

@@ -156,7 +156,7 @@ class GenericRoundtripSpec extends AnyFunSpec with Matchers {
             val AV = implicitly[com.hiya.alternator.schema.AttributeValue[AV]]
             AV.string(av.getOrDefault("v", AV.nullValue))
               .map(s => Right(WithValue(s.toLowerCase)))
-              .getOrElse(Left(com.hiya.alternator.schema.DynamoAttributeError.IllegalDistriminator))
+              .getOrElse(Left(com.hiya.alternator.schema.DynamoAttributeError.IllegalDiscriminator))
           }
         }
 

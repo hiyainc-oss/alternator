@@ -1,6 +1,6 @@
 package com.hiya.alternator.generic.format
 
-import com.hiya.alternator.schema.DynamoAttributeError.IllegalDistriminator
+import com.hiya.alternator.schema.DynamoAttributeError.IllegalDiscriminator
 import com.hiya.alternator.schema.DynamoFormat
 import shapeless.{HNil, LabelledGeneric}
 
@@ -13,7 +13,7 @@ object CaseObjectDynamoFormat {
     override def format(name: String): DynamoFormat[A] = {
       DynamoFormat.stringDynamoValue.emap[A](
         x => {
-          if (name == x) Right(gen.from(HNil)) else Left(IllegalDistriminator)
+          if (name == x) Right(gen.from(HNil)) else Left(IllegalDiscriminator)
         },
         { _ =>
           name
