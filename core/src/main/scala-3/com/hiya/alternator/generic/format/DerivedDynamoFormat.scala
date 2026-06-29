@@ -68,7 +68,7 @@ object DerivedDynamoFormat:
     def read[AV: AttributeValue](label: String, av: AV): Result[A] =
       summon[AttributeValue[AV]].string(av) match
         case Some(`label`) => Right(singleton)
-        case _ => Left(DynamoAttributeError.IllegalDistriminator)
+        case _ => Left(DynamoAttributeError.IllegalDiscriminator)
 
   /** Case class variant: delegates to `RootDynamoFormat` for the variant type. */
   final class CaseClassDef[A](fmt: RootDynamoFormat[A]) extends VariantDef[A]:
@@ -135,4 +135,4 @@ object DerivedDynamoFormat:
             case (label, variant) if av.containsKey(label) =>
               variant.read[AV](label, av.get(label))
           }
-          .getOrElse(Left(DynamoAttributeError.IllegalDistriminator))
+          .getOrElse(Left(DynamoAttributeError.IllegalDiscriminator))
