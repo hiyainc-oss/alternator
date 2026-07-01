@@ -63,10 +63,17 @@ package object syntax {
     UpdateExpression(Nil, removes = List(path), Nil, Nil)
 
   /** `ADD #p :v` (numeric increment). Native `ADD` is numeric-only, hence `ScalarDynamoFormat` rather than the full
-    * `DynamoFormat`; the `Numeric` bound additionally restricts this builder to genuinely numeric `T`.
+    * `DynamoFormat`; the `Numeric` evidence isn't otherwise needed (DynamoDB does the arithmetic server-side) but is
+    * required as a call-site constraint restricting this builder to genuinely numeric `T` — referencing it below keeps
+    * `-Wunused`/`-Werror` builds from treating it as dead.
     */
-  def increment[V, T: Numeric: ScalarDynamoFormat](path: Path[V, T], delta: T): UpdateExpression[V] =
+  def increment[V, T](path: Path[V, T], delta: T)(implicit
+    N: Numeric[T],
+    F: ScalarDynamoFormat[T]
+  ): UpdateExpression[V] = {
+    val _ = N
     UpdateExpression(Nil, Nil, adds = List(UpdateExpression.Increment(path, delta)), Nil)
+  }
 
   /** `ADD #p :v` (set union). DynamoDB's native Set types (`SS`/`NS`/`BS`) are genuinely scalar-only. */
   def addToSet[V, T: ScalarDynamoFormat](path: Path[V, Set[T]], values: Set[T]): UpdateExpression[V] =
