@@ -7,7 +7,7 @@ import com.hiya.alternator.aws2._
 import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.ScalarType
-import com.hiya.alternator.syntax.ConditionExpression
+import com.hiya.alternator.syntax.{ConditionExpression, UpdateExpression}
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
 import software.amazon.awssdk.services.dynamodb.model
 import software.amazon.awssdk.services.dynamodb.model.{BatchGetItemResponse, KeysAndAttributes, WriteRequest}
@@ -103,6 +103,42 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
     val req = Aws2TableOps(table).delete(key, condition, returnOld = true, overrides = resolvedOverride).build()
 
     async(table.client.client.deleteItem(req))
+      .map[ConditionResult[V]](item => ConditionResult.Success(Aws2TableOps(table).extractItem(item)))
+      .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
+      .recover { case _: model.ConditionalCheckFailedException => ConditionResult.Failed }
+  }
+
+  override protected def doUpdate[V, PK](
+    table: Table[Aws2DynamoDBClient, V, PK],
+    key: PK,
+    update: UpdateExpression[V],
+    condition: Option[ConditionExpression[V, Boolean]],
+    overrides: DynamoDBOverride[Client]
+  ): F[Boolean] = {
+    val resolvedOverride = (table.overrides |+| overrides)(table.client)
+    val req =
+      Aws2TableOps(table).update(key, update, condition, returnValue = None, overrides = resolvedOverride).build()
+    async(table.client.client.updateItem(req))
+      .map(_ => true)
+      .optApp[ConditionExpression[V, Boolean]](f =>
+        _ => f.recover { case _: model.ConditionalCheckFailedException => false }
+      )(condition)
+  }
+
+  override protected def doUpdateAndReturn[V, PK](
+    table: Table[Aws2DynamoDBClient, V, PK],
+    key: PK,
+    update: UpdateExpression[V],
+    condition: Option[ConditionExpression[V, Boolean]],
+    returnValue: ReturnValue,
+    overrides: DynamoDBOverride[Client]
+  ): F[ConditionResult[V]] = {
+    val resolvedOverride = (table.overrides |+| overrides)(table.client)
+    val req = Aws2TableOps(table)
+      .update(key, update, condition, returnValue = Some(returnValue), overrides = resolvedOverride)
+      .build()
+
+    async(table.client.client.updateItem(req))
       .map[ConditionResult[V]](item => ConditionResult.Success(Aws2TableOps(table).extractItem(item)))
       .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
       .recover { case _: model.ConditionalCheckFailedException => ConditionResult.Failed }

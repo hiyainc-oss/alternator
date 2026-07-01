@@ -3,7 +3,7 @@ package com.hiya.alternator
 import cats.{MonadThrow, Traverse}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{AttributeValue, DynamoFormat, ScalarType, TableSchema}
-import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
+import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment, UpdateExpression}
 
 import scala.collection.compat._
 import scala.jdk.CollectionConverters._
@@ -21,7 +21,7 @@ trait WriteScheduler[F[_]] {
 
 sealed trait ConditionResult[+T]
 object ConditionResult {
-  final case class Success[T](oldValue: Option[DynamoFormat.Result[T]]) extends ConditionResult[T]
+  final case class Success[T](value: Option[DynamoFormat.Result[T]]) extends ConditionResult[T]
   final case object Failed extends ConditionResult[Nothing]
 }
 
@@ -178,7 +178,7 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
 
   @inline final def putAndReturn[V](table: Table[Client, V, _], value: V): F[Option[DynamoFormat.Result[V]]] =
     doPutAndReturn(table, value, None, DynamoDBOverride.empty).flatMap {
-      case ConditionResult.Success(oldValue) => MonadThrow[F].pure(oldValue)
+      case ConditionResult.Success(value) => MonadThrow[F].pure(value)
       case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
     }
 
@@ -195,7 +195,7 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
     overrides: DynamoDBOverride[Client]
   ): F[Option[DynamoFormat.Result[V]]] =
     doPutAndReturn(table, value, None, overrides).flatMap {
-      case ConditionResult.Success(oldValue) => MonadThrow[F].pure(oldValue)
+      case ConditionResult.Success(value) => MonadThrow[F].pure(value)
       case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
     }
 
@@ -248,7 +248,7 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
     T: ItemMagnet[T, V, PK]
   ): F[Option[DynamoFormat.Result[V]]] =
     doDeleteAndReturn(table, T.key(key)(table.schema), None, DynamoDBOverride.empty).flatMap {
-      case ConditionResult.Success(oldValue) => MonadThrow[F].pure(oldValue)
+      case ConditionResult.Success(value) => MonadThrow[F].pure(value)
       case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
     }
 
@@ -267,7 +267,7 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
     T: ItemMagnet[T, V, PK]
   ): F[Option[DynamoFormat.Result[V]]] =
     doDeleteAndReturn(table, T.key(key)(table.schema), None, overrides).flatMap {
-      case ConditionResult.Success(oldValue) => MonadThrow[F].pure(oldValue)
+      case ConditionResult.Success(value) => MonadThrow[F].pure(value)
       case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
     }
 
@@ -283,6 +283,95 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
     value: Table[Client, V, PK],
     key: PK,
     condition: Option[ConditionExpression[V, Boolean]],
+    overrides: DynamoDBOverride[Client]
+  ): F[ConditionResult[V]]
+
+  @inline final def update[V, PK, T](table: Table[Client, V, PK], key: T, update: UpdateExpression[V])(implicit
+    T: ItemMagnet[T, V, PK]
+  ): F[Unit] =
+    doUpdate(table, T.key(key)(table.schema), update, None, DynamoDBOverride.empty).map(_ => ())
+
+  @inline final def update[V, PK, T](
+    table: Table[Client, V, PK],
+    key: T,
+    update: UpdateExpression[V],
+    condition: ConditionExpression[V, Boolean]
+  )(implicit T: ItemMagnet[T, V, PK]): F[Boolean] =
+    doUpdate(table, T.key(key)(table.schema), update, Some(condition), DynamoDBOverride.empty)
+
+  @inline final def update[V, PK, T](
+    table: Table[Client, V, PK],
+    key: T,
+    update: UpdateExpression[V],
+    overrides: DynamoDBOverride[Client]
+  )(implicit T: ItemMagnet[T, V, PK]): F[Unit] =
+    doUpdate(table, T.key(key)(table.schema), update, None, overrides).map(_ => ())
+
+  @inline final def update[V, PK, T](
+    table: Table[Client, V, PK],
+    key: T,
+    update: UpdateExpression[V],
+    condition: ConditionExpression[V, Boolean],
+    overrides: DynamoDBOverride[Client]
+  )(implicit T: ItemMagnet[T, V, PK]): F[Boolean] =
+    doUpdate(table, T.key(key)(table.schema), update, Some(condition), overrides)
+
+  protected def doUpdate[V, PK](
+    table: Table[Client, V, PK],
+    key: PK,
+    update: UpdateExpression[V],
+    condition: Option[ConditionExpression[V, Boolean]],
+    overrides: DynamoDBOverride[Client]
+  ): F[Boolean]
+
+  @inline final def updateAndReturn[V, PK, T](
+    table: Table[Client, V, PK],
+    key: T,
+    update: UpdateExpression[V],
+    returnValue: ReturnValue
+  )(implicit T: ItemMagnet[T, V, PK]): F[Option[DynamoFormat.Result[V]]] =
+    doUpdateAndReturn(table, T.key(key)(table.schema), update, None, returnValue, DynamoDBOverride.empty).flatMap {
+      case ConditionResult.Success(value) => MonadThrow[F].pure(value)
+      case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
+    }
+
+  @inline final def updateAndReturn[V, PK, T](
+    table: Table[Client, V, PK],
+    key: T,
+    update: UpdateExpression[V],
+    condition: ConditionExpression[V, Boolean],
+    returnValue: ReturnValue
+  )(implicit T: ItemMagnet[T, V, PK]): F[ConditionResult[V]] =
+    doUpdateAndReturn(table, T.key(key)(table.schema), update, Some(condition), returnValue, DynamoDBOverride.empty)
+
+  @inline final def updateAndReturn[V, PK, T](
+    table: Table[Client, V, PK],
+    key: T,
+    update: UpdateExpression[V],
+    returnValue: ReturnValue,
+    overrides: DynamoDBOverride[Client]
+  )(implicit T: ItemMagnet[T, V, PK]): F[Option[DynamoFormat.Result[V]]] =
+    doUpdateAndReturn(table, T.key(key)(table.schema), update, None, returnValue, overrides).flatMap {
+      case ConditionResult.Success(value) => MonadThrow[F].pure(value)
+      case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
+    }
+
+  @inline final def updateAndReturn[V, PK, T](
+    table: Table[Client, V, PK],
+    key: T,
+    update: UpdateExpression[V],
+    condition: ConditionExpression[V, Boolean],
+    returnValue: ReturnValue,
+    overrides: DynamoDBOverride[Client]
+  )(implicit T: ItemMagnet[T, V, PK]): F[ConditionResult[V]] =
+    doUpdateAndReturn(table, T.key(key)(table.schema), update, Some(condition), returnValue, overrides)
+
+  protected def doUpdateAndReturn[V, PK](
+    table: Table[Client, V, PK],
+    key: PK,
+    update: UpdateExpression[V],
+    condition: Option[ConditionExpression[V, Boolean]],
+    returnValue: ReturnValue,
     overrides: DynamoDBOverride[Client]
   ): F[ConditionResult[V]]
 

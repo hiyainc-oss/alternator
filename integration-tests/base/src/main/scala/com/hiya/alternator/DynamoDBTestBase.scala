@@ -19,6 +19,21 @@ object DynamoDBTestBase {
     implicit val schema: TableSchema.Aux[ExampleData, String] =
       TableSchema.schemaWithPK[ExampleData, String]("pk", _.pk)
   }
+
+  case class UpdateData(
+    key: String,
+    count: Int = 0,
+    score: Int = 0,
+    tags: Set[String] = Set.empty,
+    labels: Set[String] = Set.empty,
+    history: List[String] = Nil,
+    flag: Option[Boolean] = None
+  )
+  object UpdateData {
+    implicit val format: RootDynamoFormat[UpdateData] = semiauto.derive
+    implicit val schema: TableSchema.Aux[UpdateData, String] =
+      TableSchema.schemaWithPK[UpdateData, String]("key", _.key)
+  }
 }
 
 abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
@@ -35,6 +50,14 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
 
   protected def eval[T](body: F[T]): T
   protected def list[T](body: S[T]): F[List[T]]
+
+  private def withUpdateTable[T](f: Table[C, UpdateData, String] => F[T]): T = {
+    val tableName = s"test-table-${UUID.randomUUID()}"
+    val table = Table.tableWithPK[UpdateData](tableName).withClient[C](client)
+    eval {
+      LocalDynamoDB.withTable(client, tableName, LocalDynamoDB.schema[UpdateData]).eval(_ => f(table))
+    }
+  }
 
   describe("DynamoDB") {
     it("can read/write items in custom test table") {
@@ -276,6 +299,173 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
               .map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("new", 1))))) >>
             DB.deleteAndReturn(table, "new", condition = attr("value") === 1).map(_ shouldBe ConditionResult.Failed)
         }
+      }
+    }
+  }
+
+  describe("update") {
+    it("should set a value") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", count = 1)) >>
+          DB.update(table, "u1", set(field[UpdateData](_.count), 42)) >>
+          DB.get(table, "u1").raiseError.map(_.map(_.count) shouldBe Some(42))
+      }
+    }
+
+    it("should append to a list") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", history = List("a"))) >>
+          DB.update(table, "u1", append(field[UpdateData](_.history), List("b", "c"))) >>
+          DB.get(table, "u1").raiseError.map(_.map(_.history) shouldBe Some(List("a", "b", "c")))
+      }
+    }
+
+    it("should prepend to a list") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", history = List("a"))) >>
+          DB.update(table, "u1", prepend(field[UpdateData](_.history), List("x", "y"))) >>
+          DB.get(table, "u1").raiseError.map(_.map(_.history) shouldBe Some(List("x", "y", "a")))
+      }
+    }
+
+    it("should remove an attribute") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", flag = Some(true))) >>
+          DB.update(table, "u1", remove(field[UpdateData](_.flag))) >>
+          DB.get(table, "u1").raiseError.map(_.flatMap(_.flag) shouldBe None)
+      }
+    }
+
+    it("should increment a numeric value") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", score = 10)) >>
+          DB.update(table, "u1", increment(field[UpdateData](_.score), 5)) >>
+          DB.update(table, "u1", increment(field[UpdateData](_.score), -3)) >>
+          DB.get(table, "u1").raiseError.map(_.map(_.score) shouldBe Some(12))
+      }
+    }
+
+    it("should add to a set") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", tags = Set("a"))) >>
+          DB.update(table, "u1", addToSet(field[UpdateData](_.tags), Set("b", "c"))) >>
+          DB.get(table, "u1").raiseError.map(_.map(_.tags) shouldBe Some(Set("a", "b", "c")))
+      }
+    }
+
+    it("should remove from a set") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", tags = Set("a", "b", "c"))) >>
+          DB.update(table, "u1", removeFromSet(field[UpdateData](_.tags), Set("b"))) >>
+          DB.get(table, "u1").raiseError.map(_.map(_.tags) shouldBe Some(Set("a", "c")))
+      }
+    }
+
+    it("should apply a combined multi-action update in one call") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", count = 1, score = 1, tags = Set("a"), labels = Set("x"), flag = Some(true))) >>
+          DB.update(
+            table,
+            "u1",
+            set(field[UpdateData](_.count), 100) |+|
+              append(field[UpdateData](_.history), List("done")) |+|
+              increment(field[UpdateData](_.score), 9) |+|
+              addToSet(field[UpdateData](_.tags), Set("b")) |+|
+              removeFromSet(field[UpdateData](_.labels), Set("x")) |+|
+              remove(field[UpdateData](_.flag))
+          ) >>
+          DB.get(table, "u1").raiseError.map {
+            _ shouldBe Some(
+              UpdateData(
+                "u1",
+                count = 100,
+                score = 10,
+                tags = Set("a", "b"),
+                labels = Set.empty,
+                history = List("done"),
+                flag = None
+              )
+            )
+          }
+      }
+    }
+  }
+
+  describe("update with condition") {
+    it("should succeed when the condition holds") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", count = 10)) >>
+          DB.update(table, "u1", set(field[UpdateData](_.count), 20), field[UpdateData](_.count) === 10)
+            .map(_ shouldBe true) >>
+          DB.get(table, "u1").raiseError.map(_.map(_.count) shouldBe Some(20))
+      }
+    }
+
+    it("should fail when the condition doesn't hold") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", count = 10)) >>
+          DB.update(table, "u1", set(field[UpdateData](_.count), 20), field[UpdateData](_.count) === 999)
+            .map(_ shouldBe false) >>
+          DB.get(table, "u1").raiseError.map(_.map(_.count) shouldBe Some(10))
+      }
+    }
+  }
+
+  describe("updateAndReturn") {
+    it("should return the old value with ReturnValue.Old") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", count = 10)) >>
+          DB.updateAndReturn(table, "u1", set(field[UpdateData](_.count), 20), ReturnValue.Old)
+            .map(_ shouldBe Some(Right(UpdateData("u1", count = 10))))
+      }
+    }
+
+    it("should return the new value with ReturnValue.New") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", count = 10)) >>
+          DB.updateAndReturn(table, "u1", set(field[UpdateData](_.count), 20), ReturnValue.New)
+            .map(_ shouldBe Some(Right(UpdateData("u1", count = 20))))
+      }
+    }
+
+    it("should return ConditionResult.Success with the requested ReturnValue when the condition holds") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", count = 10)) >>
+          DB.updateAndReturn(
+            table,
+            "u1",
+            set(field[UpdateData](_.count), 20),
+            field[UpdateData](_.count) === 10,
+            ReturnValue.New
+          ).map(_ shouldBe ConditionResult.Success(Some(Right(UpdateData("u1", count = 20)))))
+      }
+    }
+
+    it("should return ConditionResult.Failed when the condition doesn't hold") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", count = 10)) >>
+          DB.updateAndReturn(
+            table,
+            "u1",
+            set(field[UpdateData](_.count), 20),
+            field[UpdateData](_.count) === 999,
+            ReturnValue.New
+          ).map(_ shouldBe ConditionResult.Failed) >>
+          DB.get(table, "u1").raiseError.map(_.map(_.count) shouldBe Some(10))
+      }
+    }
+  }
+
+  describe("update with overlapping paths") {
+    it("should surface DynamoDB's validation error for a path used in more than one clause") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", count = 1)) >>
+          DB.update(
+            table,
+            "u1",
+            set(field[UpdateData](_.count), 2) |+| remove(field[UpdateData](_.count))
+          ).attempt
+            .map(_.isLeft shouldBe true)
       }
     }
   }
