@@ -45,7 +45,7 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
   override def scan[V, PK](
     table: TableLike[Aws2DynamoDBClient, V, PK],
     segment: Option[Segment] = None,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     limit: Option[Int],
     consistent: Boolean,
     overrides: DynamoDBOverride[Client]
@@ -85,7 +85,7 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
     table: TableWithRangeLike[Aws2DynamoDBClient, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK] = RKCondition.Empty,
-    condition: Option[ConditionExpression[Boolean]] = None,
+    condition: Option[ConditionExpression[V, Boolean]] = None,
     limit: Option[Int] = None,
     consistent: Boolean = false,
     overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
@@ -101,7 +101,7 @@ class CatsAws2[F[+_]](protected override implicit val F: Async[F])
   override def queryPK[V, PK](
     table: Index[Aws2DynamoDBClient, V, PK],
     pk: PK,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     limit: Option[Int],
     consistent: Boolean,
     overrides: DynamoDBOverride[Aws2DynamoDBClient]

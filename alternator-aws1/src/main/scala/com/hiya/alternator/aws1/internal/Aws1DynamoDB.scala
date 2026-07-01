@@ -53,7 +53,7 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override def doPut[V, PK](
     table: Table[Aws1DynamoDBClient, V, PK],
     item: V,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     overrides: DynamoDBOverride[Client]
   ): F[Boolean] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
@@ -72,7 +72,7 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override def doPutAndReturn[V, PK](
     table: Table[Aws1DynamoDBClient, V, PK],
     item: V,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     overrides: DynamoDBOverride[Client]
   ): F[ConditionResult[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
@@ -90,7 +90,7 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override def doDelete[V, PK](
     table: Table[Aws1DynamoDBClient, V, PK],
     key: PK,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     overrides: DynamoDBOverride[Client]
   ): F[Boolean] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
@@ -108,7 +108,7 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override def doDeleteAndReturn[V, PK](
     table: Table[Aws1DynamoDBClient, V, PK],
     key: PK,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     overrides: DynamoDBOverride[Client]
   ): F[ConditionResult[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)

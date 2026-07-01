@@ -13,7 +13,7 @@ object ConditionExpressionTestBase {
 abstract class ConditionExpressionTestBase[AV](implicit av: AttributeValue[AV]) extends AnyFunSpec with Matchers {
   import ConditionExpressionTestBase._
 
-  def render(expression: ConditionExpression[Boolean]): RenderedConditional[AV] = {
+  def render(expression: ConditionExpression[Any, Boolean]): RenderedConditional[AV] = {
     val (params, exp) = Condition.renderCondition(expression).run(ConditionParameters.empty).value
     RenderedConditional(exp, params.names, params.values)
   }

@@ -15,7 +15,7 @@ class Aws1IndexOps[V, PK](val underlying: Index[Aws1DynamoDBClient, V, PK]) exte
 
   def queryPK(
     pk: PK,
-    condition: Option[ConditionExpression[_]],
+    condition: Option[ConditionExpression[V, Boolean]],
     consistent: Boolean,
     overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
   ): model.QueryRequest = {

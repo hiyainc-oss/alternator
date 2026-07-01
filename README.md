@@ -169,7 +169,7 @@ object PekkoExample extends App {
 
 - **Type-safe schemas**: Define table structure with compile-time guarantees using `TableSchema`
 - **Automatic serialization**: Derive `DynamoFormat` for case classes with Shapeless-based generic derivation
-- **Conditional operations**: Type-safe condition expressions for put and delete operations
+- **Conditional operations**: Condition expressions for put and delete operations, built with either the untyped `attr(...)` escape hatch (e.g. `attr[Int]("age") > 18`) or the compile-time-checked `field[V](_.selector)` DSL (e.g. `field[User](_.age) > 18`), which only accepts conditions valid for `User`
 - **Batch operations**: Efficient batch reads and writes with automatic batching
 - **Secondary indexes**: Query and scan operations with Global and Local Secondary Index support
 - **Streaming**: Memory-efficient streaming with fs2 (Cats Effect) or Akka Streams

@@ -6,7 +6,7 @@ import com.hiya.alternator.generic.semiauto
 import com.hiya.alternator.schema.{IndexSchema, IndexSchemaWithRange, RootDynamoFormat, TableSchema}
 import com.hiya.alternator.syntax._
 import com.hiya.alternator.testkit.{LocalDynamoDB, TestContainerInitializer}
-import com.hiya.alternator.util.{DataPK, DataRK}
+import com.hiya.alternator.util.{DataNested, DataPK, DataRK}
 import org.scalatest.funspec.AnyFunSpecLike
 import org.scalatest.matchers.should
 
@@ -173,6 +173,13 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
       result shouldBe List(DataRK("13", "1", "13/1"))
     }
 
+    it("should filter with non-key and range condition using field[V]") {
+      val result = withRangeData(13) { table =>
+        DB.query(table, pk = "13", rk < "5", condition = Some(field[DataRK](_.value) === "13/1")).raiseError
+      }
+      result shouldBe List(DataRK("13", "1", "13/1"))
+    }
+
     it("should filter with non-key condition") {
       val result = withRangeData(13) { table =>
         DB.query(table, pk = "13", condition = Some(attr("value") === "13/1")).raiseError
@@ -209,6 +216,16 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
           DB.put(table, DataPK("new", 1000), attr("key").notExists).map(_ shouldBe true) >>
             DB.put(table, DataPK("new", 1001), attr("value") === 1000).map(_ shouldBe true) >>
             DB.put(table, DataPK("new", 1001), attr("value") === 1000).map(_ shouldBe false)
+        }
+      }
+    }
+
+    it("should work for optimistic locking using field[V]") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("new", 1000), field[DataPK](_.key).notExists).map(_ shouldBe true) >>
+            DB.put(table, DataPK("new", 1001), field[DataPK](_.value) === 1000).map(_ shouldBe true) >>
+            DB.put(table, DataPK("new", 1001), field[DataPK](_.value) === 1000).map(_ shouldBe false)
         }
       }
     }
@@ -272,6 +289,19 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
               table,
               DataPK("complex", 200),
               (attr("value") === 100) && (attr("key") === "complex")
+            ).map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("complex", 100)))))
+        }
+      }
+    }
+
+    it("should handle complex AND conditions that match using field[V]") {
+      eval {
+        DataPK.config.withTable(client).eval { table =>
+          DB.put(table, DataPK("complex", 100)) >>
+            DB.putAndReturn(
+              table,
+              DataPK("complex", 200),
+              (field[DataPK](_.value) === 100) && (field[DataPK](_.key) === "complex")
             ).map(_ shouldBe ConditionResult.Success(Some(Right(DataPK("complex", 100)))))
         }
       }
@@ -452,6 +482,18 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
             // ConditionResult return: condition succeeds -> ConditionResult.Success with old value
             condSuccess <- DB.putAndReturn(table, DataPK("ret-type", 50), attr("value") === 40)
           } yield condSuccess shouldBe ConditionResult.Success(Some(Right(DataPK("ret-type", 40))))
+        }
+      }
+    }
+
+    it("should filter on a nested field using field[V]") {
+      eval {
+        DataNested.config.withTable(client).eval { table =>
+          val row = DataNested("n1", DataNested.Address("Copenhagen", "1000"))
+          DB.put(table, row, field[DataNested](_.key).notExists) >>
+            DB.get(table, "n1").raiseError.map(_ shouldBe Some(row)) >>
+            DB.put(table, row, field[DataNested](_.address.city) === "Copenhagen").map(_ shouldBe true) >>
+            DB.put(table, row, field[DataNested](_.address.city) === "Aarhus").map(_ shouldBe false)
         }
       }
     }

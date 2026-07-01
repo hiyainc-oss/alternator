@@ -14,7 +14,7 @@ private[alternator] trait ConditionalSupport[Builder, AV] {
 }
 
 private[alternator] object ConditionalSupport {
-  def apply[Builder, AV: AttributeValue](builder: Builder, expression: ConditionExpression[Boolean])(implicit
+  def apply[V, Builder, AV: AttributeValue](builder: Builder, expression: ConditionExpression[V, Boolean])(implicit
     Builder: ConditionalSupport[Builder, AV]
   ): IndexedStateT[Eval, ConditionParameters[AV], ConditionParameters[AV], Builder] =
     for {
@@ -22,7 +22,7 @@ private[alternator] object ConditionalSupport {
       ret <- Condition.execute(Builder.withConditionExpression(builder, exp))
     } yield ret
 
-  def eval[Builder, AV: AttributeValue](builder: Builder, expression: ConditionExpression[Boolean])(implicit
+  def eval[V, Builder, AV: AttributeValue](builder: Builder, expression: ConditionExpression[V, Boolean])(implicit
     Builder: ConditionalSupport[Builder, AV]
   ): Builder =
     Condition.eval(apply(builder, expression))

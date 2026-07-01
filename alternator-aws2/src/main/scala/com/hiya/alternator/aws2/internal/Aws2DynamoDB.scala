@@ -48,14 +48,14 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override protected def doPut[V, PK](
     table: Table[Aws2DynamoDBClient, V, PK],
     item: V,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     overrides: DynamoDBOverride[Client]
   ): F[Boolean] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     val req = Aws2TableOps(table).put(item, condition, returnOld = false, overrides = resolvedOverride).build()
     async(table.client.client.putItem(req))
       .map(_ => true)
-      .optApp[ConditionExpression[Boolean]](f =>
+      .optApp[ConditionExpression[V, Boolean]](f =>
         _ => f.recover { case _: model.ConditionalCheckFailedException => false }
       )(condition)
   }
@@ -63,7 +63,7 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override protected def doPutAndReturn[V, PK](
     table: Table[Aws2DynamoDBClient, V, PK],
     item: V,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     overrides: DynamoDBOverride[Client]
   ): F[ConditionResult[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
@@ -78,17 +78,17 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override protected def doDelete[V, PK](
     table: Table[Aws2DynamoDBClient, V, PK],
     key: PK,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     overrides: DynamoDBOverride[Client]
   ): F[Boolean] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)
     val req = Aws2TableOps(table).delete(key, condition, returnOld = false, resolvedOverride).build()
     async(table.client.client.deleteItem(req))
       .map(_ => true)
-      .optApp[ConditionExpression[Boolean]](f =>
+      .optApp[ConditionExpression[V, Boolean]](f =>
         _ => f.recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
       )(condition)
-      .optApp[ConditionExpression[Boolean]](f =>
+      .optApp[ConditionExpression[V, Boolean]](f =>
         _ => f.recover { case _: model.ConditionalCheckFailedException => false }
       )(condition)
   }
@@ -96,7 +96,7 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
   override protected def doDeleteAndReturn[V, PK](
     table: Table[Aws2DynamoDBClient, V, PK],
     key: PK,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     overrides: DynamoDBOverride[Client]
   ): F[ConditionResult[V]] = {
     val resolvedOverride = (table.overrides |+| overrides)(table.client)

@@ -17,7 +17,7 @@ class Aws2IndexOps[V, PK](val underlying: Aws2Index[V, PK]) extends AnyVal {
 
   def query(
     pk: PK,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     consistent: Boolean = false,
     overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
   ): model.QueryRequest.Builder = {

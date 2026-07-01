@@ -19,7 +19,7 @@ final class Aws1TableLikeOps[V, PK](val underlying: TableLike[_, V, PK]) {
 
   final def scan(
     segment: Option[Segment] = None,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     consistent: Boolean,
     overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
   ): ScanRequest = {
@@ -31,7 +31,7 @@ final class Aws1TableLikeOps[V, PK](val underlying: TableLike[_, V, PK]) {
         }
       )(segment)
       .withConsistentRead(consistent)
-      .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
+      .optApp[ConditionExpression[V, Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
 
     overrides(request).asInstanceOf[ScanRequest]
   }

@@ -131,7 +131,7 @@ class Aws2TableOps[V, PK](val underlying: Table[Aws2DynamoDBClient, V, PK]) exte
 
   final def put(
     item: V,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     returnOld: Boolean,
     overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
   ): PutItemRequest.Builder = {
@@ -139,7 +139,7 @@ class Aws2TableOps[V, PK](val underlying: Table[Aws2DynamoDBClient, V, PK]) exte
       .builder()
       .item(schema.serializeValue.writeFields(item))
       .tableName(tableName)
-      .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
+      .optApp[ConditionExpression[V, Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
       .returnValues(if (returnOld) ReturnValue.ALL_OLD else ReturnValue.NONE)
       .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
   }
@@ -154,7 +154,7 @@ class Aws2TableOps[V, PK](val underlying: Table[Aws2DynamoDBClient, V, PK]) exte
 
   final def delete(
     key: PK,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     returnOld: Boolean = false,
     overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
   ): DeleteItemRequest.Builder = {
@@ -162,7 +162,7 @@ class Aws2TableOps[V, PK](val underlying: Table[Aws2DynamoDBClient, V, PK]) exte
       .builder()
       .key(schema.serializePK(key))
       .tableName(tableName)
-      .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
+      .optApp[ConditionExpression[V, Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
       .returnValues(if (returnOld) ReturnValue.ALL_OLD else ReturnValue.NONE)
       .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
   }
