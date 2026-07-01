@@ -23,7 +23,7 @@ class Aws2TableLikeOps[V, PK](val underlying: TableLike[Aws2DynamoDBClient, V, P
 
   final def scan(
     segment: Option[Segment] = None,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     consistent: Boolean,
     overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
   ): ScanRequest.Builder = {

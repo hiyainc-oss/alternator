@@ -30,7 +30,7 @@ package object internal {
         (params.copy(attributeValues = params.attributeValues.updated(value, idx)), idx)
       }
 
-    def renderCondition[AV: AttributeValue](expression: ConditionExpression[_]): Condition[AV, String] =
+    def renderCondition[AV: AttributeValue](expression: ConditionExpression[_, _]): Condition[AV, String] =
       expression match {
         case Attr(name) =>
           getParam(name)

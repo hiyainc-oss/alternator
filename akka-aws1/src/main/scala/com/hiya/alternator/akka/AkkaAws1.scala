@@ -50,7 +50,7 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
   override def scan[V, PK](
     table: TableLike[Aws1DynamoDBClient, V, PK],
     segment: Option[Segment],
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     limit: Option[Int],
     consistent: Boolean,
     overrides: DynamoDBOverride[Client] = DynamoDBOverride.empty
@@ -91,7 +91,7 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
     table: TableWithRangeLike[Aws1DynamoDBClient, V, PK, RK],
     pk: PK,
     rk: RKCondition[RK],
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     limit: Option[Int],
     consistent: Boolean,
     overrides: DynamoDBOverride[Client]
@@ -108,7 +108,7 @@ class AkkaAws1 private (override implicit val system: ActorSystem, override impl
   override def queryPK[V, PK](
     table: Index[Aws1DynamoDBClient, V, PK],
     pk: PK,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     limit: Option[Int],
     consistent: Boolean,
     overrides: DynamoDBOverride[Aws1DynamoDBClient]

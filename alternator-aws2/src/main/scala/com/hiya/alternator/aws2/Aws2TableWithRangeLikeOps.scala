@@ -18,7 +18,7 @@ class Aws2TableWithRangeLikeOps[V, PK, RK](val underlying: Aws2TableWithRangeLik
   def query(
     pk: PK,
     rk: RKCondition[RK] = RKCondition.Empty,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     consistent: Boolean = false,
     overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
   ): model.QueryRequest.Builder = {

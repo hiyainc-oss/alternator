@@ -120,26 +120,26 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, 
 
   final def put(
     item: V,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     returnOld: Boolean,
     overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
   ): PutItemRequest = {
     val req = new PutItemRequest(underlying.tableName, underlying.schema.serializeValue.writeFields(item))
       .withReturnValues(if (returnOld) ReturnValue.ALL_OLD else ReturnValue.NONE)
-      .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
+      .optApp[ConditionExpression[V, Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
 
     overrides(req).asInstanceOf[PutItemRequest]
   }
 
   final def delete(
     key: PK,
-    condition: Option[ConditionExpression[Boolean]],
+    condition: Option[ConditionExpression[V, Boolean]],
     returnOld: Boolean,
     overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
   ): DeleteItemRequest = {
     val req = new DeleteItemRequest(underlying.tableName, underlying.schema.serializePK(key))
       .withReturnValues(if (returnOld) ReturnValue.ALL_OLD else ReturnValue.NONE)
-      .optApp[ConditionExpression[Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
+      .optApp[ConditionExpression[V, Boolean]](req => cond => ConditionalSupport.eval(req, cond))(condition)
 
     overrides(req).asInstanceOf[DeleteItemRequest]
   }
