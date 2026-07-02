@@ -10,7 +10,7 @@ import com.hiya.alternator._
 import com.hiya.alternator.aws1._
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.ScalarType
-import com.hiya.alternator.syntax.ConditionExpression
+import com.hiya.alternator.syntax.{ConditionExpression, UpdateExpression}
 
 import java.util
 import java.util.concurrent.{CompletionException, Future => JFuture}
@@ -116,6 +116,51 @@ abstract class Aws1DynamoDB[F[_]: MonadThrow, S[_]] extends DynamoDB[F] {
       table.client.underlying.deleteItemAsync(
         Aws1TableOps(table).delete(key, condition, returnOld = true, overrides = resolvedOverride),
         _: AsyncHandler[DeleteItemRequest, DeleteItemResult]
+      )
+    )
+      .map[ConditionResult[V]](item => ConditionResult.Success(Aws1TableOps(table).extractItem(item)))
+      .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
+      .recover { case _: model.ConditionalCheckFailedException => ConditionResult.Failed }
+  }
+
+  override def doUpdate[V, PK](
+    table: Table[Aws1DynamoDBClient, V, PK],
+    key: PK,
+    update: UpdateExpression[V],
+    condition: Option[ConditionExpression[V, Boolean]],
+    overrides: DynamoDBOverride[Client]
+  ): F[Boolean] = {
+    val resolvedOverride = (table.overrides |+| overrides)(table.client)
+    async(
+      table.client.underlying.updateItemAsync(
+        Aws1TableOps(table).update(key, update, condition, returnValue = None, overrides = resolvedOverride),
+        _: AsyncHandler[UpdateItemRequest, UpdateItemResult]
+      )
+    )
+      .map(_ => true)
+      .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
+      .recover { case _: model.ConditionalCheckFailedException => false }
+  }
+
+  override def doUpdateAndReturn[V, PK](
+    table: Table[Aws1DynamoDBClient, V, PK],
+    key: PK,
+    update: UpdateExpression[V],
+    condition: Option[ConditionExpression[V, Boolean]],
+    returnValue: com.hiya.alternator.ReturnValue,
+    overrides: DynamoDBOverride[Client]
+  ): F[ConditionResult[V]] = {
+    val resolvedOverride = (table.overrides |+| overrides)(table.client)
+    async(
+      table.client.underlying.updateItemAsync(
+        Aws1TableOps(table).update(
+          key,
+          update,
+          condition,
+          returnValue = Some(returnValue),
+          overrides = resolvedOverride
+        ),
+        _: AsyncHandler[UpdateItemRequest, UpdateItemResult]
       )
     )
       .map[ConditionResult[V]](item => ConditionResult.Success(Aws1TableOps(table).extractItem(item)))
