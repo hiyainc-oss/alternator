@@ -1,6 +1,6 @@
 package com.hiya.alternator.syntax
 
-import com.hiya.alternator.schema.{AttributeValue, DynamoFormat, ScalarDynamoFormat}
+import com.hiya.alternator.schema.{AttributeValue, ScalarDynamoFormat}
 
 sealed trait ConditionExpression[-V, +T]
 
@@ -69,13 +69,13 @@ object ConditionExpression {
 
   private[alternator] final case class Literal[T](
     value: T
-  )(implicit format: DynamoFormat[T])
+  )(implicit format: ScalarDynamoFormat[T])
     extends ConditionExpression[Any, T] {
     def write[AV: AttributeValue]: AV = format.write[AV](value)
   }
 
   private[alternator] object Literal {
-    def apply[T: DynamoFormat](t: T): Literal[T] = new Literal(t)
+    def apply[T: ScalarDynamoFormat](t: T): Literal[T] = new Literal(t)
   }
 
   private[alternator] final case class FunCall[V, T](

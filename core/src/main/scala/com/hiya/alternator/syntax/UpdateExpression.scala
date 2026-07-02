@@ -10,6 +10,10 @@ import com.hiya.alternator.schema.{AttributeValue, DynamoFormat, ScalarDynamoFor
   *
   * '''Known limitation''': the `Monoid` guarantees clause ordering, not path uniqueness — e.g. `set(p, 1) |+|
   * remove(p)` typechecks but DynamoDB rejects the resulting request at call time.
+  *
+  * '''Known limitation''': `Monoid[UpdateExpression[V]].empty` (all four lists empty) renders to the empty string,
+  * which DynamoDB also rejects — an `UpdateExpression` must specify at least one action. Passing `empty` to
+  * `update`/`updateAndReturn` is a call-time DynamoDB error, not caught here.
   */
 final case class UpdateExpression[V](
   sets: List[UpdateExpression.SetAction[V, _]],
