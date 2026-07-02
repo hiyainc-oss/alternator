@@ -486,6 +486,29 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
             .map(_.map(_.map(_.count)) shouldBe Some(Right(42)))
       }
     }
+
+    it("does not upsert a phantom item when the key doesn't exist") {
+      withUpdateTable { table =>
+        DB.update(table, "ghost", Monoid[UpdateExpression[UpdateData]].empty) >>
+          DB.get(table, "ghost").map(_ shouldBe None)
+      }
+    }
+
+    it("reports false rather than upserting when combined with a condition on a missing key") {
+      withUpdateTable { table =>
+        DB.update(table, "ghost", Monoid[UpdateExpression[UpdateData]].empty, field[UpdateData](_.count) === 1)
+          .map(_ shouldBe false) >>
+          DB.get(table, "ghost").map(_ shouldBe None)
+      }
+    }
+
+    it("returns None rather than throwing for updateAndReturn on a missing key") {
+      withUpdateTable { table =>
+        DB.updateAndReturn(table, "ghost", Monoid[UpdateExpression[UpdateData]].empty, ReturnValue.Old)
+          .map(_ shouldBe None) >>
+          DB.get(table, "ghost").map(_ shouldBe None)
+      }
+    }
   }
 
   describe("conditional operations with diverse expressions") {
