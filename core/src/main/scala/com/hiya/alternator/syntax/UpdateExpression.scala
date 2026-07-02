@@ -8,6 +8,11 @@ import com.hiya.alternator.schema.{AttributeValue, DynamoFormat, ScalarDynamoFor
   * each clause may appear at most once per request, in that fixed order. Compose with cats' `|+|`; it's plain list
   * concatenation (`Monoid`), not boolean logic, and comes with `combineAll`/`empty` for free.
   *
+  * `empty` is a genuine no-op: DynamoDB rejects an `UpdateExpression` string that is present-but-empty, so rendering
+  * simply omits the `UpdateExpression` field from the request entirely when there are no actions — DynamoDB accepts
+  * `UpdateItem` with no expression at all, treating it as "touch the item and report its current state," which is
+  * exactly what `update`/`updateAndReturn` on an `empty` expression should mean.
+  *
   * '''Known limitation''': the `Monoid` guarantees clause ordering, not path uniqueness — e.g. `set(p, 1) |+|
   * remove(p)` typechecks but DynamoDB rejects the resulting request at call time.
   */
@@ -16,7 +21,9 @@ final case class UpdateExpression[V](
   removes: List[ConditionExpression.Path[V, _]],
   adds: List[UpdateExpression.AddAction[V, _]],
   deletes: List[UpdateExpression.DeleteAction[V, _]]
-)
+) {
+  def isEmpty: Boolean = sets.isEmpty && removes.isEmpty && adds.isEmpty && deletes.isEmpty
+}
 
 object UpdateExpression {
   implicit def monoid[V]: Monoid[UpdateExpression[V]] = new Monoid[UpdateExpression[V]] {

@@ -13,7 +13,6 @@ import software.amazon.awssdk.services.dynamodb.model
 import software.amazon.awssdk.services.dynamodb.model.{BatchGetItemResponse, KeysAndAttributes, WriteRequest}
 
 import java.util
-import java.util.concurrent.CompletionException
 import scala.collection.compat._
 import scala.jdk.CollectionConverters._
 
@@ -71,7 +70,6 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
 
     async(table.client.client.putItem(req))
       .map[ConditionResult[V]](item => ConditionResult.Success(Aws2TableOps(table).extractItem(item)))
-      .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
       .recover { case _: model.ConditionalCheckFailedException => ConditionResult.Failed }
   }
 
@@ -85,9 +83,6 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
     val req = Aws2TableOps(table).delete(key, condition, returnOld = false, resolvedOverride).build()
     async(table.client.client.deleteItem(req))
       .map(_ => true)
-      .optApp[ConditionExpression[V, Boolean]](f =>
-        _ => f.recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
-      )(condition)
       .optApp[ConditionExpression[V, Boolean]](f =>
         _ => f.recover { case _: model.ConditionalCheckFailedException => false }
       )(condition)
@@ -104,7 +99,6 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
 
     async(table.client.client.deleteItem(req))
       .map[ConditionResult[V]](item => ConditionResult.Success(Aws2TableOps(table).extractItem(item)))
-      .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
       .recover { case _: model.ConditionalCheckFailedException => ConditionResult.Failed }
   }
 
@@ -140,7 +134,6 @@ abstract class Aws2DynamoDB[F[+_]: MonadThrow, S[_]] extends DynamoDB[F] {
 
     async(table.client.client.updateItem(req))
       .map[ConditionResult[V]](item => ConditionResult.Success(Aws2TableOps(table).extractItem(item)))
-      .recoverWith { case ex: CompletionException => MonadThrow[F].raiseError(ex.getCause) }
       .recover { case _: model.ConditionalCheckFailedException => ConditionResult.Failed }
   }
 

@@ -32,10 +32,15 @@ private[alternator] object UpdateSupport {
   private def apply[V, Builder, AV: AttributeValue](builder: Builder, expression: UpdateExpression[V])(implicit
     Builder: UpdateSupport[Builder, AV]
   ): Condition[AV, Builder] =
-    for {
-      exp <- Condition.renderUpdate(expression)
-      ret <- execute(Builder.withUpdateExpression(builder, exp))
-    } yield ret
+    // An empty expression renders to "", which DynamoDB rejects as an *invalid* UpdateExpression — but omitting the
+    // field entirely is accepted, and DynamoDB treats it as a no-op UpdateItem that still reports current state via
+    // ReturnValues. So the empty case skips withUpdateExpression rather than calling it with an empty string.
+    if (expression.isEmpty) Condition.pure(builder)
+    else
+      for {
+        exp <- Condition.renderUpdate(expression)
+        ret <- execute(Builder.withUpdateExpression(builder, exp))
+      } yield ret
 
   /** Applies the rendered update expression, an optional condition and an optional `ReturnValues` to `builder` in a
     * single pass. The update and condition expressions '''must''' be rendered within the same `Condition` (`State`)

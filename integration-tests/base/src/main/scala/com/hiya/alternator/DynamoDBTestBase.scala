@@ -1,6 +1,6 @@
 package com.hiya.alternator
 
-import cats.MonadThrow
+import cats.{MonadThrow, Monoid}
 import cats.syntax.all._
 import com.hiya.alternator.generic.semiauto
 import com.hiya.alternator.schema.{IndexSchema, IndexSchemaWithRange, RootDynamoFormat, TableSchema}
@@ -466,6 +466,24 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
             set(field[UpdateData](_.count), 2) |+| remove(field[UpdateData](_.count))
           ).attempt
             .map(_.isLeft shouldBe true)
+      }
+    }
+  }
+
+  describe("update with an empty expression") {
+    it("is a true no-op for update, leaving the item unchanged") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", count = 42)) >>
+          DB.update(table, "u1", Monoid[UpdateExpression[UpdateData]].empty) >>
+          DB.get(table, "u1").raiseError.map(_.map(_.count) shouldBe Some(42))
+      }
+    }
+
+    it("is a true no-op for updateAndReturn, reporting the item's current (unchanged) state") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", count = 42)) >>
+          DB.updateAndReturn(table, "u1", Monoid[UpdateExpression[UpdateData]].empty, ReturnValue.New)
+            .map(_.map(_.map(_.count)) shouldBe Some(Right(42)))
       }
     }
   }
