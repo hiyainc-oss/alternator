@@ -56,6 +56,56 @@ package object aws1 {
       builder.withExpressionAttributeValues(attributeValues)
   }
 
+  implicit object UpdateIsConditional extends ConditionalSupport[model.UpdateItemRequest, model.AttributeValue] {
+    override def withConditionExpression(
+      builder: model.UpdateItemRequest,
+      conditionExpression: String
+    ): model.UpdateItemRequest =
+      builder.withConditionExpression(conditionExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.UpdateItemRequest,
+      attributeNames: JMap[String, String]
+    ): model.UpdateItemRequest =
+      builder.withExpressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.UpdateItemRequest,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.UpdateItemRequest =
+      builder.withExpressionAttributeValues(attributeValues)
+  }
+
+  implicit object UpdateIsUpdatable
+    extends com.hiya.alternator.internal.UpdateSupport[model.UpdateItemRequest, model.AttributeValue] {
+    override def withUpdateExpression(
+      builder: model.UpdateItemRequest,
+      updateExpression: String
+    ): model.UpdateItemRequest =
+      builder.withUpdateExpression(updateExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.UpdateItemRequest,
+      attributeNames: JMap[String, String]
+    ): model.UpdateItemRequest =
+      builder.withExpressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.UpdateItemRequest,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.UpdateItemRequest =
+      builder.withExpressionAttributeValues(attributeValues)
+
+    override def withReturnValues(
+      builder: model.UpdateItemRequest,
+      returnValue: com.hiya.alternator.ReturnValue
+    ): model.UpdateItemRequest =
+      builder.withReturnValues(returnValue match {
+        case com.hiya.alternator.ReturnValue.Old => model.ReturnValue.ALL_OLD
+        case com.hiya.alternator.ReturnValue.New => model.ReturnValue.ALL_NEW
+      })
+  }
+
   implicit object ScanIsConditional extends ConditionalSupport[model.ScanRequest, model.AttributeValue] {
     override def withConditionExpression(
       builder: model.ScanRequest,

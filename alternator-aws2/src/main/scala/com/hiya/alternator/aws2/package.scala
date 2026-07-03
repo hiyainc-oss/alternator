@@ -62,6 +62,51 @@ package object aws2 {
     ): model.DeleteItemRequest.Builder = builder.expressionAttributeValues(attributeValues)
   }
 
+  implicit object UpdateIsConditional
+    extends ConditionalSupport[model.UpdateItemRequest.Builder, model.AttributeValue] {
+    override def withConditionExpression(
+      builder: model.UpdateItemRequest.Builder,
+      conditionExpression: String
+    ): model.UpdateItemRequest.Builder = builder.conditionExpression(conditionExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.UpdateItemRequest.Builder,
+      attributeNames: JMap[String, String]
+    ): model.UpdateItemRequest.Builder = builder.expressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.UpdateItemRequest.Builder,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.UpdateItemRequest.Builder = builder.expressionAttributeValues(attributeValues)
+  }
+
+  implicit object UpdateIsUpdatable
+    extends com.hiya.alternator.internal.UpdateSupport[model.UpdateItemRequest.Builder, model.AttributeValue] {
+    override def withUpdateExpression(
+      builder: model.UpdateItemRequest.Builder,
+      updateExpression: String
+    ): model.UpdateItemRequest.Builder = builder.updateExpression(updateExpression)
+
+    override def withExpressionAttributeNames(
+      builder: model.UpdateItemRequest.Builder,
+      attributeNames: JMap[String, String]
+    ): model.UpdateItemRequest.Builder = builder.expressionAttributeNames(attributeNames)
+
+    override def withExpressionAttributeValues(
+      builder: model.UpdateItemRequest.Builder,
+      attributeValues: JMap[String, model.AttributeValue]
+    ): model.UpdateItemRequest.Builder = builder.expressionAttributeValues(attributeValues)
+
+    override def withReturnValues(
+      builder: model.UpdateItemRequest.Builder,
+      returnValue: com.hiya.alternator.ReturnValue
+    ): model.UpdateItemRequest.Builder =
+      builder.returnValues(returnValue match {
+        case com.hiya.alternator.ReturnValue.Old => model.ReturnValue.ALL_OLD
+        case com.hiya.alternator.ReturnValue.New => model.ReturnValue.ALL_NEW
+      })
+  }
+
   implicit object Aws2LocalDynamoClient extends LocalDynamoClient[Aws2DynamoDBClient] {
     type Config = DynamoDbAsyncClientBuilder
 

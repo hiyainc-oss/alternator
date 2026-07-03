@@ -20,6 +20,13 @@ object ConditionExpression {
 
   sealed trait Path[V, T] extends ConditionExpression[V, T] {
 
+    /** Widens the phantom item type, e.g. so `attr`'s `Path[Any, T]` can be used at a call site typed for a specific
+      * `V2`. Safe because `V`/`V2` are phantom types never inspected at runtime. The `V2 <: V` bound keeps this from
+      * defeating `field[V]`'s type-safety guarantee: an already-precisely-typed `Path[User, T]` cannot be narrowed to
+      * an unrelated `Path[Order, T]`, only widened `Path[Any, T]` can be narrowed to any `V2`.
+      */
+    def narrow[V2 <: V]: Path[V2, T] = this.asInstanceOf[Path[V2, T]]
+
     def get[U](index: Long): Path[V, U] = ArrayIndex[V, U](this, index)
     def get[U](fieldName: String): Path[V, U] = MapIndex[V, U](this, fieldName)
 

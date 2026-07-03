@@ -4,7 +4,7 @@ import cats.syntax.all._
 import com.hiya.alternator.internal._
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
-import com.hiya.alternator.syntax.ConditionExpression
+import com.hiya.alternator.syntax.{ConditionExpression, UpdateExpression}
 import com.hiya.alternator.{BatchReadResult, BatchWriteResult, DynamoDBOverride, Table}
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration
 import software.amazon.awssdk.services.dynamodb.model._
@@ -167,6 +167,22 @@ class Aws2TableOps[V, PK](val underlying: Table[Aws2DynamoDBClient, V, PK]) exte
       .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
   }
 
+  final def update(
+    key: PK,
+    update: UpdateExpression[V],
+    condition: Option[ConditionExpression[V, Boolean]],
+    returnValue: Option[com.hiya.alternator.ReturnValue],
+    overrides: DynamoDBOverride.Configure[Aws2DynamoDBClient.OverrideBuilder]
+  ): UpdateItemRequest.Builder = {
+    val req = UpdateItemRequest
+      .builder()
+      .tableName(tableName)
+      .key(schema.serializePK(key))
+      .overrideConfiguration(overrides(AwsRequestOverrideConfiguration.builder()).build())
+
+    UpdateSupport.eval(req, update, condition, returnValue)
+  }
+
   final def putRequest(item: V): PutRequest.Builder = {
     PutRequest.builder().item(schema.serializeValue.writeFields(item))
   }
@@ -186,6 +202,12 @@ class Aws2TableOps[V, PK](val underlying: Table[Aws2DynamoDBClient, V, PK]) exte
   }
 
   def extractItem(item: PutItemResponse): Option[Result[V]] = {
+    Option(item.attributes())
+      .filterNot(_.isEmpty)
+      .map(deserialize)
+  }
+
+  def extractItem(item: UpdateItemResponse): Option[Result[V]] = {
     Option(item.attributes())
       .filterNot(_.isEmpty)
       .map(deserialize)

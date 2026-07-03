@@ -2,6 +2,7 @@ package com.hiya.alternator
 
 import cats.{MonadThrow, Traverse}
 import com.hiya.alternator.schema.{DynamoFormat, ScalarDynamoFormat, StringLikeDynamoFormat}
+import com.hiya.alternator.syntax.ConditionExpression.Path
 
 package object syntax {
 
@@ -42,5 +43,44 @@ package object syntax {
     expr: ConditionExpression[V, Boolean]
   ): ConditionExpression.ConditionExpressionBoolExt[V] =
     new ConditionExpression.ConditionExpressionBoolExt[V](expr)
+
+  /** `SET #p = :v`. Bound on the full `DynamoFormat[T]`, not `ScalarDynamoFormat[T]`, since `SET` accepts any attribute
+    * value including nested maps.
+    */
+  def set[V, T: DynamoFormat](path: Path[V, T], value: T): UpdateExpression[V] =
+    UpdateExpression(sets = List(UpdateExpression.Assign(path, value)), Nil, Nil, Nil)
+
+  /** `SET #p = list_append(#p, :v)`. */
+  def append[V, T: DynamoFormat](path: Path[V, List[T]], values: List[T]): UpdateExpression[V] =
+    UpdateExpression(sets = List(UpdateExpression.ListAppend(path, values, prepend = false)), Nil, Nil, Nil)
+
+  /** `SET #p = list_append(:v, #p)`. */
+  def prepend[V, T: DynamoFormat](path: Path[V, List[T]], values: List[T]): UpdateExpression[V] =
+    UpdateExpression(sets = List(UpdateExpression.ListAppend(path, values, prepend = true)), Nil, Nil, Nil)
+
+  /** `REMOVE #p`. */
+  def remove[V](path: Path[V, _]): UpdateExpression[V] =
+    UpdateExpression(Nil, removes = List(path), Nil, Nil)
+
+  /** `ADD #p :v` (numeric increment). Native `ADD` is numeric-only, hence `ScalarDynamoFormat` rather than the full
+    * `DynamoFormat`; the `Numeric` evidence isn't otherwise needed (DynamoDB does the arithmetic server-side) but is
+    * required as a call-site constraint restricting this builder to genuinely numeric `T` — referencing it below keeps
+    * `-Wunused`/`-Werror` builds from treating it as dead.
+    */
+  def increment[V, T](path: Path[V, T], delta: T)(implicit
+    N: Numeric[T],
+    F: ScalarDynamoFormat[T]
+  ): UpdateExpression[V] = {
+    val _ = N
+    UpdateExpression(Nil, Nil, adds = List(UpdateExpression.Increment(path, delta)), Nil)
+  }
+
+  /** `ADD #p :v` (set union). DynamoDB's native Set types (`SS`/`NS`/`BS`) are genuinely scalar-only. */
+  def addToSet[V, T: ScalarDynamoFormat](path: Path[V, Set[T]], values: Set[T]): UpdateExpression[V] =
+    UpdateExpression(Nil, Nil, adds = List(UpdateExpression.AddToSet(path, values)), Nil)
+
+  /** `DELETE #p :v` (set difference). */
+  def removeFromSet[V, T: ScalarDynamoFormat](path: Path[V, Set[T]], values: Set[T]): UpdateExpression[V] =
+    UpdateExpression(Nil, Nil, Nil, deletes = List(UpdateExpression.DeleteAction(path, values)))
 
 }

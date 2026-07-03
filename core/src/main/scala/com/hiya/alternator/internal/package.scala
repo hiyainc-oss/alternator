@@ -5,7 +5,7 @@ import cats.data.State
 import cats.syntax.all._
 import com.hiya.alternator.schema.{AttributeValue, TableSchemaWithPartition, TableSchemaWithRange}
 import com.hiya.alternator.syntax.ConditionExpression._
-import com.hiya.alternator.syntax.{ConditionExpression, RKCondition}
+import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, UpdateExpression}
 
 package object internal {
   type Condition[AV, T] = State[ConditionParameters[AV], T]
@@ -60,6 +60,57 @@ package object internal {
             rhs <- renderCondition[AV](rhs)
           } yield s"($lhs) $op ($rhs)"
       }
+
+    /** Renders each non-empty clause bucket via the same `getParam`/`getValue` accumulators `renderCondition` uses (so
+      * an update sharing a request with a `condition` reuses one `ExpressionAttributeNames`/`Values` map), then joins
+      * the present clauses in `SET`/`REMOVE`/`ADD`/`DELETE` order with a space.
+      */
+    def renderUpdate[AV: AttributeValue, V](update: UpdateExpression[V]): Condition[AV, String] = {
+      def clause(keyword: String, items: List[Condition[AV, String]]): Condition[AV, Option[String]] =
+        items match {
+          case Nil => pure(None)
+          case _ => items.sequence.map(rendered => Some(s"$keyword ${rendered.mkString(", ")}"))
+        }
+
+      val setClause = clause(
+        "SET",
+        update.sets.map { action =>
+          for {
+            pathExpr <- renderCondition[AV](action.path)
+            valueExpr <- action.renderValue[AV](pathExpr)
+          } yield s"$pathExpr = $valueExpr"
+        }
+      )
+
+      val removeClause = clause("REMOVE", update.removes.map(renderCondition[AV](_)))
+
+      val addClause = clause(
+        "ADD",
+        update.adds.map { action =>
+          for {
+            pathExpr <- renderCondition[AV](action.path)
+            valueExpr <- getValue(action.value[AV])
+          } yield s"$pathExpr $valueExpr"
+        }
+      )
+
+      val deleteClause = clause(
+        "DELETE",
+        update.deletes.map { action =>
+          for {
+            pathExpr <- renderCondition[AV](action.path)
+            valueExpr <- getValue(action.value[AV])
+          } yield s"$pathExpr $valueExpr"
+        }
+      )
+
+      for {
+        s <- setClause
+        r <- removeClause
+        a <- addClause
+        d <- deleteClause
+      } yield List(s, r, a, d).flatten.mkString(" ")
+    }
 
     private def nonemptyCondition[AV: AttributeValue](
       exp: RKCondition.NonEmpty[_],

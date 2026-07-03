@@ -3,7 +3,14 @@ package com.hiya.alternator
 import cats.{MonadThrow, Traverse}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{AttributeValue, DynamoFormat, ScalarType, TableSchema}
-import com.hiya.alternator.syntax.{ConditionExpression, RKCondition, Segment}
+import com.hiya.alternator.syntax.{
+  ConditionExpression,
+  RKCondition,
+  Segment,
+  UpdateExpression,
+  attr,
+  toConditionExpressionBoolExt
+}
 
 import scala.collection.compat._
 import scala.jdk.CollectionConverters._
@@ -21,7 +28,7 @@ trait WriteScheduler[F[_]] {
 
 sealed trait ConditionResult[+T]
 object ConditionResult {
-  final case class Success[T](oldValue: Option[DynamoFormat.Result[T]]) extends ConditionResult[T]
+  final case class Success[T](value: Option[DynamoFormat.Result[T]]) extends ConditionResult[T]
   final case object Failed extends ConditionResult[Nothing]
 }
 
@@ -178,7 +185,7 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
 
   @inline final def putAndReturn[V](table: Table[Client, V, _], value: V): F[Option[DynamoFormat.Result[V]]] =
     doPutAndReturn(table, value, None, DynamoDBOverride.empty).flatMap {
-      case ConditionResult.Success(oldValue) => MonadThrow[F].pure(oldValue)
+      case ConditionResult.Success(value) => MonadThrow[F].pure(value)
       case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
     }
 
@@ -195,7 +202,7 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
     overrides: DynamoDBOverride[Client]
   ): F[Option[DynamoFormat.Result[V]]] =
     doPutAndReturn(table, value, None, overrides).flatMap {
-      case ConditionResult.Success(oldValue) => MonadThrow[F].pure(oldValue)
+      case ConditionResult.Success(value) => MonadThrow[F].pure(value)
       case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
     }
 
@@ -248,7 +255,7 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
     T: ItemMagnet[T, V, PK]
   ): F[Option[DynamoFormat.Result[V]]] =
     doDeleteAndReturn(table, T.key(key)(table.schema), None, DynamoDBOverride.empty).flatMap {
-      case ConditionResult.Success(oldValue) => MonadThrow[F].pure(oldValue)
+      case ConditionResult.Success(value) => MonadThrow[F].pure(value)
       case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
     }
 
@@ -267,7 +274,7 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
     T: ItemMagnet[T, V, PK]
   ): F[Option[DynamoFormat.Result[V]]] =
     doDeleteAndReturn(table, T.key(key)(table.schema), None, overrides).flatMap {
-      case ConditionResult.Success(oldValue) => MonadThrow[F].pure(oldValue)
+      case ConditionResult.Success(value) => MonadThrow[F].pure(value)
       case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
     }
 
@@ -283,6 +290,149 @@ abstract class DynamoDB[F[_]: MonadThrow] extends DynamoDBSource {
     value: Table[Client, V, PK],
     key: PK,
     condition: Option[ConditionExpression[V, Boolean]],
+    overrides: DynamoDBOverride[Client]
+  ): F[ConditionResult[V]]
+
+  /** DynamoDB upserts on `UpdateItem` when the key doesn't exist, even with no `UpdateExpression` — so an empty update
+    * on a missing key would otherwise silently create a phantom item containing only the key attributes. ANDs an
+    * `attribute_exists` check (over every key attribute, so this covers range-key tables too) onto the caller's
+    * condition whenever the update is empty, turning that phantom insert into an ordinary condition failure instead. A
+    * no-op with a real update is unaffected: the existing upsert-if-missing behavior for non-empty updates is
+    * intentional and unchanged.
+    */
+  private def guardEmptyUpdate[V, PK](
+    table: Table[Client, V, PK],
+    pk: PK,
+    update: UpdateExpression[V],
+    condition: Option[ConditionExpression[V, Boolean]]
+  ): Option[ConditionExpression[V, Boolean]] =
+    if (!update.isEmpty) condition
+    else {
+      val keyExists = table.schema
+        .serializePK[AttributeValue](pk)(AV)
+        .keySet()
+        .asScala
+        .map(name => attr[Any](name).exists: ConditionExpression[V, Boolean])
+        .reduce(_ && _)
+      Some(condition.fold(keyExists)(keyExists && _))
+    }
+
+  @inline final def update[V, PK, T](table: Table[Client, V, PK], key: T, update: UpdateExpression[V])(implicit
+    T: ItemMagnet[T, V, PK]
+  ): F[Unit] = {
+    val pk = T.key(key)(table.schema)
+    doUpdate(table, pk, update, guardEmptyUpdate(table, pk, update, None), DynamoDBOverride.empty).map(_ => ())
+  }
+
+  @inline final def update[V, PK, T](
+    table: Table[Client, V, PK],
+    key: T,
+    update: UpdateExpression[V],
+    condition: ConditionExpression[V, Boolean]
+  )(implicit T: ItemMagnet[T, V, PK]): F[Boolean] = {
+    val pk = T.key(key)(table.schema)
+    doUpdate(table, pk, update, guardEmptyUpdate(table, pk, update, Some(condition)), DynamoDBOverride.empty)
+  }
+
+  @inline final def update[V, PK, T](
+    table: Table[Client, V, PK],
+    key: T,
+    update: UpdateExpression[V],
+    overrides: DynamoDBOverride[Client]
+  )(implicit T: ItemMagnet[T, V, PK]): F[Unit] = {
+    val pk = T.key(key)(table.schema)
+    doUpdate(table, pk, update, guardEmptyUpdate(table, pk, update, None), overrides).map(_ => ())
+  }
+
+  @inline final def update[V, PK, T](
+    table: Table[Client, V, PK],
+    key: T,
+    update: UpdateExpression[V],
+    condition: ConditionExpression[V, Boolean],
+    overrides: DynamoDBOverride[Client]
+  )(implicit T: ItemMagnet[T, V, PK]): F[Boolean] = {
+    val pk = T.key(key)(table.schema)
+    doUpdate(table, pk, update, guardEmptyUpdate(table, pk, update, Some(condition)), overrides)
+  }
+
+  protected def doUpdate[V, PK](
+    table: Table[Client, V, PK],
+    key: PK,
+    update: UpdateExpression[V],
+    condition: Option[ConditionExpression[V, Boolean]],
+    overrides: DynamoDBOverride[Client]
+  ): F[Boolean]
+
+  @inline final def updateAndReturn[V, PK, T](
+    table: Table[Client, V, PK],
+    key: T,
+    update: UpdateExpression[V],
+    returnValue: ReturnValue
+  )(implicit T: ItemMagnet[T, V, PK]): F[Option[DynamoFormat.Result[V]]] = {
+    val pk = T.key(key)(table.schema)
+    // No caller-supplied condition to combine with a phantom-insert guard here, and turning a missing key into a
+    // thrown "Condition failed" would break the None-means-missing convention shared with put/deleteAndReturn — so
+    // an empty update on a missing key just reports the (missing) current state via a plain get instead.
+    if (update.isEmpty) doGet(table, pk, consistent = false, DynamoDBOverride.empty)
+    else
+      doUpdateAndReturn(table, pk, update, None, returnValue, DynamoDBOverride.empty).flatMap {
+        case ConditionResult.Success(value) => MonadThrow[F].pure(value)
+        case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
+      }
+  }
+
+  @inline final def updateAndReturn[V, PK, T](
+    table: Table[Client, V, PK],
+    key: T,
+    update: UpdateExpression[V],
+    condition: ConditionExpression[V, Boolean],
+    returnValue: ReturnValue
+  )(implicit T: ItemMagnet[T, V, PK]): F[ConditionResult[V]] = {
+    val pk = T.key(key)(table.schema)
+    doUpdateAndReturn(
+      table,
+      pk,
+      update,
+      guardEmptyUpdate(table, pk, update, Some(condition)),
+      returnValue,
+      DynamoDBOverride.empty
+    )
+  }
+
+  @inline final def updateAndReturn[V, PK, T](
+    table: Table[Client, V, PK],
+    key: T,
+    update: UpdateExpression[V],
+    returnValue: ReturnValue,
+    overrides: DynamoDBOverride[Client]
+  )(implicit T: ItemMagnet[T, V, PK]): F[Option[DynamoFormat.Result[V]]] = {
+    val pk = T.key(key)(table.schema)
+    if (update.isEmpty) doGet(table, pk, consistent = false, overrides)
+    else
+      doUpdateAndReturn(table, pk, update, None, returnValue, overrides).flatMap {
+        case ConditionResult.Success(value) => MonadThrow[F].pure(value)
+        case ConditionResult.Failed => MonadThrow[F].raiseError(new IllegalStateException("Condition failed"))
+      }
+  }
+
+  @inline final def updateAndReturn[V, PK, T](
+    table: Table[Client, V, PK],
+    key: T,
+    update: UpdateExpression[V],
+    condition: ConditionExpression[V, Boolean],
+    returnValue: ReturnValue,
+    overrides: DynamoDBOverride[Client]
+  )(implicit T: ItemMagnet[T, V, PK]): F[ConditionResult[V]] = {
+    val pk = T.key(key)(table.schema)
+    doUpdateAndReturn(table, pk, update, guardEmptyUpdate(table, pk, update, Some(condition)), returnValue, overrides)
+  }
+
+  protected def doUpdateAndReturn[V, PK](
+    table: Table[Client, V, PK],
+    key: PK,
+    update: UpdateExpression[V],
+    condition: Option[ConditionExpression[V, Boolean]],
+    returnValue: ReturnValue,
     overrides: DynamoDBOverride[Client]
   ): F[ConditionResult[V]]
 

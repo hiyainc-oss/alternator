@@ -2,10 +2,10 @@ package com.hiya.alternator.aws1
 
 import cats.syntax.all._
 import com.amazonaws.services.dynamodbv2.model._
-import com.hiya.alternator.internal.{ConditionalSupport, OptApp}
+import com.hiya.alternator.internal.{ConditionalSupport, OptApp, UpdateSupport}
 import com.hiya.alternator.schema.DynamoFormat.Result
 import com.hiya.alternator.schema.{DynamoFormat, ScalarType}
-import com.hiya.alternator.syntax.ConditionExpression
+import com.hiya.alternator.syntax.{ConditionExpression, UpdateExpression}
 import com.hiya.alternator.{BatchReadResult, BatchWriteResult, DynamoDBOverride, Table}
 
 import java.util
@@ -144,6 +144,22 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, 
     overrides(req).asInstanceOf[DeleteItemRequest]
   }
 
+  final def update(
+    key: PK,
+    update: UpdateExpression[V],
+    condition: Option[ConditionExpression[V, Boolean]],
+    returnValue: Option[com.hiya.alternator.ReturnValue],
+    overrides: DynamoDBOverride.Configure[Aws1DynamoDBClient.OverrideBuilder]
+  ): UpdateItemRequest = {
+    val req = new UpdateItemRequest()
+      .withTableName(underlying.tableName)
+      .withKey(underlying.schema.serializePK(key))
+
+    val rendered = UpdateSupport.eval(req, update, condition, returnValue)
+
+    overrides(rendered).asInstanceOf[UpdateItemRequest]
+  }
+
   final def extractItem(item: DeleteItemResult): Option[Result[V]] = {
     Option(item.getAttributes)
       .filterNot(_.isEmpty)
@@ -154,6 +170,10 @@ final class Aws1TableOps[V, PK](val underlying: com.hiya.alternator.Table[_, V, 
     Option(item.getAttributes)
       .filterNot(_.isEmpty)
       .map(deserialize)
+  }
+
+  final def extractItem(item: UpdateItemResult): Option[Result[V]] = {
+    Option(item.getAttributes).filterNot(_.isEmpty).map(deserialize)
   }
 
   def putRequest(value: V): PutRequest = new PutRequest().withItem(underlying.schema.serializeValue.writeFields(value))
