@@ -62,7 +62,7 @@ object FieldSelectorMacros {
     headTpe.asType match {
       case '[headT] =>
         val base: Expr[ConditionExpression.Path[V, headT]] =
-          '{ ConditionExpression.Attr[V, headT](${ Expr(headName) }) }
+          '{ com.hiya.alternator.syntax.attr[headT](${ Expr(headName) }).narrow[V] }
         buildFrom[headT](base, path.tail)
     }
   }
