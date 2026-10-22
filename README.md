@@ -170,10 +170,62 @@ object PekkoExample extends App {
 - **Type-safe schemas**: Define table structure with compile-time guarantees using `TableSchema`
 - **Automatic serialization**: Derive `DynamoFormat` for case classes with Shapeless-based generic derivation
 - **Conditional operations**: Condition expressions for put and delete operations, built with either the untyped `attr(...)` escape hatch (e.g. `attr[Int]("age") > 18`) or the compile-time-checked `field[V](_.selector)` DSL (e.g. `field[User](_.age) > 18`), which only accepts conditions valid for `User`
+- **Partial updates**: `UpdateItem` via a composable `UpdateExpression` DSL (`set`, `setAll`, `increment`, `append`, `remove`, set add/delete), see [Updating Items](#updating-items)
 - **Batch operations**: Efficient batch reads and writes with automatic batching
 - **Secondary indexes**: Query and scan operations with Global and Local Secondary Index support
 - **Streaming**: Memory-efficient streaming with fs2 (Cats Effect) or Akka Streams
 - **Range key support**: Full support for composite keys (partition key + range key)
+
+## Updating Items
+
+`DB.update` / `DB.updateAndReturn` send an `UpdateItem` built from an `UpdateExpression[V]`. Actions combine with `|+|`
+(cats) into one request, and an optional condition can be passed alongside:
+
+```scala
+import cats.syntax.all._
+import com.hiya.alternator.syntax._
+
+case class Counter(id: String, hits: Int, tags: Set[String], note: Option[String])
+
+DB.update(
+  table,
+  "c1",
+  increment(field[Counter](_.hits), 1) |+|
+    addToSet(field[Counter](_.tags), Set("hot")) |+|
+    remove(field[Counter](_.note)),
+  field[Counter](_.hits) < 1000 // optional condition; returns F[Boolean]
+)
+```
+
+| Action | DynamoDB clause |
+|--------|-----------------|
+| `set(path, value)` | `SET #p = :v` |
+| `setAll(item)` | one `SET` per attribute of `item` (see below) |
+| `append` / `prepend(path, values)` | `SET #p = list_append(...)` |
+| `increment(path, delta)` | `ADD #p :delta` |
+| `addToSet` / `removeFromSet(path, values)` | `ADD` / `DELETE` |
+| `remove(path)` | `REMOVE #p` |
+
+`field[V](_.a.b)` also works for nested fields. Don't touch the same attribute with two actions in one update: DynamoDB
+rejects overlapping paths.
+
+### Merging a whole item with `setAll`
+
+`setAll(item)` writes every attribute `item` serializes to, **except** the table's key attributes, so it merges
+`item` into the stored row instead of replacing it the way `put` does:
+
+```scala
+DB.update(table, "u1", setAll(User("u1", "Alice", "alice@example.com")))
+```
+
+- Attributes the item's format omits are **left untouched, never removed**: `None` and empty sets (DynamoDB can't store
+  empty sets; omitting `None` is Alternator's convention). Attributes the case class doesn't know about survive too.
+  Use `remove` to clear something deliberately.
+- Attributes that serialize to `NULL` (e.g. `Some(Set())`) are skipped, so a `NULL` never lands on an index key.
+- Empty lists, maps and strings are written. DynamoDB rejects an empty string on an index key.
+- If nothing is left to write, the request carries no `UpdateExpression`, so a missing item is created holding only its
+  key (like a `put` of a key-only item).
+- Non-`Option` fields are always written, so don't combine `setAll` with `increment`, `append`, ... on those fields.
 
 ## Performance
 
