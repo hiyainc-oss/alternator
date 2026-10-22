@@ -72,15 +72,11 @@ package object internal {
           case _ => items.sequence.map(rendered => Some(s"$keyword ${rendered.mkString(", ")}"))
         }
 
-      val setClause = clause(
-        "SET",
-        update.sets.map { action =>
-          for {
-            pathExpr <- renderCondition[AV](action.path)
-            valueExpr <- action.renderValue[AV](pathExpr)
-          } yield s"$pathExpr = $valueExpr"
+      val setClause: Condition[AV, Option[String]] =
+        update.sets.flatTraverse(_.render[AV]).map {
+          case Nil => None
+          case rendered => Some(s"SET ${rendered.mkString(", ")}")
         }
-      )
 
       val removeClause = clause("REMOVE", update.removes.map(renderCondition[AV](_)))
 

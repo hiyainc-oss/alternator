@@ -39,7 +39,8 @@ class FieldSelectorMacros(val c: blackbox.Context) {
     val vTpe = weakTypeOf[V]
     val (headName, headTpe) = path.head
 
-    val base: Tree = q"_root_.com.hiya.alternator.syntax.ConditionExpression.Attr[$vTpe, $headTpe]($headName)"
+    // Via the public `attr`: the expansion is type-checked at the call site, which may be outside `alternator`.
+    val base: Tree = q"_root_.com.hiya.alternator.syntax.attr[$headTpe]($headName).narrow[$vTpe]"
     val fullTree = path.tail.foldLeft(base) { case (acc, (segment, segTpe)) =>
       q"$acc.get[$segTpe]($segment)"
     }

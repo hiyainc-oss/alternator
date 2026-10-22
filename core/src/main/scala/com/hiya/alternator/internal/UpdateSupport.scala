@@ -39,7 +39,10 @@ private[alternator] object UpdateSupport {
     else
       for {
         exp <- Condition.renderUpdate(expression)
-        ret <- execute(Builder.withUpdateExpression(builder, exp))
+        // `merge` of an item with nothing to write also renders to ""
+        ret <-
+          if (exp.isEmpty) Condition.pure[AV, Builder](builder)
+          else execute(Builder.withUpdateExpression(builder, exp))
       } yield ret
 
   /** Applies the rendered update expression, an optional condition and an optional `ReturnValues` to `builder` in a

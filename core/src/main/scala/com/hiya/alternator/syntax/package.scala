@@ -1,7 +1,7 @@
 package com.hiya.alternator
 
 import cats.{MonadThrow, Traverse}
-import com.hiya.alternator.schema.{DynamoFormat, ScalarDynamoFormat, StringLikeDynamoFormat}
+import com.hiya.alternator.schema.{DynamoFormat, ScalarDynamoFormat, StringLikeDynamoFormat, TableSchema}
 import com.hiya.alternator.syntax.ConditionExpression.Path
 
 package object syntax {
@@ -49,6 +49,21 @@ package object syntax {
     */
   def set[V, T: DynamoFormat](path: Path[V, T], value: T): UpdateExpression[V] =
     UpdateExpression(sets = List(UpdateExpression.Assign(path, value)), Nil, Nil, Nil)
+
+  /** `SET` of every attribute of `item` except the table's key attributes, merging `item` into the stored item (an
+    * upsert if the item doesn't exist yet).
+    *
+    * Attributes the item's format omits or writes as `NULL` (`None`, empty sets) are left untouched, never `REMOVE`d,
+    * so `merge` can't clear them: use [[remove]] for that. Empty lists, maps and strings are written. If nothing is
+    * left to write the request carries no `UpdateExpression`, so a missing item is created holding only its key.
+    *
+    * `Option[Set[_]]` is a confusing edge case and deliberately left alone: `Some(Set())` serializes to `NULL`, so it
+    * is skipped like `None` (neither writes nor removes). Don't rely on it; use [[remove]] to clear a set.
+    *
+    * Don't combine with another action on the same attribute: DynamoDB rejects overlapping paths.
+    */
+  def merge[V](item: V)(implicit schema: TableSchema[V]): UpdateExpression[V] =
+    UpdateExpression(sets = List(UpdateExpression.AssignFields(item, schema)), Nil, Nil, Nil)
 
   /** `SET #p = list_append(#p, :v)`. */
   def append[V, T: DynamoFormat](path: Path[V, List[T]], values: List[T]): UpdateExpression[V] =

@@ -7,6 +7,7 @@ import com.hiya.alternator.schema.{IndexSchema, IndexSchemaWithRange, RootDynamo
 import com.hiya.alternator.syntax._
 import com.hiya.alternator.testkit.{LocalDynamoDB, TestContainerInitializer}
 import com.hiya.alternator.util.{DataNested, DataPK, DataRK}
+import org.scalatest.Assertion
 import org.scalatest.funspec.AnyFunSpecLike
 import org.scalatest.matchers.should
 
@@ -33,6 +34,22 @@ object DynamoDBTestBase {
     implicit val format: RootDynamoFormat[UpdateData] = semiauto.derive
     implicit val schema: TableSchema.Aux[UpdateData, String] =
       TableSchema.schemaWithPK[UpdateData, String]("key", _.key)
+  }
+
+  /** `UpdateData` plus an attribute the narrower case class doesn't know about. */
+  case class UpdateDataWide(key: String, count: Int = 0, flag: Option[Boolean] = None, extra: Option[String] = None)
+  object UpdateDataWide {
+    implicit val format: RootDynamoFormat[UpdateDataWide] = semiauto.derive
+    implicit val schema: TableSchema.Aux[UpdateDataWide, String] =
+      TableSchema.schemaWithPK[UpdateDataWide, String]("key", _.key)
+  }
+
+  /** Every non-key field is omitted by the format when empty. */
+  case class OnlyOptional(key: String, note: Option[String] = None, tags: Set[String] = Set.empty)
+  object OnlyOptional {
+    implicit val format: RootDynamoFormat[OnlyOptional] = semiauto.derive
+    implicit val schema: TableSchema.Aux[OnlyOptional, String] =
+      TableSchema.schemaWithPK[OnlyOptional, String]("key", _.key)
   }
 }
 
@@ -387,6 +404,93 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
               )
             )
           }
+      }
+    }
+  }
+
+  describe("merge") {
+    def withTableFor[V, T](f: Table[C, V, String] => F[T])(implicit schema: TableSchema.Aux[V, String]): T = {
+      val tableName = s"test-table-${UUID.randomUUID()}"
+      val table = Table.tableWithPK[V](tableName).withClient[C](client)
+      eval {
+        LocalDynamoDB.withTable(client, tableName, LocalDynamoDB.schema[V]).eval(_ => f(table))
+      }
+    }
+
+    it("should create a missing item with all its non-empty fields") {
+      val item = UpdateData("u1", count = 3, score = 4, tags = Set("a"), history = List("h"), flag = Some(true))
+      withUpdateTable { table =>
+        DB.update(table, "u1", merge(item)) >>
+          DB.get(table, "u1").raiseError.map(_ shouldBe Some(item))
+      }
+    }
+
+    it("should overwrite the fields of an existing item") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", count = 1, score = 2, history = List("old"))) >>
+          DB.update(table, "u1", merge(UpdateData("u1", count = 10, score = 20, history = List("new")))) >>
+          DB.get(table, "u1").raiseError.map(_ shouldBe Some(UpdateData("u1", 10, 20, history = List("new"))))
+      }
+    }
+
+    it("should leave attributes unknown to the case class untouched") {
+      withTableFor[UpdateDataWide, Assertion] { wide =>
+        val narrow = Table.tableWithPK[UpdateData](wide.tableName).withClient[C](client)
+        DB.put(wide, UpdateDataWide("u1", count = 1, flag = Some(true), extra = Some("keep"))) >>
+          DB.update(narrow, "u1", merge(UpdateData("u1", count = 5, flag = None))) >>
+          DB.get(wide, "u1")
+            .raiseError
+            .map(_ shouldBe Some(UpdateDataWide("u1", count = 5, flag = Some(true), extra = Some("keep"))))
+      }
+    }
+
+    it("should not clear None and empty-set fields") {
+      withUpdateTable { table =>
+        DB.put(table, UpdateData("u1", count = 1, tags = Set("a"), flag = Some(true))) >>
+          DB.update(table, "u1", merge(UpdateData("u1", count = 9, tags = Set.empty, flag = None))) >>
+          DB.get(table, "u1")
+            .raiseError
+            .map(_ shouldBe Some(UpdateData("u1", count = 9, tags = Set("a"), flag = Some(true))))
+      }
+    }
+
+    it("should create a key-only item when there is nothing to write") {
+      withTableFor[OnlyOptional, Assertion] { table =>
+        DB.update(table, "u1", merge(OnlyOptional("u1"))) >>
+          DB.get(table, "u1").raiseError.map(_ shouldBe Some(OnlyOptional("u1")))
+      }
+    }
+
+    it("should not touch an existing item when there is nothing to write") {
+      withTableFor[OnlyOptional, Assertion] { table =>
+        DB.put(table, OnlyOptional("u1", note = Some("n"), tags = Set("a"))) >>
+          DB.update(table, "u1", merge(OnlyOptional("u1"))) >>
+          DB.get(table, "u1").raiseError.map(_ shouldBe Some(OnlyOptional("u1", Some("n"), Set("a"))))
+      }
+    }
+
+    it("should combine with other update actions and a condition in one call") {
+      withTableFor[UpdateDataWide, Assertion] { table =>
+        DB.put(table, UpdateDataWide("u1", count = 1, flag = Some(true), extra = Some("x"))) >>
+          DB.update(
+            table,
+            "u1",
+            merge(UpdateDataWide("u1", count = 2)) |+| remove(field[UpdateDataWide](_.flag)),
+            field[UpdateDataWide](_.count) === 1
+          ).map(_ shouldBe true) >>
+          DB.get(table, "u1")
+            .raiseError
+            .map(_ shouldBe Some(UpdateDataWide("u1", count = 2, flag = None, extra = Some("x"))))
+      }
+    }
+
+    it("should work on a table with a range key") {
+      eval {
+        DataRK.config.withTable(client).eval { table =>
+          DB.update(table, ("k", "r"), merge(DataRK("k", "r", "first"))(table.schema)) >>
+            DB.update(table, ("k", "r"), merge(DataRK("k", "r", "second"))(table.schema)) >>
+            DB.get(table, ("k", "r")).raiseError.map(_ shouldBe Some(DataRK("k", "r", "second")))
+        }
       }
     }
   }

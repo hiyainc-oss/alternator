@@ -1,8 +1,11 @@
 package com.hiya.alternator.syntax
 
 import cats.kernel.Monoid
+import cats.syntax.all._
 import com.hiya.alternator.internal.Condition
-import com.hiya.alternator.schema.{AttributeValue, DynamoFormat, ScalarDynamoFormat, ScalarType}
+import com.hiya.alternator.schema.{AttributeValue, DynamoFormat, ScalarDynamoFormat, ScalarType, TableSchema}
+
+import scala.jdk.CollectionConverters._
 
 /** Flat data holder for a DynamoDB `UpdateExpression`: one list per clause type (`SET`/`REMOVE`/`ADD`/`DELETE`), since
   * each clause may appear at most once per request, in that fixed order. Compose with cats' `|+|`; it's plain list
@@ -17,7 +20,7 @@ import com.hiya.alternator.schema.{AttributeValue, DynamoFormat, ScalarDynamoFor
   * remove(p)` typechecks but DynamoDB rejects the resulting request at call time.
   */
 final case class UpdateExpression[V](
-  sets: List[UpdateExpression.SetAction[V, _]],
+  sets: List[UpdateExpression.SetAction[V]],
   removes: List[ConditionExpression.Path[V, _]],
   adds: List[UpdateExpression.AddAction[V, _]],
   deletes: List[UpdateExpression.DeleteAction[V, _]]
@@ -32,16 +35,51 @@ object UpdateExpression {
       UpdateExpression(x.sets ++ y.sets, x.removes ++ y.removes, x.adds ++ y.adds, x.deletes ++ y.deletes)
   }
 
-  private[alternator] sealed trait SetAction[V, T] {
+  /** One entry of the `SET` clause. Renders to a list because [[AssignFields]] expands into one `#a = :v` per attribute
+    * of an item, which is only known once the attribute-value type is fixed at render time.
+    */
+  private[alternator] sealed trait SetAction[V] {
+    def render[AV: AttributeValue]: Condition[AV, List[String]]
+  }
+
+  private[alternator] sealed trait PathSetAction[V, T] extends SetAction[V] {
     def path: ConditionExpression.Path[V, T]
     def renderValue[AV: AttributeValue](pathExpr: String): Condition[AV, String]
+
+    override def render[AV: AttributeValue]: Condition[AV, List[String]] =
+      for {
+        pathExpr <- Condition.renderCondition[AV](path)
+        valueExpr <- renderValue[AV](pathExpr)
+      } yield List(s"$pathExpr = $valueExpr")
   }
 
   private[alternator] final case class Assign[V, T](path: ConditionExpression.Path[V, T], value: T)(implicit
     format: DynamoFormat[T]
-  ) extends SetAction[V, T] {
+  ) extends PathSetAction[V, T] {
     override def renderValue[AV: AttributeValue](pathExpr: String): Condition[AV, String] =
       Condition.getValue(format.write[AV](value))
+  }
+
+  /** `SET` of every attribute `item` serializes to, except the table's key attributes (DynamoDB rejects `SET` on them)
+    * and except attributes that serialize to `NULL`. Attributes the format omits (`None`, empty sets) are therefore
+    * never written ''or removed'': this merges `item` into the stored item instead of replacing it.
+    */
+  private[alternator] final case class AssignFields[V](item: V, schema: TableSchema[V]) extends SetAction[V] {
+    override def render[AV: AttributeValue]: Condition[AV, List[String]] = {
+      val keys = schema.schema.map(_._1).toSet
+      schema.serializeValue
+        .writeFields[AV](item)
+        .asScala
+        .toList
+        .filterNot { case (name, av) => keys(name) || implicitly[AttributeValue[AV]].isNull(av) }
+        .sortBy(_._1)
+        .traverse { case (name, av) =>
+          for {
+            nameExpr <- Condition.getParam[AV](name)
+            valueExpr <- Condition.getValue(av)
+          } yield s"$nameExpr = $valueExpr"
+        }
+    }
   }
 
   private[alternator] final case class ListAppend[V, T](
@@ -49,7 +87,7 @@ object UpdateExpression {
     values: List[T],
     prepend: Boolean
   )(implicit format: DynamoFormat[T])
-    extends SetAction[V, List[T]] {
+    extends PathSetAction[V, List[T]] {
     override def renderValue[AV: AttributeValue](pathExpr: String): Condition[AV, String] =
       Condition.getValue(DynamoFormat.listDynamoFormat[T](format).write[AV](values)).map { valueExpr =>
         if (prepend) s"list_append($valueExpr, $pathExpr)" else s"list_append($pathExpr, $valueExpr)"
