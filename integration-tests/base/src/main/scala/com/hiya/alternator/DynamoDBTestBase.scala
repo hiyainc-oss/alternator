@@ -408,7 +408,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
     }
   }
 
-  describe("setAll") {
+  describe("merge") {
     def withTableFor[V, T](f: Table[C, V, String] => F[T])(implicit schema: TableSchema.Aux[V, String]): T = {
       val tableName = s"test-table-${UUID.randomUUID()}"
       val table = Table.tableWithPK[V](tableName).withClient[C](client)
@@ -420,7 +420,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
     it("should create a missing item with all its non-empty fields") {
       val item = UpdateData("u1", count = 3, score = 4, tags = Set("a"), history = List("h"), flag = Some(true))
       withUpdateTable { table =>
-        DB.update(table, "u1", setAll(item)) >>
+        DB.update(table, "u1", merge(item)) >>
           DB.get(table, "u1").raiseError.map(_ shouldBe Some(item))
       }
     }
@@ -428,7 +428,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
     it("should overwrite the fields of an existing item") {
       withUpdateTable { table =>
         DB.put(table, UpdateData("u1", count = 1, score = 2, history = List("old"))) >>
-          DB.update(table, "u1", setAll(UpdateData("u1", count = 10, score = 20, history = List("new")))) >>
+          DB.update(table, "u1", merge(UpdateData("u1", count = 10, score = 20, history = List("new")))) >>
           DB.get(table, "u1").raiseError.map(_ shouldBe Some(UpdateData("u1", 10, 20, history = List("new"))))
       }
     }
@@ -437,7 +437,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
       withTableFor[UpdateDataWide, Assertion] { wide =>
         val narrow = Table.tableWithPK[UpdateData](wide.tableName).withClient[C](client)
         DB.put(wide, UpdateDataWide("u1", count = 1, flag = Some(true), extra = Some("keep"))) >>
-          DB.update(narrow, "u1", setAll(UpdateData("u1", count = 5, flag = None))) >>
+          DB.update(narrow, "u1", merge(UpdateData("u1", count = 5, flag = None))) >>
           DB.get(wide, "u1")
             .raiseError
             .map(_ shouldBe Some(UpdateDataWide("u1", count = 5, flag = Some(true), extra = Some("keep"))))
@@ -447,7 +447,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
     it("should not clear None and empty-set fields") {
       withUpdateTable { table =>
         DB.put(table, UpdateData("u1", count = 1, tags = Set("a"), flag = Some(true))) >>
-          DB.update(table, "u1", setAll(UpdateData("u1", count = 9, tags = Set.empty, flag = None))) >>
+          DB.update(table, "u1", merge(UpdateData("u1", count = 9, tags = Set.empty, flag = None))) >>
           DB.get(table, "u1")
             .raiseError
             .map(_ shouldBe Some(UpdateData("u1", count = 9, tags = Set("a"), flag = Some(true))))
@@ -456,7 +456,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
 
     it("should create a key-only item when there is nothing to write") {
       withTableFor[OnlyOptional, Assertion] { table =>
-        DB.update(table, "u1", setAll(OnlyOptional("u1"))) >>
+        DB.update(table, "u1", merge(OnlyOptional("u1"))) >>
           DB.get(table, "u1").raiseError.map(_ shouldBe Some(OnlyOptional("u1")))
       }
     }
@@ -464,7 +464,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
     it("should not touch an existing item when there is nothing to write") {
       withTableFor[OnlyOptional, Assertion] { table =>
         DB.put(table, OnlyOptional("u1", note = Some("n"), tags = Set("a"))) >>
-          DB.update(table, "u1", setAll(OnlyOptional("u1"))) >>
+          DB.update(table, "u1", merge(OnlyOptional("u1"))) >>
           DB.get(table, "u1").raiseError.map(_ shouldBe Some(OnlyOptional("u1", Some("n"), Set("a"))))
       }
     }
@@ -475,7 +475,7 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
           DB.update(
             table,
             "u1",
-            setAll(UpdateDataWide("u1", count = 2)) |+| remove(field[UpdateDataWide](_.flag)),
+            merge(UpdateDataWide("u1", count = 2)) |+| remove(field[UpdateDataWide](_.flag)),
             field[UpdateDataWide](_.count) === 1
           ).map(_ shouldBe true) >>
           DB.get(table, "u1")
@@ -487,8 +487,8 @@ abstract class DynamoDBTestBase[F[_], S[_], C <: DynamoDBClient]
     it("should work on a table with a range key") {
       eval {
         DataRK.config.withTable(client).eval { table =>
-          DB.update(table, ("k", "r"), setAll(DataRK("k", "r", "first"))(table.schema)) >>
-            DB.update(table, ("k", "r"), setAll(DataRK("k", "r", "second"))(table.schema)) >>
+          DB.update(table, ("k", "r"), merge(DataRK("k", "r", "first"))(table.schema)) >>
+            DB.update(table, ("k", "r"), merge(DataRK("k", "r", "second"))(table.schema)) >>
             DB.get(table, ("k", "r")).raiseError.map(_ shouldBe Some(DataRK("k", "r", "second")))
         }
       }

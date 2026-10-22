@@ -60,9 +60,9 @@ class UpdateExpressionSpec extends AnyFunSpec with Matchers {
     }
   }
 
-  describe("setAll") {
+  describe("merge") {
     it("should SET every non-key attribute in name order") {
-      render(setAll(Row("a", 1, Some("n"), Set("x"), Nil))) shouldBe (
+      render(merge(Row("a", 1, Some("n"), Set("x"), Nil))) shouldBe (
         (
           "SET #a0 = :v0, #a1 = :v1, #a2 = :v2, #a3 = :v3",
           Map("#a0" -> "count", "#a1" -> "history", "#a2" -> "note", "#a3" -> "tags"),
@@ -77,30 +77,30 @@ class UpdateExpressionSpec extends AnyFunSpec with Matchers {
     }
 
     it("should skip None and empty sets so they are left untouched") {
-      val (exp, names, values) = render(setAll(Row("a", 1, None, Set.empty, List("h"))))
+      val (exp, names, values) = render(merge(Row("a", 1, None, Set.empty, List("h"))))
       exp shouldBe "SET #a0 = :v0, #a1 = :v1"
       names shouldBe Map("#a0" -> "count", "#a1" -> "history")
       values shouldBe Map(":v0" -> TAVNumber("1"), ":v1" -> TAVList(List(TAVString("h"))))
     }
 
     it("should skip attributes that serialize to NULL") {
-      render(setAll(OptSet("a", Some(Set.empty)))) shouldBe (("", Map.empty, Map.empty))
+      render(merge(OptSet("a", Some(Set.empty)))) shouldBe (("", Map.empty, Map.empty))
     }
 
     it("should exclude both partition and range key") {
-      render(setAll(RangeRow("a", "b", "v"))) shouldBe (
+      render(merge(RangeRow("a", "b", "v"))) shouldBe (
         ("SET #a0 = :v0", Map("#a0" -> "value"), Map(":v0" -> TAVString("v")))
       )
     }
 
     it("should render an empty update when nothing is left to write") {
-      render(setAll(OptSet("a", None))) shouldBe (("", Map.empty, Map.empty))
+      render(merge(OptSet("a", None))) shouldBe (("", Map.empty, Map.empty))
     }
 
     it("should share one names/values map with other actions") {
       val (exp, names, values) =
         render(
-          setAll(Row("a", 1, None, Set.empty, Nil)) |+|
+          merge(Row("a", 1, None, Set.empty, Nil)) |+|
             remove(attr[String]("legacy").narrow[Row]) |+|
             increment(attr[Int]("hits").narrow[Row], 2)
         )
@@ -110,7 +110,7 @@ class UpdateExpressionSpec extends AnyFunSpec with Matchers {
     }
 
     it("should not be structurally empty even if it renders to nothing") {
-      setAll(OptSet("a", None)).isEmpty shouldBe false
+      merge(OptSet("a", None)).isEmpty shouldBe false
     }
   }
 }

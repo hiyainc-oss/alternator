@@ -170,7 +170,7 @@ object PekkoExample extends App {
 - **Type-safe schemas**: Define table structure with compile-time guarantees using `TableSchema`
 - **Automatic serialization**: Derive `DynamoFormat` for case classes with Shapeless-based generic derivation
 - **Conditional operations**: Condition expressions for put and delete operations, built with either the untyped `attr(...)` escape hatch (e.g. `attr[Int]("age") > 18`) or the compile-time-checked `field[V](_.selector)` DSL (e.g. `field[User](_.age) > 18`), which only accepts conditions valid for `User`
-- **Partial updates**: `UpdateItem` via a composable `UpdateExpression` DSL (`set`, `setAll`, `increment`, `append`, `remove`, set add/delete), see [Updating Items](#updating-items)
+- **Partial updates**: `UpdateItem` via a composable `UpdateExpression` DSL (`set`, `merge`, `increment`, `append`, `remove`, set add/delete), see [Updating Items](#updating-items)
 - **Batch operations**: Efficient batch reads and writes with automatic batching
 - **Secondary indexes**: Query and scan operations with Global and Local Secondary Index support
 - **Streaming**: Memory-efficient streaming with fs2 (Cats Effect) or Akka Streams
@@ -200,7 +200,7 @@ DB.update(
 | Action | DynamoDB clause |
 |--------|-----------------|
 | `set(path, value)` | `SET #p = :v` |
-| `setAll(item)` | one `SET` per attribute of `item` (see below) |
+| `merge(item)` | one `SET` per attribute of `item` (see below) |
 | `append` / `prepend(path, values)` | `SET #p = list_append(...)` |
 | `increment(path, delta)` | `ADD #p :delta` |
 | `addToSet` / `removeFromSet(path, values)` | `ADD` / `DELETE` |
@@ -209,23 +209,25 @@ DB.update(
 `field[V](_.a.b)` also works for nested fields. Don't touch the same attribute with two actions in one update: DynamoDB
 rejects overlapping paths.
 
-### Merging a whole item with `setAll`
+### Merging a whole item with `merge`
 
-`setAll(item)` writes every attribute `item` serializes to, **except** the table's key attributes, so it merges
+`merge(item)` writes every attribute `item` serializes to, **except** the table's key attributes, so it merges
 `item` into the stored row instead of replacing it the way `put` does:
 
 ```scala
-DB.update(table, "u1", setAll(User("u1", "Alice", "alice@example.com")))
+DB.update(table, "u1", merge(User("u1", "Alice", "alice@example.com")))
 ```
 
 - Attributes the item's format omits are **left untouched, never removed**: `None` and empty sets (DynamoDB can't store
   empty sets; omitting `None` is Alternator's convention). Attributes the case class doesn't know about survive too.
   Use `remove` to clear something deliberately.
-- Attributes that serialize to `NULL` (e.g. `Some(Set())`) are skipped, so a `NULL` never lands on an index key.
+- Attributes that serialize to `NULL` are skipped, so a `NULL` never lands on an index key.
+- `Option[Set[_]]` is a confusing edge case that is deliberately left alone: `Some(Set())` serializes to `NULL`, so it
+  is skipped just like `None`. It does not clear the stored set; use `remove` for that.
 - Empty lists, maps and strings are written. DynamoDB rejects an empty string on an index key.
 - If nothing is left to write, the request carries no `UpdateExpression`, so a missing item is created holding only its
   key (like a `put` of a key-only item).
-- Non-`Option` fields are always written, so don't combine `setAll` with `increment`, `append`, ... on those fields.
+- Non-`Option` fields are always written, so don't combine `merge` with `increment`, `append`, ... on those fields.
 
 ## Performance
 

@@ -39,7 +39,7 @@ private[alternator] object UpdateSupport {
     else
       for {
         exp <- Condition.renderUpdate(expression)
-        // `setAll` of an item with nothing to write also renders to ""
+        // `merge` of an item with nothing to write also renders to ""
         ret <-
           if (exp.isEmpty) Condition.pure[AV, Builder](builder)
           else execute(Builder.withUpdateExpression(builder, exp))

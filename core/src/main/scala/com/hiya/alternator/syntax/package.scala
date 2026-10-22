@@ -54,12 +54,15 @@ package object syntax {
     * upsert if the item doesn't exist yet).
     *
     * Attributes the item's format omits or writes as `NULL` (`None`, empty sets) are left untouched, never `REMOVE`d,
-    * so `setAll` can't clear them: use [[remove]] for that. Empty lists, maps and strings are written. If nothing is
+    * so `merge` can't clear them: use [[remove]] for that. Empty lists, maps and strings are written. If nothing is
     * left to write the request carries no `UpdateExpression`, so a missing item is created holding only its key.
+    *
+    * `Option[Set[_]]` is a confusing edge case and deliberately left alone: `Some(Set())` serializes to `NULL`, so it
+    * is skipped like `None` (neither writes nor removes). Don't rely on it; use [[remove]] to clear a set.
     *
     * Don't combine with another action on the same attribute: DynamoDB rejects overlapping paths.
     */
-  def setAll[V](item: V)(implicit schema: TableSchema[V]): UpdateExpression[V] =
+  def merge[V](item: V)(implicit schema: TableSchema[V]): UpdateExpression[V] =
     UpdateExpression(sets = List(UpdateExpression.AssignFields(item, schema)), Nil, Nil, Nil)
 
   /** `SET #p = list_append(#p, :v)`. */
